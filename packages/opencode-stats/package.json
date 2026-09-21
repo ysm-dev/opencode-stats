@@ -1,0 +1,24 @@
+{
+  "name": "opencode-stats",
+  "version": "0.1.0",
+  "description": "Usage statistics for OpenCode.",
+  "homepage": "https://github.com/ysm-dev/opencode-stats#readme",
+  "bugs": "https://github.com/ysm-dev/opencode-stats/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ysm-dev/opencode-stats.git",
+    "directory": "packages/opencode-stats"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
+  }
+}

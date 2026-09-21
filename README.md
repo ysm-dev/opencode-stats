@@ -16,6 +16,7 @@ bun run ci
 ```
 apps/                     Applications. Zero dependencies, no build step.
 packages/                 Libraries shared between apps.
+  opencode-stats/           Published to npm as `opencode-stats`.
 scripts/                  Repo tooling: exceptions report, gate verification.
 quality-exceptions.json   The only place file-level gate exceptions may live.
 ```
@@ -44,6 +45,18 @@ quality-exceptions.json   The only place file-level gate exceptions may live.
 - **Exact version pins, no ranges.** oxfmt is pre-1.0 with no semver protection on formatting output, and `oxlint-tsgolint` is hard-pinned to a TypeScript patch release.
 - **bun's default isolated linker is kept.** It turns an undeclared dependency into an immediate failure instead of a latent bug.
 - **`globalStore = true` in `bunfig.toml`.** Packages are symlinked from one machine-wide store, so a clone's `node_modules` is ~200KB instead of ~240MB. The cost is that tools resolving plugins by package name from their _own_ location break, since the store is not a parent of the project — `stryker.config.js` references its runner by path for exactly this reason.
+
+## Publishing
+
+`packages/opencode-stats` publishes to npm as [`opencode-stats`](https://www.npmjs.com/package/opencode-stats). Releases are tag-triggered:
+
+```sh
+# after bumping packages/opencode-stats/package.json's "version"
+git tag v0.1.0
+git push --tags
+```
+
+`.github/workflows/publish.yml` then runs the full gate suite and publishes via npm's [trusted publishing (OIDC)](https://docs.npmjs.com/trusted-publishers/) — no long-lived npm token is stored in CI. The publish step itself must run through `npm`, not `bun`: bun has no OIDC support ([oven-sh/bun#24855](https://github.com/oven-sh/bun/issues/24855)). Since this repo's `devEngines` otherwise requires bun, the workflow packs with `bun pm pack` and publishes the resulting tarball from outside the checkout, where npm's `devEngines` check does not apply.
 
 ## Known patch
 

@@ -1,0 +1,59 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for npm trusted publishing (OIDC).
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Fail fast, before spending any CI time, if the tag and the package
+      # disagree about what's being released.
+      - name: Verify tag matches package version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version=$(grep -m1 '"version"' packages/opencode-stats/package.json | sed -E 's/.*"version": "([^"]+)".*/\1/')
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match packages/opencode-stats/package.json version $pkg_version"
+            exit 1
+          fi
+
+      - uses: oven-sh/setup-bun@v2.2.0
+      # Vitest requires Node >= 22.12 and does not support the bun runtime with the
+      # v8 coverage provider. Trusted publishing additionally requires npm >= 11.5.1
+      # and Node >= 22.14.0. bun installs and runs scripts; Node runs tests and publishes.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          registry-url: "https://registry.npmjs.org"
+
+      # A clean checkout is always a clean tree — see ci.yml.
+      - run: bun install --frozen-lockfile
+      - run: bun run ci
+
+      # npm — not bun — does the actual publish: bun has no OIDC/trusted-publishing
+      # support (oven-sh/bun#24855). But the root package.json's devEngines requires
+      # bun for everything else, so npm refuses to run anywhere inside this checkout
+      # (EBADDEVENGINES). Pack with bun instead, then publish the tarball from
+      # outside the checkout, where there's no ancestor package.json to trip that
+      # check.
+      - run: bun pm pack --destination "$RUNNER_TEMP"
+        working-directory: packages/opencode-stats
+      - run: npm publish "$RUNNER_TEMP"/opencode-stats-*.tgz
+        working-directory: ${{ runner.temp }}

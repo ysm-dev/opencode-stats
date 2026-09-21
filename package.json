@@ -1,5 +1,5 @@
 {
-  "name": "opencode-stats",
+  "name": "opencode-stats-monorepo",
   "private": true,
   "workspaces": [
     "apps/*",

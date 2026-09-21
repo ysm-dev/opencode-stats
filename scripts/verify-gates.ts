@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
 
@@ -119,9 +119,21 @@ const plant = (files: Readonly<Record<string, string>>): void => {
   }
 };
 
+/** Removes a directory only if `plant` left it empty, walking up toward (not past) `stop`. */
+const rmEmptyAncestors = (path: string, stop: string): void => {
+  for (let dir = dirname(path); dir !== stop && dir !== dirname(dir); dir = dirname(dir)) {
+    try {
+      rmdirSync(dir);
+    } catch {
+      return; // not empty (real content lives here) or already gone — stop either way
+    }
+  }
+};
+
 const uproot = (files: Readonly<Record<string, string>>): void => {
   for (const path of Object.keys(files)) {
     rmSync(path, { force: true });
+    rmEmptyAncestors(path, ".");
   }
 };
 
