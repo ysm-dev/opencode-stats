@@ -1,6 +1,6 @@
 {
   "name": "opencode-stats",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Usage statistics for OpenCode.",
   "homepage": "https://github.com/ysm-dev/opencode-stats#readme",
   "bugs": "https://github.com/ysm-dev/opencode-stats/issues",
