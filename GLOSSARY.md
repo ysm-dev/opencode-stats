@@ -18,6 +18,10 @@ _Avoid_: embedded mode, integrated mode
 opencode-stats launched on its own, without OpenCode loading it.
 _Avoid_: CLI mode, server mode
 
+**Contribution graph**:
+A grid of the past year's local days, one cell per day, shaded by how much of the chosen metric that day holds.
+_Avoid_: heatmap, activity calendar, calendar
+
 ### Data
 
 **OpenCode database**:
@@ -27,6 +31,36 @@ _Avoid_: source DB, the DB, `opencode.db` (only one of its possible filenames)
 **Stats store**:
 opencode-stats' own derived data, built from the OpenCode database and rebuildable from it at any time.
 _Avoid_: index, mirror, cache
+
+### Time
+
+**Local day**:
+A calendar day in the browser's current timezone, from one local midnight to the next. A daylight-saving change makes it 23 or 25 hours long.
+_Avoid_: date, UTC day, 24 hours
+
+**Time range**:
+The span of time the dashboard is showing: either a preset or a fixed range.
+_Avoid_: period, window, timeframe, date range
+
+**Preset**:
+A named time range that ends now and moves with the clock: Today; the 7, 30, 90, 180 or 365 local days ending today; or All time.
+_Avoid_: rolling window, relative range, quick range
+
+**Fixed range**:
+A time range pinned to particular local days, reached by drilling into a bucket or shifting another range. It never moves with the clock.
+_Avoid_: custom range, absolute range
+
+**Shift**:
+Moving a time range to its neighbour of the same kind: the next or previous day, week, calendar month, or run of the same number of local days.
+_Avoid_: step (a step is an assistant step), page, scroll
+
+**Previous period**:
+The time range shifted back once, cut at the same point while the current range is still running. Headline numbers are compared against it.
+_Avoid_: prior period, last period, comparison range
+
+**Bucket**:
+One interval of a time-series chart: an hour, a local day, a week (Monday to Sunday) or a month.
+_Avoid_: bin, interval, period
 
 ### Enforcement
 
