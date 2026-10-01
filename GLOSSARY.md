@@ -1,8 +1,32 @@
 # opencode-stats
 
-This initial glossary contains the quality-gate and package vocabulary inherited from the template. Project-specific domain terms can be added as they are defined.
+A local, read-only dashboard of one person's OpenCode usage, served either by OpenCode as a plugin or on its own. This glossary holds that domain's language, plus the quality-gate and package vocabulary inherited from the template.
 
 ## Language
+
+### Product
+
+**Dashboard**:
+The read-only web UI that presents statistics drawn from the OpenCode database.
+_Avoid_: app (OpenCode's own web UI), web UI, site
+
+**Plugin mode**:
+opencode-stats loaded by OpenCode from its plugin configuration, so the dashboard comes up alongside OpenCode.
+_Avoid_: embedded mode, integrated mode
+
+**Standalone mode**:
+opencode-stats launched on its own, without OpenCode loading it.
+_Avoid_: CLI mode, server mode
+
+### Data
+
+**OpenCode database**:
+The single database OpenCode v2 writes, located the same way OpenCode locates it unless explicitly overridden. The dashboard's only source of truth, and never written to.
+_Avoid_: source DB, the DB, `opencode.db` (only one of its possible filenames)
+
+**Stats store**:
+opencode-stats' own derived data, built from the OpenCode database and rebuildable from it at any time.
+_Avoid_: index, mirror, cache
 
 ### Enforcement
 
