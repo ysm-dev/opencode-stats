@@ -11,6 +11,7 @@ const VARIANTS: { key: string; name: string; component: Component }[] = [
   { key: "B", name: "Report", component: lazy(() => import("./variants/b-report/index")) },
   { key: "C", name: "Explorer", component: lazy(() => import("./variants/c-explorer/index")) },
   { key: "D", name: "Calendar", component: lazy(() => import("./variants/d-calendar/index")) },
+  { key: "E", name: "v1 candidate", component: lazy(() => import("./variants/e-v1/index")) },
 ];
 
 export function App() {

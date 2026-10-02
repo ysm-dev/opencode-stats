@@ -6,6 +6,10 @@ pre-commit:
     # have the last word on any lint auto-fix.
     - name: lint
       glob: "*.{ts,tsx}"
+      # Prototype branch only: prototype/** is lint-ignored, and oxlint exits 1 when every
+      # staged file is ignored.
+      exclude:
+        - "prototype/**"
       run: bunx --no-install oxlint --fix {staged_files}
       stage_fixed: true
     - name: format

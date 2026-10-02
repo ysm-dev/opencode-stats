@@ -51,16 +51,29 @@ export function changeText(c: number | null): string {
   return `${arrow} ${v >= 100 ? Math.round(v) : v.toFixed(v < 10 ? 1 : 0)}%`;
 }
 
-function locale(): string | undefined {
+// "Follow the browser" (decided in #14): take day/month order and the clock from the browser's
+// region, but always write English, since the UI is English-only.
+const browserLocale = typeof navigator === "undefined" ? "en-US" : navigator.language;
+const browserDayFirst = (() => {
+  const parts = new Intl.DateTimeFormat(browserLocale, {
+    month: "short",
+    day: "numeric",
+  }).formatToParts(new Date(2026, 9, 2));
+  return parts.findIndex((p) => p.type === "day") < parts.findIndex((p) => p.type === "month");
+})();
+const browserHour12 =
+  new Intl.DateTimeFormat(browserLocale, { hour: "numeric" }).resolvedOptions().hour12 ?? false;
+
+function locale(): string {
   const d = dates();
   if (d === "month-day") return "en-US";
   if (d === "day-month") return "en-GB";
-  return undefined;
+  return browserDayFirst ? "en-GB" : "en-US";
 }
 
-function hour12(): boolean | undefined {
+function hour12(): boolean {
   const c = clock();
-  return c === "locale" ? undefined : c === "12h";
+  return c === "locale" ? browserHour12 : c === "12h";
 }
 
 function iso(t: number, withYear: boolean): string {
@@ -100,9 +113,7 @@ export function time(t: number): string {
 }
 
 export function hour(t: number): string {
-  const h12 =
-    hour12() ?? new Intl.DateTimeFormat(locale(), { hour: "numeric" }).resolvedOptions().hour12;
-  if (h12)
+  if (hour12())
     return new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: true })
       .format(t)
       .replace(" ", "");
