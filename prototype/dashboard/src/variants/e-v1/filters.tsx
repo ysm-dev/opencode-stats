@@ -52,15 +52,17 @@ export function Filters(props: { inputRef: (el: HTMLInputElement) => void }) {
 function Facet(props: { dim: Dimension; title: string; search: string }) {
   const [all, setAll] = createSignal(false);
   const items = createMemo(() => {
+    // Decided in #14: a checklist's amounts ignore its own ticks, so unticked values still show
+    // what adding them would bring in. Every other filter applies.
+    const others = { ...dash.filters(), [props.dim]: [] };
     const amounts =
       props.dim === "tool"
-        ? new Map(
-            toolBreakdown(dash.db(), dash.filters(), dash.range()).map((r) => [r.key, r.calls]),
-          )
+        ? new Map(toolBreakdown(dash.db(), others, dash.range()).map((r) => [r.key, r.calls]))
         : new Map(
-            breakdown(dash.db(), dash.filters(), dash.range(), props.dim, dash.firsts()).map(
-              (r) => [r.key, r.tokens],
-            ),
+            breakdown(dash.db(), others, dash.range(), props.dim, dash.firsts()).map((r) => [
+              r.key,
+              r.tokens,
+            ]),
           );
     return dimensionValues(dash.db(), props.dim)
       .filter((v) => `${v.label} ${v.sub ?? ""}`.toLowerCase().includes(props.search.toLowerCase()))
