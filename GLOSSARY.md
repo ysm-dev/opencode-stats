@@ -41,7 +41,7 @@ The single database OpenCode v2 writes, located the same way OpenCode locates it
 _Avoid_: source DB, the DB, `opencode.db` (only one of its possible filenames)
 
 **Stats store**:
-opencode-stats' own derived data, built from the OpenCode database and rebuildable from it at any time.
+opencode-stats' own derived data about one OpenCode database, built from it and rebuildable from it at any time.
 _Avoid_: index, mirror, cache
 
 ### Activity
