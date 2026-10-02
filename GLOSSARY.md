@@ -32,6 +32,118 @@ _Avoid_: source DB, the DB, `opencode.db` (only one of its possible filenames)
 opencode-stats' own derived data, built from the OpenCode database and rebuildable from it at any time.
 _Avoid_: index, mirror, cache
 
+### Activity
+
+**Session**:
+A conversation in OpenCode started by its user rather than by a subagent, forks included. The steps of its subagent sessions, however deeply nested, also belong to it.
+_Avoid_: conversation, chat, thread, root session
+
+**Subagent session**:
+A conversation a subagent started from within a session or another subagent session. Counted apart from sessions.
+_Avoid_: child session, subtask, task
+
+**Fork**:
+A session started from a copy of another session's history. The copy remains the origin's activity: a fork's own activity is only what happens after it.
+_Avoid_: branch, clone, duplicate
+
+**Prompt**:
+A user message delivered to a session, belonging to the provider, model, variant and agent of the first step after it. Messages in subagent sessions and OpenCode's synthetic messages are not prompts.
+_Avoid_: user message, message, query, request
+
+**Step**:
+One round of the agent loop: a request to the model, its response, and the tool calls that response made. OpenCode records each one as an assistant message.
+_Avoid_: assistant message, message, turn, request, generation
+
+**Failed step**:
+A step that ended with an error other than an interruption.
+_Avoid_: error, errored step
+
+**Interrupted step**:
+A step the user stopped before it finished.
+_Avoid_: aborted step, cancelled step, error
+
+**Tool**:
+A capability a step can call, such as `read`, `shell` or an MCP server's tool. Known by its current OpenCode name: calls recorded as `bash`, `task` or `apply_patch` belong to `shell`, `subagent` and `patch`.
+_Avoid_: function, command, action
+
+**Tool call**:
+One use of a tool by a step. It shares its step's moment and dimensions.
+_Avoid_: tool use, invocation, action
+
+**Outcome**:
+How a tool call ended: succeeded, failed, or stopped (interrupted or refused by the user).
+_Avoid_: status, result
+
+**Project**:
+A repository, or a folder outside any repository, as OpenCode identifies it. A session is in one project at a time, and all its steps belong to the project it is in now.
+_Avoid_: repo, workspace (an OpenCode workspace is something else), directory
+
+**Provider**:
+The service a model is reached through, such as `anthropic`, `openai` or `opencode-go`.
+_Avoid_: vendor, platform, gateway
+
+**Model**:
+A provider and a model ID together, such as `openai/gpt-5.6-luna`. The same model ID through another provider is a different model.
+_Avoid_: model ID (on its own), engine
+
+**Variant**:
+The reasoning or request setting a step ran its model with, such as `high` or `max`; a step that recorded none ran `default`. Kept apart from the model.
+_Avoid_: mode (a named mode such as `-pro` is part of the model ID), effort, level
+
+**Agent**:
+The OpenCode agent a step ran as, such as `build`, `plan` or `explore`: the one recorded on the step, not the session's current choice.
+_Avoid_: mode, persona, assistant
+
+**Dimension**:
+A property metrics are filtered and broken down by. Steps have project, provider, model, variant, agent and session; tool calls add tool.
+_Avoid_: attribute, facet, category, group
+
+### Metrics
+
+**Tokens**:
+Everything a step's model read and wrote, across five kinds: input, cache read, cache write, output and reasoning.
+_Avoid_: usage, total tokens
+
+**Input**:
+Tokens sent to the model that were neither read from nor written to its cache.
+_Avoid_: prompt tokens, uncached input
+
+**Output**:
+Tokens the model wrote, not counting its reasoning.
+_Avoid_: completion tokens, generated tokens
+
+**Context size**:
+The tokens a step sent to the model: its input, cache read and cache write together.
+_Avoid_: context window (the model's limit), context usage, prompt size
+
+**Estimated cost**:
+What a step's tokens would cost at its model's current list price. Always labelled as an estimate.
+_Avoid_: spend, API cost, value
+
+**Recorded cost**:
+The cost OpenCode recorded for a step when it ran. Zero for subscriptions and for models OpenCode had no price for, so not what was billed.
+_Avoid_: actual cost, billed cost, spend
+
+**Cache hit rate**:
+The share of the tokens sent to the model that were read from its cache.
+_Avoid_: cache ratio, cache efficiency, hit ratio
+
+**Response time**:
+How long a step took, from sending its request to the model's last streamed token.
+_Avoid_: latency, duration, speed, time to first token (never recorded)
+
+**Run time**:
+How long a tool call ran, from starting to run until it finished.
+_Avoid_: duration, execution time, latency
+
+**Active day**:
+A local day with at least one step.
+_Avoid_: working day, contribution day
+
+**Streak**:
+A run of consecutive active days. The current streak ends today, or yesterday while today has no steps yet.
+_Avoid_: chain, run
+
 ### Time
 
 **Local day**:
