@@ -18,6 +18,10 @@ _Avoid_: embedded mode, integrated mode
 opencode-stats launched on its own, without OpenCode loading it.
 _Avoid_: CLI mode, server mode
 
+**Dashboard server**:
+The opencode-stats process that serves the dashboard and keeps the stats store in sync, apart from OpenCode's own processes. At most one runs per user: plugin mode starts it in the background, standalone mode runs it in a terminal.
+_Avoid_: service (OpenCode's background service), sidecar, daemon, backend
+
 **Contribution graph**:
 A grid of the past year's local days, one cell per day, shaded by how much of the chosen metric that day holds.
 _Avoid_: heatmap, activity calendar, calendar
