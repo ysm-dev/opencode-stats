@@ -17,7 +17,8 @@
     "mutate": "stryker run",
     "exceptions": "bun run scripts/exceptions.ts",
     "verify-gates": "bun run scripts/verify-gates.ts",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "prototype": "cd prototype/dashboard && bun install && bun run dev"
   },
   "devDependencies": {
     "@stryker-mutator/core": "10.0.0",

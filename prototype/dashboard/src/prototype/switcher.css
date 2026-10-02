@@ -1,0 +1,62 @@
+/* PROTOTYPE chrome: deliberately loud so nobody mistakes it for the design. */
+.proto-bar {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #ffd400;
+  color: #111;
+  font:
+    500 12px/16px ui-monospace,
+    "IBM Plex Mono",
+    monospace;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.35);
+  white-space: nowrap;
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+}
+.proto-tag {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0 4px;
+}
+.proto-name {
+  min-width: 120px;
+  text-align: center;
+  font-weight: 700;
+}
+.proto-arrow,
+.proto-dot,
+.proto-chip {
+  border: 0;
+  background: rgb(0 0 0 / 0.08);
+  color: inherit;
+  font: inherit;
+  border-radius: 999px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.proto-arrow:hover,
+.proto-dot:hover,
+.proto-chip:hover {
+  background: rgb(0 0 0 / 0.16);
+}
+.proto-dot-on {
+  background: #111;
+  color: #ffd400;
+}
+.proto-sep {
+  width: 1px;
+  height: 14px;
+  background: rgb(0 0 0 / 0.25);
+}
+.proto-meta {
+  opacity: 0.6;
+  padding: 0 4px;
+}

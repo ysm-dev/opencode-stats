@@ -1,0 +1,161 @@
+/* PROTOTYPE, throw me away. Shared look: OpenCode v2 tokens plus dashboard-owned chart tokens. */
+@import "@opencode/ui/styles/tailwind";
+@import "@opencode/ui/styles/tokens";
+@source "./";
+
+@font-face {
+  font-family: "Inter";
+  src: url("@opencode/ui/fonts/Inter.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("@ibm/plex/IBM-Plex-Mono/fonts/complete/woff2/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* Dashboard-owned chart tokens, derived from OpenCode's colour ramps. */
+:root,
+[data-color-scheme="light"] {
+  --chart-1: var(--v2-blue-700);
+  --chart-2: var(--v2-orange-700);
+  --chart-3: var(--v2-green-700);
+  --chart-4: var(--v2-purple-600);
+  --chart-5: var(--v2-cyan-700);
+  --chart-6: var(--v2-pink-700);
+  --chart-7: var(--v2-yellow-800);
+  --chart-other: var(--v2-grey-500);
+  --kind-input: var(--v2-blue-700);
+  --kind-cache-read: var(--v2-blue-300);
+  --kind-cache-write: var(--v2-cyan-600);
+  --kind-output: var(--v2-orange-700);
+  --kind-reasoning: var(--v2-purple-600);
+  --level-0: var(--v2-background-bg-layer-02);
+  --level-1: var(--v2-blue-300);
+  --level-2: var(--v2-blue-500);
+  --level-3: var(--v2-blue-700);
+  --level-4: var(--v2-blue-1100);
+  --outcome-succeeded: var(--v2-green-700);
+  --outcome-failed: var(--v2-red-700);
+  --outcome-stopped: var(--v2-grey-500);
+}
+[data-color-scheme="dark"] {
+  --chart-1: var(--v2-blue-500);
+  --chart-2: var(--v2-orange-600);
+  --chart-3: var(--v2-green-600);
+  --chart-4: var(--v2-purple-500);
+  --chart-5: var(--v2-cyan-500);
+  --chart-6: var(--v2-pink-500);
+  --chart-7: var(--v2-yellow-600);
+  --chart-other: var(--v2-grey-700);
+  --kind-input: var(--v2-blue-500);
+  --kind-cache-read: var(--v2-blue-1000);
+  --kind-cache-write: var(--v2-cyan-600);
+  --kind-output: var(--v2-orange-600);
+  --kind-reasoning: var(--v2-purple-500);
+  --level-0: var(--v2-background-bg-layer-01);
+  --level-1: var(--v2-blue-1100);
+  --level-2: var(--v2-blue-900);
+  --level-3: var(--v2-blue-600);
+  --level-4: var(--v2-blue-400);
+  --outcome-succeeded: var(--v2-green-600);
+  --outcome-failed: var(--v2-red-600);
+  --outcome-stopped: var(--v2-grey-600);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--font-family-sans);
+  font-size: 13px;
+  font-weight: 440;
+  line-height: 20px;
+  color: var(--v2-text-text-base);
+  background: var(--v2-background-bg-deep);
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: "IBM Plex Mono", var(--font-family-mono);
+  font-size: 12px;
+}
+.muted {
+  color: var(--v2-text-text-muted);
+}
+.faint {
+  color: var(--v2-text-text-faint);
+}
+
+/* OpenCode's shell: deep background, one inset raised base surface. */
+.oc-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--v2-background-bg-deep);
+}
+.oc-surface {
+  background: var(--v2-background-bg-base);
+  border-radius: 10px;
+  box-shadow: var(--v2-elevation-raised);
+}
+
+/* Shared chart chrome: TanStack Charts inherits currentColor and these tooltip tokens. */
+.chart {
+  color: var(--v2-text-text-faint);
+  font-size: 11px;
+  --ts-chart-tooltip-background: var(--v2-background-bg-base);
+  --ts-chart-tooltip-color: var(--v2-text-text-base);
+  --ts-chart-tooltip-border: var(--v2-border-border-base);
+}
+.chart svg text {
+  font-family: var(--font-family-sans);
+}
+
+/* Size segmented controls to their labels instead of OpenCode's fixed 232px. */
+:root [data-slot="segmented-control-v2"] {
+  width: auto;
+}
+:root [data-slot="segmented-control-v2"] [data-slot="segmented-control-v2-item"] {
+  flex: none;
+  padding: 0 10px;
+}
+
+.delta {
+  font-variant-numeric: tabular-nums;
+  color: var(--v2-text-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.partial-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    var(--v2-background-bg-base) 3px 5px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

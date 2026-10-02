@@ -1,29 +1,14 @@
 {
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": [
-    "**/node_modules/**",
-    "**/coverage/**",
-    "**/dist/**",
-    "**/.stryker-tmp/**",
-    ".agents/**",
-    "scripts/**/*.mjs",
-    "fixtures/**",
-    "prototype/**"
-  ],
   "plugins": ["typescript", "oxc", "import", "promise", "unicorn", "vitest"],
   "jsPlugins": ["oxlint-plugin-complexity"],
   "categories": { "correctness": "error", "suspicious": "error" },
   "rules": {
     "complexity/complexity": ["error", { "cyclomatic": 21, "cognitive": 21 }],
-    "eslint/max-lines": ["error", { "max": 499, "skipBlankLines": false, "skipComments": false }],
+    "eslint/max-lines": ["error", { "max": 499 }],
     "typescript/no-explicit-any": "error",
     "typescript/no-restricted-types": [
       "error",
-      {
-        "types": {
-          "unknown": "Narrow `unknown` at the boundary. If this IS a trust boundary, suppress with a reason: `// oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: <what this narrows>`"
-        }
-      }
+      { "types": { "unknown": "Narrow only at trust boundaries." } }
     ],
     "typescript/no-floating-promises": "error",
     "typescript/await-thenable": "error",

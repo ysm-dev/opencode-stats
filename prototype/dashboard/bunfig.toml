@@ -1,0 +1,7 @@
+# PROTOTYPE: a plain hoisted node_modules, which Vite, Tailwind's @source scanning and
+# @opencode/ui's CSS imports expect. The repo root's isolated/global-store settings are for
+# the gated workspace packages, which this throwaway app is not part of.
+[install]
+linker = "hoisted"
+globalStore = false
+exact = true

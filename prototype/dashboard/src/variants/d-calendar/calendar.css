@@ -1,0 +1,432 @@
+/* PROTOTYPE D: a quiet, personal journal; all colour comes from OpenCode tokens. */
+.d-root {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 20px 32px 96px;
+}
+.d-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+.d-mark {
+  background: var(--v2-background-bg-inverse);
+  color: var(--v2-text-text-inverse);
+  border-radius: 5px;
+  width: 20px;
+  height: 20px;
+  text-align: center;
+  font-size: 11px;
+}
+.d-brand > button {
+  margin-left: auto;
+}
+.d-text-button {
+  color: var(--v2-text-text-muted);
+  font-size: 12px;
+  height: 28px;
+}
+.d-text-button kbd {
+  margin-left: 8px;
+  padding: 2px 5px;
+  border: 1px solid var(--v2-border-border-base);
+  border-radius: 4px;
+}
+.d-range-header {
+  margin: 24px 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.d-presets {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--v2-text-text-muted);
+}
+.d-presets button {
+  height: 24px;
+}
+.d-presets button:hover,
+.d-presets button[aria-pressed="true"] {
+  color: var(--v2-text-text-base);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.d-range-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.d-eyebrow {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--v2-text-text-faint);
+}
+.d-range-header h1 {
+  font-size: 26px;
+  letter-spacing: -0.7px;
+  font-weight: 500;
+  line-height: 36px;
+}
+.d-range-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.d-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--v2-text-text-faint);
+  margin-right: 12px;
+  white-space: nowrap;
+}
+.d-live > span {
+  width: 5px;
+  height: 5px;
+  background: var(--v2-text-text-muted);
+  border-radius: 50%;
+}
+.d-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(360px, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+.d-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+}
+.d-section-heading h2 {
+  font-weight: 500;
+}
+.d-section-heading > span {
+  font-size: 11px;
+}
+.d-journal {
+  overflow: hidden;
+}
+.d-day-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--v2-background-bg-layer-01);
+  border-block: 1px solid var(--v2-border-border-base);
+  padding: 8px 20px;
+}
+.d-day-heading button {
+  font-size: 12px;
+  font-weight: 500;
+}
+.d-day-heading button:hover {
+  text-decoration: underline;
+}
+.d-day-heading > span {
+  font-size: 11px;
+}
+.d-session {
+  width: calc(100% - var(--indent, 0px));
+  margin-left: var(--indent, 0px);
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--v2-border-border-base);
+}
+.d-session:hover {
+  background: var(--v2-overlay-simple-overlay-hover);
+}
+.d-session-time {
+  color: var(--v2-text-text-faint);
+  font-size: 11px;
+  width: 66px;
+  flex: none;
+  padding-top: 1px;
+}
+.d-session-main {
+  min-width: 0;
+  flex: 1;
+}
+.d-session-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.d-session-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 10px;
+}
+.d-project {
+  color: var(--v2-text-text-muted);
+  margin-right: 4px;
+}
+.d-model {
+  color: var(--v2-text-text-faint);
+  background: var(--v2-background-bg-layer-02);
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 17px;
+}
+.d-session-numbers {
+  width: 110px;
+  flex: none;
+  text-align: right;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  line-height: 17px;
+}
+.d-token-track {
+  background: var(--level-0);
+  height: 3px;
+  border-radius: 2px;
+  margin: 4px 0;
+  overflow: hidden;
+}
+.d-token-track > span {
+  display: block;
+  height: 100%;
+  background: var(--chart-1);
+  opacity: 0.65;
+}
+.d-subagent {
+  border-left: 1px solid var(--v2-border-border-base);
+  padding-block: 8px;
+}
+.d-subagent .d-session-title {
+  color: var(--v2-text-text-muted);
+  font-size: 12px;
+}
+.d-subagent .d-session-time {
+  width: 46px;
+}
+.d-earlier {
+  width: 100%;
+  padding: 16px;
+  color: var(--v2-text-text-muted);
+  font-size: 12px;
+}
+.d-earlier:hover {
+  background: var(--v2-overlay-simple-overlay-hover);
+}
+.d-journal-note {
+  padding: 12px 20px;
+  font-size: 11px;
+}
+.d-empty {
+  padding: 36px 20px;
+}
+.d-empty h3 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.d-hour-strip {
+  padding: 4px 20px 16px;
+}
+.d-hour-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--v2-text-text-faint);
+}
+.d-hour-track {
+  height: 32px;
+  position: relative;
+  margin: 4px 0;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--v2-background-bg-layer-02) 0 calc(4.166% - 1px),
+    var(--v2-background-bg-base) calc(4.166% - 1px) 4.166%
+  );
+  border-radius: 4px;
+  overflow: hidden;
+}
+.d-hour-track > span {
+  position: absolute;
+  height: 5px;
+  min-width: 3px;
+  background: var(--chart-1);
+  opacity: 0.75;
+  border-radius: 2px;
+}
+.d-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.d-headlines {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 24px;
+  padding: 0 20px 16px;
+}
+.d-headlines strong {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+.d-metric-label {
+  font-size: 11px;
+  color: var(--v2-text-text-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.d-metric-label > span {
+  color: var(--v2-text-text-faint);
+}
+.d-metric-sub {
+  font-size: 10px;
+  color: var(--v2-text-text-faint);
+  line-height: 15px;
+}
+.d-comparison {
+  font-size: 11px;
+  padding: 0 20px 12px;
+}
+.d-mini-chart {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--v2-border-border-base);
+}
+.d-mini-heading {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 0 4px 8px;
+}
+.d-shares {
+  padding: 0 16px 16px;
+}
+.d-shares h3 {
+  font-size: 11px;
+  color: var(--v2-text-text-muted);
+  padding: 0 4px 4px;
+}
+.d-shares .ranked-row {
+  font-size: 11px;
+}
+.d-timing {
+  padding-bottom: 16px;
+}
+.d-outcomes {
+  display: flex;
+  margin: 0 20px;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.d-outcome-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 10px;
+  padding: 8px 20px 12px;
+  color: var(--v2-text-text-muted);
+}
+.d-outcome-labels i {
+  width: 5px;
+  height: 5px;
+  display: inline-block;
+  margin-right: 4px;
+  border-radius: 1px;
+}
+.d-timing-row {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 20px;
+  font-size: 12px;
+}
+.d-timing-row strong {
+  font-weight: 440;
+}
+.d-timing-row > .faint,
+.d-timing p {
+  font-size: 10px;
+}
+.d-timing p {
+  padding: 8px 20px 0;
+}
+@media (max-width: 1150px) {
+  .d-root {
+    padding-inline: 24px;
+  }
+  .d-detail {
+    gap: 16px;
+    grid-template-columns: minmax(0, 1.55fr) minmax(340px, 1fr);
+  }
+  .d-year {
+    padding-inline: 20px;
+  }
+  .d-streaks {
+    gap: 24px;
+  }
+  .d-streaks > span {
+    display: none;
+  }
+  .d-session {
+    padding-inline: 16px;
+    gap: 8px;
+  }
+  .d-session-time {
+    width: 54px;
+  }
+  .d-section-heading {
+    padding-inline: 16px;
+  }
+  .d-section-heading > span {
+    font-size: 10px;
+  }
+  .d-session-numbers {
+    width: 90px;
+  }
+  .d-live {
+    margin-right: 4px;
+  }
+}
+@media (max-width: 800px) {
+  .d-root {
+    padding-inline: 12px;
+  }
+  .d-detail {
+    grid-template-columns: 1fr;
+  }
+  .d-graph-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .d-graph-layout {
+    overflow-x: auto;
+  }
+  .d-graph {
+    min-width: 850px;
+  }
+  .d-streaks {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .d-graph-footer {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+  .d-range-line {
+    flex-wrap: wrap;
+  }
+}

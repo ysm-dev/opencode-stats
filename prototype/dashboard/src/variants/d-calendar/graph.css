@@ -1,0 +1,116 @@
+.d-year {
+  padding: 20px 24px 0;
+}
+.d-graph-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.d-graph-heading h2 {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.35px;
+  margin-bottom: 4px;
+}
+.d-graph-heading p {
+  font-size: 12px;
+}
+.d-graph-layout {
+  display: flex;
+  gap: 8px;
+}
+.d-weekdays {
+  display: grid;
+  grid-template-rows: repeat(7, 20px);
+  font-size: 10px;
+  color: var(--v2-text-text-faint);
+  width: 27px;
+  padding-top: 28px;
+  flex: none;
+}
+.d-graph {
+  min-width: 0;
+  flex: 1;
+}
+.d-months,
+.d-cells,
+.d-weeks {
+  display: grid;
+  grid-template-columns: repeat(var(--weeks), minmax(0, 1fr));
+}
+.d-months {
+  height: 28px;
+  font-size: 11px;
+  color: var(--v2-text-text-muted);
+}
+.d-months button {
+  text-align: left;
+  align-self: start;
+  border-radius: 3px;
+}
+.d-months button:hover {
+  color: var(--v2-text-text-base);
+  text-decoration: underline;
+}
+.d-cells {
+  grid-template-rows: repeat(7, 20px);
+}
+.d-cell {
+  width: min(16px, calc(100% - 3px));
+  height: 16px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.d-cell.d-selected {
+  outline: 1px solid var(--v2-text-text-base);
+  outline-offset: 1px;
+}
+.d-cell:hover,
+.d-cell:focus-visible {
+  outline: 2px solid var(--v2-text-text-base);
+  outline-offset: 1px;
+}
+.d-weeks button {
+  height: 22px;
+  font-size: 9px;
+  text-align: left;
+  color: var(--v2-text-text-faint);
+  border-radius: 3px;
+}
+.d-weeks button:hover {
+  background: var(--v2-overlay-simple-overlay-hover);
+  color: var(--v2-text-text-base);
+}
+.d-graph-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 11px;
+  margin: 8px 0 16px 35px;
+  min-height: 20px;
+}
+.d-streaks {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  border-top: 1px solid var(--v2-border-border-base);
+  padding: 16px 0;
+}
+.d-streaks > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.d-streaks strong {
+  font-size: 20px;
+  font-weight: 500;
+}
+.d-streaks span {
+  font-size: 12px;
+  color: var(--v2-text-text-muted);
+}
+.d-streaks > span {
+  margin-left: auto;
+  color: var(--v2-text-text-faint);
+}
