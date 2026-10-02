@@ -22,6 +22,14 @@ _Avoid_: CLI mode, server mode
 A grid of the past year's local days, one cell per day, shaded by how much of the chosen metric that day holds.
 _Avoid_: heatmap, activity calendar, calendar
 
+**Page**:
+One of the dashboard's six destinations: Overview, Models, Projects, Agents, Tools and Sessions. Every page shows the same time range and filters.
+_Avoid_: view, tab, screen, report
+
+**Headline number**:
+A metric the Overview page leads with, shown beside its change from the previous period.
+_Avoid_: KPI, stat, tile, card
+
 ### Data
 
 **OpenCode database**:
@@ -97,6 +105,10 @@ _Avoid_: mode, persona, assistant
 **Dimension**:
 A property metrics are filtered and broken down by. Steps have project, provider, model, variant, agent and session; tool calls add tool.
 _Avoid_: attribute, facet, category, group
+
+**Filter**:
+The values of a dimension the dashboard is narrowed to. Values of one dimension combine as any-of and dimensions as all-of; a tool filter narrows tool calls only.
+_Avoid_: facet, query, scope
 
 ### Metrics
 
