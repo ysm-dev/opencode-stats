@@ -8,11 +8,13 @@ The OpenCode database keeps no change log of its messages: OpenCode rewrites a s
 - **OpenCode's plugin events.** Standalone mode has none, and a dashboard server that wasn't running misses them for good.
 - **Rowid cursors.** They notice new rows, but neither rewrites nor deletions.
 - **Re-reading only the rows of a changed session that changed.** Around a hundred times cheaper, but with no per-row change marker it needs overlap windows and a fallback, for a saving the measurements don't call for yet.
+- **A fresh stats store after every OpenCode migration or v1 import.** The import moves its progress marker once per session, so a first build running during an import would start over on every pass until the import ended, and each migration would empty the dashboard's history for as long as a build takes.
 
 ## Consequences
 
 - Re-reading a session costs about 26 µs per message: 13–37 ms for the largest session today, at most twice a second while it streams.
 - `event_sequence` is internal to OpenCode, so the schema fingerprint covers it, and an OpenCode release that changes how it advances is an unrecognised schema.
-- Some writes don't advance a session's counter, so every pass also re-reads all session details and projects (moving sessions between projects advances the project's counter instead), and a recognised change to OpenCode's migration list or its v1-migration marker rebuilds the stats store.
+- Some writes don't advance a session's counter, so every pass also re-reads all session details and projects (moving sessions between projects advances the project's counter instead).
+- OpenCode's migrations and its import of v1 history can rewrite rows without advancing their counters. So when OpenCode's migration list changes in a way the schema check recognises, or its v1 import finishes, sync re-reads every session in place: a first build's loop over the existing stats store, writing only the facts that differ, so the dashboard keeps its whole history meanwhile. The import's progress marker, which moves once per imported session, is not a trigger: each imported session is committed together with its counter and read like a new one.
 - At startup and every 10 minutes, sync compares each session's message count and highest position with what it derived, re-reads any session that differs, and records a diagnostic, since a difference means a change slipped past the counters.
 - An interrupted build resumes where it stopped: each session records the counter its facts came from, so only sessions not yet read, or changed since, are read again.
