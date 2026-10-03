@@ -179,6 +179,14 @@
   font-size: 11px;
   line-height: 16px;
   color: var(--v2-text-text-faint);
+  text-wrap: pretty;
+}
+/* "Not updating" lines take OpenCode's warning colour; the build line stays muted. */
+.m-build.m-warn {
+  color: var(--v2-state-fg-warning);
+}
+.m-root .m-stale i {
+  background: var(--v2-text-text-faint);
 }
 .e-header .m-build {
   padding-top: 8px;

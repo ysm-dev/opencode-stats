@@ -129,8 +129,13 @@ export function urlParam<T extends string>(name: string, fallback: T): [() => T,
 
 /** Prototype-only: force the touch presentation on a mouse-driven screen. */
 export const [touch, setTouch] = urlParam<"auto" | "on">("touch", "auto");
-/** Prototype-only: pretend a first build is still reading older history. */
-export const [build, setBuild] = urlParam<"off" | "on">("build", "off");
+/**
+ * Prototype-only: the status line's states from "How does opencode-stats report problems?":
+ * a build reading older history, a build stopped partway, sync stopped, a lost dashboard server.
+ */
+export type BuildState = "off" | "on" | "stopped" | "stale" | "lost";
+export const [build, setBuild] = urlParam<BuildState>("build", "off");
+export const notUpdating = () => build() === "stopped" || build() === "stale" || build() === "lost";
 const [liveParam, setLiveParam] = urlParam<"on" | "off">("live", "on");
 
 const derived = createRoot(() => {
@@ -146,7 +151,7 @@ const derived = createRoot(() => {
     // A build that hasn't reached the first activity counts from the earliest local day it has
     // read completely. The prototype only shows where that is said; it doesn't clip the counts.
     historyFrom: createMemo(() =>
-      build() === "on" ? startOfDay(addDays(startOfDay(now()), -7)) : null,
+      build() === "on" || build() === "stopped" ? startOfDay(addDays(startOfDay(now()), -7)) : null,
     ),
   };
 });

@@ -3,7 +3,17 @@
 import { useTheme } from "@opencode/ui/theme/context";
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { clock, type ClockStyle, dates, type DateStyle, setClock, setDates } from "../format";
-import { broadcast, build, dash, generatedIn, setBuild, setTouch, touch, urlParam } from "../state";
+import {
+  broadcast,
+  build,
+  type BuildState,
+  dash,
+  generatedIn,
+  setBuild,
+  setTouch,
+  touch,
+  urlParam,
+} from "../state";
 import {
   AXES,
   AXIS_KEYS,
@@ -195,13 +205,16 @@ export function PrototypeBar(props: {
               ["on", "on"],
             ]}
           />
-          <Cycle<"off" | "on">
-            label="Build"
+          <Cycle<BuildState>
+            label="Status"
             value={build()}
             onChange={setBuild}
             options={[
-              ["off", "done"],
-              ["on", "reading"],
+              ["off", "up to date"],
+              ["on", "build reading"],
+              ["stopped", "build stopped"],
+              ["stale", "sync stopped"],
+              ["lost", "server lost"],
             ]}
           />
           <span class="proto-sep" />

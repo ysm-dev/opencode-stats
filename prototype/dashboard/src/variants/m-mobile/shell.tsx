@@ -8,8 +8,15 @@
 import { Icon } from "@opencode/ui/icon";
 import { createSignal, For, type JSX, onCleanup, Show } from "solid-js";
 import { PRESETS } from "../../data/time";
-import { day, rangeLabel } from "../../format";
-import { contributionMetric, dash, setContributionMetric, urlParam } from "../../state";
+import { day, rangeLabel, time } from "../../format";
+import {
+  build,
+  contributionMetric,
+  dash,
+  notUpdating,
+  setContributionMetric,
+  urlParam,
+} from "../../state";
 import { HotkeySheet, useBindings, type Binding } from "../../ui/hotkeys";
 import { FixedChip, RangeControl } from "../../ui/range-control";
 import { FilterChips, Filters } from "../e-v1/filters";
@@ -133,6 +140,7 @@ const preset = () => {
   return s.kind === "preset" ? s.preset : null;
 };
 
+// The live dot turns grey and reads "Not updating" whenever the page's status line says so.
 function LiveNote() {
   const [clock, setClock] = createSignal(Date.now());
   const timer = setInterval(() => setClock(Date.now()), 1000);
@@ -142,13 +150,14 @@ function LiveNote() {
       ? `${Math.max(0, Math.floor((clock() - dash.lastWrite()) / 1000))} s ago`
       : "–";
   return (
-    <span class="e-live">
+    <span class="e-live" classList={{ "m-stale": notUpdating() }}>
       <i />
-      Last write {ago()}
+      {notUpdating() ? "Not updating" : `Last write ${ago()}`}
     </span>
   );
 }
 
+/** Narrow shells: the live dot sits in the top bar, which never scrolls away. */
 function LiveDot() {
   const [clock, setClock] = createSignal(Date.now());
   const timer = setInterval(() => setClock(Date.now()), 1000);
@@ -156,9 +165,13 @@ function LiveDot() {
   const ago = () =>
     dash.lastWrite() ? `${Math.max(0, Math.floor((clock() - dash.lastWrite()) / 1000))} s` : "live";
   return (
-    <span class="m-live" title="Time since OpenCode's last write">
+    <span
+      class="m-live"
+      classList={{ "m-stale": notUpdating() }}
+      title="Time since OpenCode's last write"
+    >
       <i />
-      {ago()}
+      {notUpdating() ? "Not updating" : ago()}
     </span>
   );
 }
@@ -204,12 +217,33 @@ function Sidebar(props: { s: Shell; onNavigate?: () => void }) {
   );
 }
 
+/**
+ * The page's status line, one message at a time, in the wording of "How does opencode-stats
+ * report problems?". Narrow, it wraps to as many lines as it needs: nothing is cut short.
+ */
 export function BuildLine() {
+  const since = () => time(dash.now() - 23 * 60_000);
+  const line = () => {
+    const from = dash.historyFrom();
+    const history = from === null ? "" : `History from ${day(from)} · `;
+    switch (build()) {
+      case "on":
+        return `${history}older history is still being read`;
+      case "stopped":
+        return `${history}not updating since ${since()} · OpenCode's database is newer than opencode-stats 1.3.0 understands · run opencode plugin update opencode-stats`;
+      case "stale":
+        return `Not updating since ${since()} · can't read OpenCode's database: permission denied`;
+      case "lost":
+        return `Not updating since ${since()} · the dashboard server isn't running`;
+      default:
+        return "";
+    }
+  };
   return (
-    <Show when={dash.historyFrom()}>
-      {(from) => (
-        <p class="m-build">History from {day(from())} · older history is still being read</p>
-      )}
+    <Show when={line()}>
+      <p class="m-build" classList={{ "m-warn": notUpdating() }} role="status">
+        {line()}
+      </p>
     </Show>
   );
 }
