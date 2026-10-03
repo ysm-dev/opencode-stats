@@ -44,6 +44,10 @@ _Avoid_: source DB, the DB, `opencode.db` (only one of its possible filenames)
 opencode-stats' own derived data about one OpenCode database, built from it and rebuildable from it at any time.
 _Avoid_: index, mirror, cache
 
+**Build**:
+Filling a new stats store from the OpenCode database, newest history first: the first build for an OpenCode database, or a rebuild after an opencode-stats release changes how the stats store counts or is laid out.
+_Avoid_: import, indexing, migration, sync (sync keeps a stats store current; a build fills a new one)
+
 **Browser copy**:
 The complete copy of a stats store's facts that each open dashboard tab holds and works out every page from.
 _Avoid_: cache, snapshot, local database, dataset
@@ -169,6 +173,10 @@ _Avoid_: chain, run
 **Local day**:
 A calendar day in the browser's current timezone, from one local midnight to the next. A daylight-saving change makes it 23 or 25 hours long.
 _Avoid_: date, UTC day, 24 hours
+
+**Start of history**:
+The moment the dashboard counts from: the OpenCode database's first activity, or the start of today when it has none. While a build hasn't read back that far, it is the start of the earliest local day from which the build has read everything.
+_Avoid_: first activity (only one of its cases), cutoff, horizon
 
 **Time range**:
 The span of time the dashboard is showing: either a preset or a fixed range.
