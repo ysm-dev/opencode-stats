@@ -52,6 +52,10 @@ _Avoid_: source DB, the DB, `opencode.db` (only one of its possible filenames)
 opencode-stats' own derived data about one OpenCode database, built from it and rebuildable from it at any time.
 _Avoid_: index, mirror, cache
 
+**Fact**:
+A step, tool call, prompt, session or subagent session as opencode-stats has counted it, with its moments and dimensions. The stats store holds facts, and every number on the dashboard is worked out from them.
+_Avoid_: record (the dashboard server's record is a file), row, event
+
 **Build**:
 Filling a new stats store from the OpenCode database, newest history first: the first build for an OpenCode database, or a rebuild after an opencode-stats release changes how the stats store counts or is laid out.
 _Avoid_: import, indexing, migration, sync (sync keeps a stats store current; a build fills a new one)
