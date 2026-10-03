@@ -1,0 +1,10 @@
+{
+  "entry": ["generated-src/router.tsx!", "generated-src/routeTree.gen.ts!", "scripts/browser.mjs"],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "generated-src/**/*.{ts,tsx}",
+    "vite*.config.ts",
+    "scripts/*.mjs"
+  ],
+  "vite": { "config": ["vite*.config.ts"] }
+}
