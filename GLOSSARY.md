@@ -233,7 +233,7 @@ _Avoid_: bin, interval, period
 ### Enforcement
 
 **Gate**:
-A single automated check that blocks a merge when it fails. There are eight, listed in `README.md`.
+A single automated check that blocks a merge when it fails. `README.md` lists them.
 _Avoid_: rule, check, lint (a lint rule is one implementation of a gate, not a synonym)
 
 **Silent false pass**:
@@ -241,8 +241,16 @@ A gate that exits 0 while enforcing nothing, usually because its inputs failed t
 _Avoid_: false negative, silent failure
 
 **Exception**:
-A named, reasoned, human-approved waiver of one gate for one path. Lives in `quality-exceptions.json` when it covers a whole file, or as an inline suppression carrying `-- <reason>` when it covers a single line.
+A named, reasoned waiver of a gate. A whole file's exception is approved by a human and lives in `quality-exceptions.json`; a single line's is a comment on that line carrying its reason. The `any` ban admits none.
 _Avoid_: ignore, suppression, disable, override, waiver
+
+**Edge file**:
+A thin file that connects tested code to something tests can't run, such as process arguments, a worker's global scope or the page itself. It carries a human-approved exception from coverage and mutation, and only the end-to-end test runs it.
+_Avoid_: shim, bootstrap, entry point (most entry points are tested)
+
+**Hold**:
+A human-approved rule keeping one dependency below its newest release, saying why and what would lift it.
+_Avoid_: pin (every dependency is pinned exactly), freeze, ignore
 
 **Tier**:
 Where a gate runs: pre-commit, pre-push, or CI. Tiers exist because gates differ by orders of magnitude in cost, not because they differ in importance.
