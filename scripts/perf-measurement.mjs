@@ -88,6 +88,7 @@ try {
         await page.goto(`${base}?${isolated ? 'isolated' : ''}`);
         result.timers[isolated ? 'isolated' : 'plain'] = await page.evaluate(() => ({
           ...timerProbe(), supported: PerformanceObserver.supportedEntryTypes,
+          paints: performance.getEntriesByType('paint').map(e => ({ ...e.toJSON(), paintTime: e.paintTime ?? null, presentationTime: e.presentationTime ?? null })),
           APIs: {
             interactionId: 'PerformanceEventTiming' in window && 'interactionId' in PerformanceEventTiming.prototype,
             paintMixin: 'PerformanceEventTiming' in window && 'paintTime' in PerformanceEventTiming.prototype,
