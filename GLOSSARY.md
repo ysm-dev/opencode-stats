@@ -74,7 +74,11 @@ _Avoid_: cache, snapshot, local database, dataset
 
 **Not updating**:
 The state of a dashboard tab whose numbers have stopped following the OpenCode database: sync has stopped, or the tab has lost its dashboard server.
-_Avoid_: frozen, stale, offline, paused
+_Avoid_: frozen, stale, offline, paused (the user's choice)
+
+**Paused**:
+The state of a dashboard tab whose user has stopped it following the OpenCode database, until they resume it or reload.
+_Avoid_: frozen, stopped, not updating (never the user's choice)
 
 ### Activity
 
