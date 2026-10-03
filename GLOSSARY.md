@@ -22,6 +22,10 @@ _Avoid_: CLI mode, server mode
 The opencode-stats process that serves the dashboard and keeps the stats store in sync, apart from OpenCode's own processes. At most one runs per user: plugin mode starts it in the background, standalone mode runs it in a terminal.
 _Avoid_: service (OpenCode's background service), sidecar, daemon, backend
 
+**Launcher**:
+The part of opencode-stats that OpenCode loads in plugin mode. It only starts or joins the dashboard server and keeps it running while its OpenCode process runs.
+_Avoid_: plugin (the whole package), loader, starter
+
 **Contribution graph**:
 A grid of the past year's local days, one cell per day, shaded by how much of the chosen metric that day holds.
 _Avoid_: heatmap, activity calendar, calendar
@@ -29,6 +33,10 @@ _Avoid_: heatmap, activity calendar, calendar
 **Page**:
 One of the dashboard's six destinations: Overview, Models, Projects, Agents, Tools and Sessions. Every page shows the same time range and filters.
 _Avoid_: view, tab, screen, report
+
+**Problem screen**:
+The full-window screen shown instead of the dashboard when there is nothing to show yet or a page can't be drawn, saying what is wrong and what to do.
+_Avoid_: error page, page (one of the six destinations), fallback, splash
 
 **Headline number**:
 A metric the Overview page leads with, shown beside its change from the previous period.
@@ -51,6 +59,10 @@ _Avoid_: import, indexing, migration, sync (sync keeps a stats store current; a 
 **Browser copy**:
 The complete copy of a stats store's facts that each open dashboard tab holds and works out every page from.
 _Avoid_: cache, snapshot, local database, dataset
+
+**Not updating**:
+The state of a dashboard tab whose numbers have stopped following the OpenCode database: sync has stopped, or the tab has lost its dashboard server.
+_Avoid_: frozen, stale, offline, paused
 
 ### Activity
 
