@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
+import { cpus, totalmem, release, arch, platform } from 'node:os';
 const require = createRequire(`${process.env.PM_DEPS}/package.json`);
 const pw = require('playwright');
 const html = await readFile(new URL('../docs/research/perf-measurement.html', import.meta.url));
@@ -56,7 +57,7 @@ async function trial(page, { animate = false, mode = 'click', work = 0, n = 320,
   const intervals = data.frames.slice(1).map((v, i) => v - data.frames[i]);
   return { n, summary: summary(data.samples), intervals: intervals.length ? triple(intervals) : null, ...data };
 }
-const report = { playwright: require('playwright/package.json').version, results: {}, timestamp: new Date().toISOString() };
+const report = { playwright: require('playwright/package.json').version, results: {}, timestamp: new Date().toISOString(), environment: { node: process.version, platform: platform(), release: release(), arch: arch(), cpu: cpus()[0].model, cores: cpus().length, memory: totalmem() } };
 try {
   for (const name of (process.env.PM_ENGINES ?? 'chromium,webkit,firefox').split(',')) {
     const headed = process.env.PM_HEADED === '1';
