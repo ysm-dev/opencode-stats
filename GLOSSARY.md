@@ -26,6 +26,10 @@ _Avoid_: service (OpenCode's background service), sidecar, daemon, backend
 The part of opencode-stats that OpenCode loads in plugin mode. It only starts or joins the dashboard server and keeps it running while its OpenCode process runs.
 _Avoid_: plugin (the whole package), loader, starter
 
+**Release**:
+A version of opencode-stats as published to npm, such as 1.3.0, carrying everything opencode-stats runs: the launcher, the dashboard server and the dashboard, bundled together.
+_Avoid_: build (a build fills a stats store), version (on its own: say whose), deploy
+
 **Contribution graph**:
 A grid of the past year's local days, one cell per day, shaded by how much of the chosen metric that day holds.
 _Avoid_: heatmap, activity calendar, calendar
