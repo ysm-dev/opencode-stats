@@ -42,6 +42,10 @@ _Avoid_: error page, page (one of the six destinations), fallback, splash
 A metric the Overview page leads with, shown beside its change from the previous period.
 _Avoid_: KPI, stat, tile, card
 
+**Readout**:
+The exact values a chart, the contribution graph or the weekday × hour grid shows beside itself for the bucket, day or cell being read. With nothing being read, a chart's readout shows the time range's totals.
+_Avoid_: tooltip (appears only on hover), popover, legend (a chart's readout doubles as its legend)
+
 ### Data
 
 **OpenCode database**:
