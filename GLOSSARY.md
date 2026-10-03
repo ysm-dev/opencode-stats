@@ -44,6 +44,10 @@ _Avoid_: source DB, the DB, `opencode.db` (only one of its possible filenames)
 opencode-stats' own derived data about one OpenCode database, built from it and rebuildable from it at any time.
 _Avoid_: index, mirror, cache
 
+**Browser copy**:
+The complete copy of a stats store's facts that each open dashboard tab holds and works out every page from.
+_Avoid_: cache, snapshot, local database, dataset
+
 ### Activity
 
 **Session**:
