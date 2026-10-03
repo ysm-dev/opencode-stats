@@ -13,7 +13,7 @@ The brief asks for every view on the next frame from cache, with no spinners, sk
 
 - The screen draws from the last complete state, and a change becomes visible only together with its results, so the worker that computes them (ADR 0008) may answer asynchronously.
 - Everything a change needs is in the tab before it happens: the browser copy, one code bundle, fonts and styles, and all six pages already built.
-- A load shows a blank page in the dashboard's background colour until its page is complete.
+- A load shows a blank page in the dashboard's background colour until its page is complete. When there is nothing to show yet, or the copy can't be fetched or read, or the worker fails, and a retry doesn't help, it shows the problem screen instead.
 - Charts don't animate, and new data appears in place.
 - Live updates are changes too, and they never delay a change the user makes.
 - A 120 Hz display doesn't tighten the budget.

@@ -13,7 +13,8 @@ In plugin mode OpenCode loads opencode-stats into its background service, the co
 
 ## Consequences
 
-- The plugin's server entry loads no Effect and no SQLite, and its `setup()` returns without waiting for the dashboard server.
+- The plugin's server entry, the launcher, loads no Effect and no SQLite, and its `setup()` returns without waiting for the dashboard server. Before returning, it checks what it can see at once (its options, that OpenCode runs on Bun, and that the OpenCode database file exists) and fails setup when one is wrong: a failed setup is the one plugin problem OpenCode shows in both its TUI and Desktop.
+- The `/dashboard` TUI action only joins a running dashboard server and never starts one: a TUI entry gets none of the plugin's options, so it can't know the port or the OpenCode database the launcher uses.
 - Plugin mode depends on OpenCode's executable honouring `BUN_BE_BUN`. OpenCode relies on it too, but OpenCode Desktop's bundled executable, Linux and Windows are not yet verified.
 - Without those three flags, Bun's command-line mode loads `.env` and `bunfig.toml` preloads from its working folder and installs missing packages from npm.
 - The dashboard server shows in `ps` and Activity Monitor as a second copy of OpenCode's executable: Bun's `process.title` does not rename it.

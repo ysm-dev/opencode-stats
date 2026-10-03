@@ -17,7 +17,7 @@ A build reads the OpenCode database newest history first, each session whole tog
 - Days and buckets before the start of history look like days without activity, and the bucket holding it isn't marked partial: the header's line says why.
 - A previous-period change is hidden when that period starts before the start of history, and streaks and active days count from it. No headline number carries a mark of its own.
 - When a time range starts before the start of history, Overview's summary sentence names the span it counts: "since Sep 26", not "in the last 90 days".
-- A load paints nothing until its copy covers all of today, about 1.2 s into a first build on the maintainer's database: the one wait a load may take beyond ADR 0007's 250 ms. An open tab moving to a fresh stats store keeps what it shows until then.
+- A load paints nothing until its copy covers all of today, about 1.2 s into a first build on the maintainer's database: the one wait a load may take beyond ADR 0007's 250 ms. An open tab moving to a fresh stats store keeps what it shows until then. If sync stops before the copy covers today, a load shows the problem screen instead.
 - A rebuild looks like a first build. Only an opencode-stats release that changes the stats-store version starts one: OpenCode's migrations and its v1 import re-read every session in place instead (ADR 0006).
 - A build that stops partway, because OpenCode's schema is unrecognised or its database is missing, keeps its date in the header's line.
 - With no activity at all, history starts today: All time is Today, and every number is zero.
