@@ -50,6 +50,18 @@ _Avoid_: KPI, stat, tile, card
 The exact values a chart, the contribution graph or the weekday × hour grid shows beside itself for the bucket, day or cell being read. With nothing being read, a chart's readout shows the time range's totals.
 _Avoid_: tooltip (appears only on hover), popover, legend (a chart's readout doubles as its legend)
 
+**Preference**:
+A choice about how the dashboard looks or behaves on every page and every visit, kept by the browser: the theme, the colour scheme, and whether single-key shortcuts work.
+_Avoid_: option (a plugin option or flag configures the dashboard server), config
+
+**Theme**:
+One of the named colour palettes OpenCode's app offers, such as OpenCode (the default), Dracula or Nord, each drawn light or dark.
+_Avoid_: skin, colour scheme (light or dark)
+
+**Colour scheme**:
+Whether the dashboard draws its theme light or dark: System (the default, following the operating system), Light or Dark.
+_Avoid_: theme (a named palette), appearance
+
 ### Data
 
 **OpenCode database**:
