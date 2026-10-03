@@ -5,6 +5,7 @@ import { appendLive, type Db, generate } from "./data/db";
 import { type Dimension, DIMENSIONS, type Filters, firstSteps } from "./data/query";
 import type { ContributionMetric } from "./data/series";
 import {
+  addDays,
   type Bucket,
   buckets,
   drill,
@@ -14,9 +15,66 @@ import {
   resolve,
   shift,
   specKey,
+  startOfDay,
 } from "./data/time";
 
 const initial = new URLSearchParams(location.search);
+
+/** Inside a width frame of the prototype bar: the bar lives in the parent page. */
+export const embedded = initial.has("embed");
+
+/** URL params that belong to the prototype chrome rather than to the dashboard. */
+export const PROTO_PARAMS = new Set([
+  "variant",
+  "frame",
+  "embed",
+  "touch",
+  "build",
+  "dates",
+  "clock",
+  "live",
+]);
+export const isProtoParam = (name: string) => PROTO_PARAMS.has(name) || name.startsWith("m.");
+
+const setters = new Map<string, (v: string) => void>();
+let broadcaster: ((name: string, value: string) => void) | null = null;
+let applying = false;
+
+/** The framing page registers how to pass prototype settings on to its frames. */
+export function setBroadcaster(fn: (name: string, value: string) => void): void {
+  broadcaster = fn;
+}
+
+/** A framed copy reports its address to the bar's page, which mirrors it to the other frames. */
+function notifyParent(): void {
+  if (embedded && !applying)
+    parent.postMessage({ type: "proto:url", search: location.search }, "*");
+}
+
+/** Apply a setting or another frame's address without echoing it back. */
+export function applyQuietly(fn: () => void): void {
+  applying = true;
+  try {
+    fn();
+  } finally {
+    applying = false;
+  }
+}
+
+export function setParam(name: string, value: string): boolean {
+  const set = setters.get(name);
+  set?.(value);
+  return !!set;
+}
+
+/** A prototype setting that isn't a URL param, such as the colour scheme. */
+export function registerSetter(name: string, set: (v: string) => void): void {
+  setters.set(name, set);
+}
+
+export function broadcast(name: string, value: string): void {
+  broadcaster?.(name, value);
+}
 
 const started = performance.now();
 const database: Db = generate(Date.now());
@@ -26,7 +84,6 @@ const [version, setVersion] = createSignal(0);
 const [now, setNow] = createSignal(Date.now());
 const [spec, setSpec] = createSignal<RangeSpec>(parseSpec(initial.get("range")));
 const [filters, setFilters] = createSignal<Filters>(readFilters(initial));
-const [live, setLive] = createSignal(true);
 const [lastWrite, setLastWrite] = createSignal(0);
 
 // Filters live in the URL as f.<dimension>, so the "variant" dimension can't collide with the
@@ -49,6 +106,7 @@ function writeUrl(): void {
     else p.delete(`f.${d.id}`);
   }
   history.replaceState(null, "", `?${p}`);
+  notifyParent();
 }
 
 /** A URL search param as a signal, for variant-local state such as the current page. */
@@ -56,17 +114,24 @@ export function urlParam<T extends string>(name: string, fallback: T): [() => T,
   const [get, set] = createSignal<T>(
     (new URLSearchParams(location.search).get(name) as T) ?? fallback,
   );
-  return [
-    get,
-    (v: T) => {
-      set(() => v);
-      const p = new URLSearchParams(location.search);
-      if (v === fallback) p.delete(name);
-      else p.set(name, v);
-      history.replaceState(null, "", `?${p}`);
-    },
-  ];
+  const write = (v: T) => {
+    set(() => v);
+    const p = new URLSearchParams(location.search);
+    if (v === fallback || v === "") p.delete(name);
+    else p.set(name, v);
+    history.replaceState(null, "", `?${p}`);
+    if (isProtoParam(name)) broadcaster?.(name, v);
+    else notifyParent();
+  };
+  setters.set(name, (v) => write((v || fallback) as T));
+  return [get, write];
 }
+
+/** Prototype-only: force the touch presentation on a mouse-driven screen. */
+export const [touch, setTouch] = urlParam<"auto" | "on">("touch", "auto");
+/** Prototype-only: pretend a first build is still reading older history. */
+export const [build, setBuild] = urlParam<"off" | "on">("build", "off");
+const [liveParam, setLiveParam] = urlParam<"on" | "off">("live", "on");
 
 const derived = createRoot(() => {
   const range = createMemo(() => resolve(spec(), now(), database.first));
@@ -78,6 +143,11 @@ const derived = createRoot(() => {
       version();
       return firstSteps(database, filters());
     }),
+    // A build that hasn't reached the first activity counts from the earliest local day it has
+    // read completely. The prototype only shows where that is said; it doesn't clip the counts.
+    historyFrom: createMemo(() =>
+      build() === "on" ? startOfDay(addDays(startOfDay(now()), -7)) : null,
+    ),
   };
 });
 
@@ -95,12 +165,13 @@ export const dash = {
   now,
   spec,
   filters,
-  live,
+  live: () => liveParam() === "on",
   lastWrite,
   range: derived.range,
   buckets: derived.buckets,
   previous: derived.previous,
   firsts: derived.firsts,
+  historyFrom: derived.historyFrom,
 
   setRange(next: RangeSpec): void {
     setSpec(next);
@@ -137,12 +208,22 @@ export const dash = {
       return v?.length ? [[d.id, v] as [Dimension, string[]]] : [];
     });
   },
-  setLive,
+  setLive: (on: boolean) => setLiveParam(on ? "on" : "off"),
+  /** Mirror another frame's address: range, filters and the variant-local params. */
+  applySearch(search: string): void {
+    const p = new URLSearchParams(search);
+    applyQuietly(() => {
+      setSpec(parseSpec(p.get("range")));
+      setFilters(readFilters(p));
+      writeUrl();
+      for (const [name, set] of setters) if (!isProtoParam(name)) set(p.get(name) ?? "");
+    });
+  },
 };
 
 setInterval(() => setNow(Date.now()), 30000);
 setInterval(() => {
-  if (!live()) return;
+  if (!dash.live()) return;
   appendLive(database, Date.now());
   setNow(Date.now());
   setLastWrite(Date.now());

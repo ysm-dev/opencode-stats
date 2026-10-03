@@ -1,13 +1,13 @@
 // PROTOTYPE: number and date formats. The date/clock style is switchable from the prototype bar
 // so the date-format question in issue #14 can be answered by looking.
-import { createSignal } from "solid-js";
 import { PRESETS, type Range, type Unit, parseDay } from "./data/time";
+import { urlParam } from "./state";
 
 export type ClockStyle = "locale" | "24h" | "12h";
 export type DateStyle = "locale" | "month-day" | "day-month" | "iso";
 
-const [clock, setClock] = createSignal<ClockStyle>("locale");
-const [dates, setDates] = createSignal<DateStyle>("locale");
+const [clock, setClock] = urlParam<ClockStyle>("clock", "locale");
+const [dates, setDates] = urlParam<DateStyle>("dates", "locale");
 export { clock, dates, setClock, setDates };
 
 const intl = new Intl.NumberFormat("en-US");
