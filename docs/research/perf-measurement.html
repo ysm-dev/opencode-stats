@@ -1,0 +1,152 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Synthetic input clock measurement</title>
+<style>
+  body {
+    margin: 0;
+    background: white;
+  }
+  button {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    width: 180px;
+    height: 70px;
+  }
+  svg {
+    margin-top: 100px;
+  }
+  #anim {
+    position: absolute;
+    top: 90px;
+    height: 4px;
+    width: 4px;
+    background: blue;
+  }
+</style>
+<button id="target">0</button>
+<div id="anim"></div>
+<svg width="800" height="400"></svg>
+<script>
+  const params = new URLSearchParams(location.search);
+  const target = document.querySelector("#target");
+  const svg = document.querySelector("svg");
+  const rects = Array.from({ length: 300 }, (_, i) => {
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    for (const [k, v] of Object.entries({
+      x: (i % 100) * 8,
+      y: Math.floor(i / 100) * 120,
+      width: 6,
+      height: 50,
+      fill: "#246",
+    }))
+      r.setAttribute(k, v);
+    svg.append(r);
+    return r;
+  });
+  window.samples = [];
+  window.eventEntries = [];
+  window.frames = [];
+  window.mode = "click";
+  window.work = 0;
+  window.sequence = 0;
+  window.animate = params.has("animate");
+  const tick = () => {
+    frames.push(performance.now());
+    document.querySelector("#anim").style.transform = `translateX(${frames.length % 700}px)`;
+    if (window.animate) requestAnimationFrame(tick);
+  };
+  if (window.animate) requestAnimationFrame(tick);
+  if (PerformanceObserver.supportedEntryTypes.includes("event")) {
+    new PerformanceObserver((list) =>
+      eventEntries.push(
+        ...list.getEntries().map((e) => ({
+          ...e.toJSON(),
+          paintTime: e.paintTime ?? null,
+          presentationTime: e.presentationTime ?? null,
+        })),
+      ),
+    ).observe({ type: "event", buffered: true, durationThreshold: 16 });
+  }
+  const worker = new Worker(
+    URL.createObjectURL(
+      new Blob(
+        [
+          `
+    self.onmessage = ({data}) => {
+      const begin = performance.now();
+      while (performance.now() - begin < data.work) {}
+      const end = performance.now();
+      postMessage({ id: data.id, begin, end, origin: performance.timeOrigin });
+    };
+  `,
+        ],
+        { type: "text/javascript" },
+      ),
+    ),
+  );
+  window.worker = worker;
+  const pending = new Map();
+  function update(s, chart) {
+    s.domStart = performance.now();
+    target.firstChild.data = String(s.id);
+    if (chart)
+      rects.forEach((r, i) => {
+        r.setAttribute("height", String(10 + ((s.id * 7 + i) % 105)));
+        r.setAttribute("fill", s.id % 2 ? "#247" : "#573");
+      });
+    s.domEnd = performance.now();
+    performance.mark(`pm:${s.id}:dom`);
+    requestAnimationFrame(() => {
+      s.raf = performance.now();
+      performance.mark(`pm:${s.id}:raf`);
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        s.after = performance.now();
+        performance.mark(`pm:${s.id}:after`);
+        samples.push(s);
+        channel.port1.close();
+        channel.port2.close();
+      };
+      channel.port2.postMessage(null);
+    });
+  }
+  worker.onmessage = ({ data }) => {
+    const s = pending.get(data.id);
+    pending.delete(data.id);
+    s.reply = performance.now();
+    s.workerBegin = data.begin + data.origin - performance.timeOrigin;
+    s.workerEnd = data.end + data.origin - performance.timeOrigin;
+    update(s, true);
+  };
+  function handle(e) {
+    if (e.type !== window.mode) return;
+    const s = {
+      id: ++window.sequence,
+      type: e.type,
+      stamp: e.timeStamp,
+      handler: performance.now(),
+      work: window.work,
+    };
+    performance.mark(`pm:${s.id}:input`);
+    if (s.work) {
+      pending.set(s.id, s);
+      worker.postMessage({ id: s.id, work: s.work });
+    } else update(s, false);
+    s.handlerEnd = performance.now();
+  }
+  for (const type of ["click", "keydown", "pointerdown", "pointermove"])
+    document.addEventListener(type, handle);
+  window.timerProbe = () => {
+    const deltas = [];
+    let old = performance.now();
+    while (deltas.length < 1000) {
+      const next = performance.now();
+      if (next > old) {
+        deltas.push(next - old);
+        old = next;
+      }
+    }
+    return { isolated: crossOriginIsolated, deltas };
+  };
+</script>
