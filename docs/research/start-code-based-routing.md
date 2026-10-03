@@ -9,7 +9,7 @@ Researched 2026-10-03 against published packages, official documentation, and an
 3. **Hand-written files pass the requested code gates; generated files do not pass lint.** Both fixtures pass TypeScript 7.0.2, formatting, scoped zero-duplication checks, and suitably discovered knip entry points. No lint suppression or gate exception was used. Knip silently has no match for a nonexistent default tree; it still follows `src/router.tsx`. A real `src/start.ts` importing `createStart` is necessary in this fixture to avoid knip production reporting `@tanstack/solid-start` unused, because its only other authored import is in the build-time Vite config. See the gate table and scope limitations below.
 4. **Start installs file-routing generator machinery by default, but generation can be disabled using `router.enableRouteGeneration: false`.** The option is in the published configuration schema. The plugin still constructs a Generator and installs related hooks; it skips the generation operation and writes no route tree. The production build nevertheless depends on the generator's route-manifest side effect. No public manual-route-manifest option was found in the pinned schema/source.
 
-Therefore the choice is not currently “supported Start code routing instead of a generated-file exception.” Keeping Start's current production pipeline requires generated routing plus a human-owned gate decision, an upstream fix, or a separately maintained integration. A plain Solid Router SPA could use code routing, but replacing Start or constructing a separate prerender pipeline was outside this investigation. An exception for `any` alone would not cover all observed generated-file lint failures.
+Therefore the choice is not currently “supported Start code routing instead of a generated-file exception.” Keeping Start's current production pipeline requires generated routing plus a human-owned gate decision, an upstream fix, or a separately maintained integration. The initial investigation did not build a Router-only alternative; the follow-up below now proves a plain Vite SPA with a hand-written static shell. An exception for `any` alone would not cover all observed generated-file lint failures.
 
 ## Exact versions
 
@@ -346,3 +346,124 @@ No package source was patched, no generator hooks were filtered out, and no inte
 [generator-plugin]: https://unpkg.com/@tanstack/router-plugin@1.168.42/src/core/router-generator-plugin.ts
 [knip-router]: https://unpkg.com/knip@6.38.0/dist/plugins/tanstack-router/index.js
 [knip-vite]: https://unpkg.com/knip@6.38.0/dist/plugins/vite/index.js
+
+## Follow-up: Router-only Vite SPA
+
+**Proven for the requested client-only scope.** The second fixture is [`spike/router-only/`](../../spike/router-only/). It builds and runs without Start, route generation, SSR, hydration, or a framework-specific asset manifest. No gate suppression or exception was added. This changes the architectural recommendation: when the intended shell contains only the document and an empty placeholder, a hand-written Vite HTML entry supplies it without prerendering.
+
+### 1. Configuration and document ownership
+
+Pinned dependencies: `@tanstack/solid-router@1.170.38`, `solid-js@1.9.15`, `vite@8.3.2`, and `vite-plugin-solid@2.11.14`; native TypeScript remains `7.0.2`, Playwright `1.58.2`. The fixture's own `bun.lock` and `bun pm ls --all` contain **no `@tanstack/solid-start`, `@tanstack/router-plugin`, or router generator**. The existing Start fixture was not installed to run this one.
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import solid from "vite-plugin-solid";
+
+export default defineConfig({ plugins: [solid()] });
+```
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/src/global.css" />
+    <script type="module" src="/src/main.tsx"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>
+```
+
+`src/main.tsx` checks that `#app` exists, creates the router, and mounts `render(() => <RouterProvider router={router} />, root)`. It uses `render`, not `hydrate`. The HTML file now owns `<html>`, `<head>`, and `<body>`; the root route renders `HeadContent` and `Outlet` inside that document, not a nested document. `/` and `/models` remain statically imported `createRoute` children with `rootRoute.addChildren(...)` and the same Router `Register` augmentation. Pending UI is still `() => null`. There are no lazy imports or route-splitting plugins.
+
+The source stylesheet link is in `<head>` with no nonmatching `media`, `disabled`, or asynchronous loading trick. Vite rewrites it to the single hashed CSS asset in the built `<head>`; its module script is deferred and does not make the stylesheet asynchronous. Chromium's cold-page test intercepts and holds that CSS request for 150 ms: **zero paint entries occur while held**, then Overview renders with the stylesheet's computed `32px` padding after release. This verifies render blocking for this fixture, not a universal guarantee against every source of FOUC; dynamic title updates necessarily wait for JavaScript.
+
+Primary sources: [Vite's HTML entry and production build](https://vite.dev/guide/build), [vite-plugin-solid options](https://github.com/solidjs/vite-plugin-solid#usage), [Solid `render`](https://docs.solidjs.com/reference/rendering/render), and [Router's code-based routing guide][router-guide].
+
+### 2–4. Production output, static browser navigation, and typing
+
+`bun run build` succeeds and produces exactly `dist/index.html`, one JS asset, and one CSS asset. No server output, `_shell.html`, generated tree, or route chunk is produced.
+
+| Output                   | Raw, decimal kB |   Gzip kB |
+| ------------------------ | --------------: | --------: |
+| Previous Start client JS |          138.61 |     46.79 |
+| Router-only client JS    |      **101.54** | **35.69** |
+| Router-only `index.html` |            0.36 |      0.24 |
+| Router-only global CSS   |            0.24 |      0.15 |
+
+Router-only JS is 37.07 kB smaller raw / 11.10 kB smaller gzip in these fixtures. These are Vite's reported build sizes, not a controlled framework-wide benchmark: the Router-only fixture additionally tests dynamic titles and CSS, and has its own pinned transitive dependency lockfile. No devtools are bundled in either comparison.
+
+`bun run browser` starts a Node static server over **only `dist/`**. `/assets/*` serves files with JS/CSS content types; every non-asset path returns `index.html`. Missing assets return 404 rather than the HTML fallback. Headless Chromium verifies:
+
+- Overview → Models via `Link`, including the `/models` URL.
+- Models → Overview via `useNavigate`.
+- A fresh direct `/models` navigation through the HTML history fallback.
+- Dynamic document titles `Overview` / `Models` via Router's `HeadContent`.
+- One stylesheet link in the document head, loaded global styles, and the blocked-CSS paint test above.
+- **No page errors or console errors** during the navigation/direct-load test.
+
+Temporarily adding the same invalid `Link to="/does-not-exist"` and `getRouter().navigate({ to: "/does-not-exist" })` produces **TS2322 on both**, with allowed destinations `"." | ".." | "/" | "/models"`. The negative-test file was removed, then clean typechecking passed. No expectation/ignore comments were used.
+
+### 5. Gates and knip discovery
+
+| Gate                                        | Result                                                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Type-aware oxlint, unchanged repo rules     | Pass, zero diagnostics, including the typed browser helper                                  |
+| Native `tsc` 7.0.2                          | Pass, including the browser helper; strict repo base unchanged, DOM/JSX configuration added |
+| `oxfmt --check`                             | Pass for all retained fixture sources/config/HTML/CSS/helper                                |
+| jscpd, unchanged threshold/minimums/ignores | Pass, 0 clones, scoped to this fixture's `.ts`/`.tsx`, including the browser helper         |
+| Knip 6.38.0 normal                          | Pass                                                                                        |
+| Knip 6.38.0 `--production`                  | Pass                                                                                        |
+| Knip 6.38.0 `--production --strict`         | Pass                                                                                        |
+
+As before, unchanged package-only duplication/test/mutation globs do not cover research fixtures. Only jscpd's **input pattern** was retargeted, not its gate rules, to include all this fixture's TypeScript/TSX files. Cross-fixture duplication is not asserted absent: these deliberately compare versions of the same tiny app. UI coverage/mutation and full CI remain outside this proof.
+
+In an isolated copy of the application sources/config/HTML, **the copied repo knip config passes all three modes unchanged**. Normal mode has the same harmless root-only pattern hints seen in the first investigation; production strict mode exits 0. The standalone application needs no custom Router entries, generated-tree path, Start entry, dependency ignore, or export-ignore setting.
+
+Knip's [Vite HTML helper](https://unpkg.com/knip@6.38.0/dist/plugins/vite/helpers.js) extracts `type="module"` script sources and marks them as production entries. `knip --debug` confirms discovery of `src/main.tsx` via Vite. Its name deliberately avoids the TanStack plugin's `client.tsx` convention. The absent generated-tree pattern does not create an error. See also [the Vite plugin][knip-vite] and [TanStack plugin][knip-router].
+
+The **retained research fixture**, unlike the application-only harness, also contains `browser.ts` and Playwright. It has this tiny local knip config solely to name that normal/development helper entry:
+
+```json
+{ "entry": ["browser.ts"] }
+```
+
+No `!` production marker or ignore is added. With that config, all three modes pass; normal mode emits a harmless “Remove redundant entry pattern” hint, while production strict has no diagnostics. With the root config alone applied to the entire retained fixture, knip reports the root-level browser helper as unused; this is a tooling-entry issue, not an undiscovered application entry. The local config changes no application entry discovery or gate threshold.
+
+Reproduction commands, from `spike/router-only/`, after installing the repo's pinned gate tools at the worktree root:
+
+```sh
+bun install
+bun pm ls --all
+bun run build
+bun run browser
+bun run typecheck
+bunx oxlint --type-aware --report-unused-disable-directives --config ../../.oxlintrc.json src vite.config.ts browser.ts
+bunx oxfmt --check .
+bunx jscpd --config ../../.jscpd.json --pattern '**/*.{ts,tsx}' .
+bunx knip --config knip.json
+bunx knip --config knip.json --production
+bunx knip --config knip.json --production --strict
+```
+
+The unchanged-config application-only harness additionally ran those three knip modes with `--config ../gates/knip.json`, where `gates/` contained byte-for-byte copies of the repo configs. There was no source exclusion, suppression, or quality-exception entry. All executed positive commands exited 0; the intentional negative typing command exited 1 with the two expected diagnostics.
+
+### 6. What is lost, retained, or unnecessary?
+
+| Concern                                                                                                    | Router-only outcome for this app                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Head management                                                                                            | **Retained.** `HeadContent` is exported by Solid Router and works in a CSR root; dynamic titles were verified. Static charset/viewport/global CSS stay in `index.html`. No initial route-specific SEO metadata is prerendered.                                                                          |
+| Prerendered pending placeholder                                                                            | Start's build-time root rendering / `isShell()` lifecycle is gone. The requested empty placeholder is equivalent to the static empty `#app`; nonempty initial shell content would need to be authored in HTML or separately prerendered. Router pending components still work once JS runs.             |
+| `Scripts`                                                                                                  | Still a Router export, not a Start-only component. It is unnecessary for **bootstrapping this app**: Vite's HTML module script does that. If using route-defined body scripts, add `Scripts` deliberately; the fixture does not test those. There is no Start SSR manifest or hydration stream to emit. |
+| `HydrationScript`                                                                                          | Solid's hydration bootstrap is unnecessary because this fixture mounts with `render` and has no server-rendered Solid tree. Do not add it or use `hydrate` merely to preserve the old shell shape.                                                                                                      |
+| Devtools                                                                                                   | **Not lost.** Router devtools are a separate `@tanstack/solid-router-devtools` package usable under `RouterProvider`, independently of Start. Documented, not installed or browser-tested here.                                                                                                         |
+| Navigation, route typing, loaders, search state, pending/error handling                                    | Router capabilities remain; none requires Start for client-side use. The existing worker can still own URL parsing; this fixture proves paths/navigation, not the worker/data integration.                                                                                                              |
+| Start server functions/routes/middleware, SSR/streaming/prerender integration, server-only code transforms | Gone from this build. They are not requirements of the proposed client-only dashboard. Router itself exposes separate SSR APIs, but this fixture intentionally does not configure them. Adding full-stack needs later would require another integration decision.                                       |
+
+Evidence: [official head-management guide](https://tanstack.com/router/latest/docs/framework/solid/guide/document-head-management) explicitly documents Router-only SPAs; pinned [HeadContent source](https://unpkg.com/@tanstack/solid-router@1.170.38/src/HeadContent.tsx) uses portals/meta management without Start; [Scripts source](https://unpkg.com/@tanstack/solid-router@1.170.38/src/Scripts.tsx) combines route scripts and optional SSR assets; [devtools guide](https://tanstack.com/router/latest/docs/framework/solid/devtools) documents the independent package; [SSR guide](https://tanstack.com/router/latest/docs/framework/solid/guide/ssr) distinguishes optional Router SSR integration; [Solid hydration docs](https://docs.solidjs.com/reference/rendering/hydrate) distinguish hydration from rendering. Static SPA hosts still need the history fallback; Vite does not configure the dashboard server for us.
+
+**Recommendation:** for the stated empty-shell, client-only dashboard, plain Vite + Solid Router is a demonstrated smaller and gate-compatible alternative to Start, without a generator exception. This proves the architecture's build/navigation/type/gate seam, not a completed six-page dashboard or a UI coverage/mutation suite.

@@ -1,0 +1,21 @@
+{
+  "name": "router-only-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "browser": "node browser.ts"
+  },
+  "dependencies": {
+    "@tanstack/solid-router": "1.170.38",
+    "solid-js": "1.9.15"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.3",
+    "playwright": "1.58.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.2",
+    "vite-plugin-solid": "2.11.14"
+  }
+}
