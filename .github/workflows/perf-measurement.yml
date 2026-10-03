@@ -34,6 +34,7 @@ jobs:
         env:
           PM_DEPS: ${{ runner.temp }}/perf-deps/node_modules
           PM_OUT: ${{ runner.temp }}/perf-report.json
+          PM_CORE: "1"
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/perf-browsers
         run: node scripts/perf-measurement.mjs
       - uses: actions/upload-artifact@v6

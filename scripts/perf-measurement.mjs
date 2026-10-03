@@ -78,12 +78,12 @@ try {
         result.cases[key] = await trial(page, { work, n: 100 });
         console.log(name, key, result.cases[key].summary);
       }
-      for (const mode of ['keydown', 'pointerdown', 'pointermove']) {
+      for (const mode of (process.env.PM_CORE === '1' ? [] : ['keydown', 'pointerdown', 'pointermove'])) {
         const key = `D-${mode}`;
         result.cases[key] = await trial(page, { mode, n: 100, animate: true });
         console.log(name, key, result.cases[key].summary);
       }
-      result.cases['D-pointermove-worker'] = await trial(page, { mode: 'pointermove', n: 100, work: 5, animate: true });
+      if (process.env.PM_CORE !== '1') result.cases['D-pointermove-worker'] = await trial(page, { mode: 'pointermove', n: 100, work: 5, animate: true });
       for (const isolated of [false, true]) {
         await page.goto(`${base}?${isolated ? 'isolated' : ''}`);
         result.timers[isolated ? 'isolated' : 'plain'] = await page.evaluate(() => ({
