@@ -92,6 +92,10 @@ _Avoid_: frozen, stale, offline, paused (the user's choice)
 The state of a dashboard tab whose user has stopped it following the OpenCode database, until they resume it or reload.
 _Avoid_: frozen, stopped, not updating (never the user's choice)
 
+**Live update**:
+A change that brings new activity from the OpenCode database into an open dashboard tab, without a reload.
+_Avoid_: refresh, sync (sync keeps a stats store current), push, reload
+
 ### Activity
 
 **Session**:
@@ -242,6 +246,20 @@ _Avoid_: prior period, last period, comparison range
 One interval of a time-series chart: an hour, a local day, a week (Monday to Sunday) or a month.
 _Avoid_: bin, interval, period
 
+### Responsiveness
+
+**Change**:
+Anything that alters what an open dashboard tab shows: a page, time range or filter, a drill, a contribution-graph selection, reading a chart, a menu, a resize, a theme or colour scheme, a live update, or a new minute, day or timezone. It appears whole, in one paint.
+_Avoid_: update (a live update is one kind), interaction, transition, re-render
+
+**Load**:
+Opening the dashboard in a browser tab: a first visit, reload, bookmark or new tab. It paints nothing until its page is complete.
+_Avoid_: page load (a page is one of the six), startup, boot, refresh
+
+**Change time**:
+The time the dashboard itself spends on a change, from its input to painting it, leaving out any wait for the browser's next frame.
+_Avoid_: latency, cost (a cost is money), duration, response time (a step's)
+
 ### Enforcement
 
 **Gate**:
@@ -267,6 +285,10 @@ _Avoid_: pin (every dependency is pinned exactly), freeze, ignore
 **Tier**:
 Where a gate runs: pre-commit, pre-push, or CI. Tiers exist because gates differ by orders of magnitude in cost, not because they differ in importance.
 _Avoid_: stage, level, phase
+
+**Reference run**:
+The performance run on the maintainer's Mac, against a clone of their OpenCode database, whose passing report a release needs.
+_Avoid_: benchmark, perf test, perf CI
 
 ### Structure
 
