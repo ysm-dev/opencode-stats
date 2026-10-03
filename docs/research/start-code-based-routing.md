@@ -252,7 +252,7 @@ As a minimal post-processing test, removing just the two `as any` expressions ca
 
 All requested repo configs were read on the base branch, then copied byte-for-byte into a temporary gate harness. The strict TS base was inherited unchanged, with app-specific DOM/JSX additions. No gate rules, thresholds, ignores, or exceptions were weakened.
 
-Important scope caveat: repo jscpd, Vitest and Stryker configs target `packages/*/src/**/*.ts`. An unchanged invocation there would **not test a spike outside `packages/` or `.tsx` UI files**. For meaningful duplication evidence, jscpd was invoked with the unchanged config **plus an explicit source-pattern argument** for each fixture. Tests, coverage, mutation, and full `bun run ci` were not claimed or run. UI test/mutation integration remains future dashboard work.
+Important scope caveat: repo jscpd, Vitest and Stryker configs target `packages/*/src/**/*.ts`. An unchanged invocation there would **not test a spike outside `packages/` or `.tsx` UI files**. For meaningful duplication evidence, jscpd was invoked with the unchanged config **plus an explicit source-pattern argument** for each fixture. Spike tests, spike coverage, mutation, and full `bun run ci` were not claimed or run. The branch push did run the existing pre-push hooks: root/package typechecking passed, and the baseline suite passed 19 tests with 100% coverage of its existing package files. Those hooks do not cover the research UI. UI test/mutation integration remains future dashboard work.
 
 | Gate                                                                         | Hand-written fixture                                                 | Generated TypeScript fixture                                                      |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -327,7 +327,7 @@ No package source was patched, no generator hooks were filtered out, and no inte
 ## Limits / recommendation
 
 - Verified: actual published-package build failures, successful generated SPA build and static browser behavior, successful hand-written dev browser behavior, positive/negative Router typing, and the requested scoped code gates.
-- Not verified: production browser behavior of hand-written Start (no completed shell build), full repo CI/test/mutation coverage, six-page worker/data integration, future versions, or arbitrary custom post-processors.
+- Not verified: production browser behavior of hand-written Start (no completed shell build), full repo CI, spike test/mutation coverage, six-page worker/data integration, future versions, or arbitrary custom post-processors.
 - The published source is stronger evidence than the broad documentation sentence that all Router features are available in Start. At these pins, the production manifest contract still assumes generation.
 - If the absolute ban remains, do not choose Start code routing based only on a dev-server demonstration. Either resolve the manifest support upstream before committing to it, choose a Router-only client architecture with a separately specified shell strategy, or ask the human owner to consider a narrowly documented generated-file gate policy covering **all** observed violations.
 
