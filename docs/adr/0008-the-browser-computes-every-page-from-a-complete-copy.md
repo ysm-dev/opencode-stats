@@ -4,7 +4,7 @@ Every page must answer a time range and filters never seen before within a frame
 
 ## Considered Options
 
-- **Server rendering through Start's handler.** Numbers in the first HTML, but the server would need the aggregation and the browser's timezone, a chart path around Solid Charts' broken server build, and hydration, to save tens of milliseconds on loopback.
+- **Server rendering through Start's handler.** Numbers in the first HTML, but the server would need the aggregation and the browser's timezone, a chart path around Solid Charts' crash under server rendering, and hydration, to save tens of milliseconds on loopback.
 - **Answers computed by the dashboard server and cached in the browser.** A combination never seen before would wait on the network.
 - **Computing on the page's main thread.** The rule in ADR 0007 would hold for free, but every computation would freeze hovering and scrolling, and the same engine measured about 5 ms slower there than in a worker.
 - **Splitting each computation across several workers sharing one copy.** Kept in reserve: a simpler engine than doing less work per change, but its cost still grows with every recorded fact, and its gain depends on the machine's cores.
@@ -20,5 +20,5 @@ Every page must answer a time range and filters never seen before within a frame
 - A hidden tab closes its live stream, because browsers allow six connections per origin over plain HTTP, and catches up when shown.
 - Local days and hours are worked out in the tab, about 8.5 ms for all history, and again whenever the timezone changes. The dashboard server never needs the browser's timezone, not even on a first visit (ADR 0001).
 - Addresses and bookmarks hold permanent IDs, never the copy's codes, which change with every rebuild.
-- The live stream reports the dashboard server's build and format version. A new format reloads open tabs at once; a new build reloads them the next time they're hidden.
+- The live stream reports the dashboard server's version and format version. A new format reloads open tabs at once; a new version reloads them the next time they're hidden.
 - The brief's stack changes: TanStack Start runs in single-page mode only, TanStack Query is not used, and TanStack Virtual draws the lists that can run to thousands of rows.
