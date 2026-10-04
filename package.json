@@ -20,6 +20,7 @@
     "shape": "bun run scripts/shape.ts",
     "contracts": "bun run scripts/contracts.ts",
     "dev": "bun run scripts/dev.ts",
+    "generate": "bun run scripts/generate.ts",
     "serve": "bun run --cwd packages/dashboard vite build --outDir ../../.dev/dashboard && bun run packages/dashboard-server/src/process.ts",
     "outdated": "bun run scripts/outdated.ts",
     "verify-gates": "bun run scripts/verify-gates.ts",
@@ -31,6 +32,7 @@
     "@types/node": "26.6.3",
     "@types/semver": "7.8.0",
     "@vitest/coverage-v8": "5.0.3",
+    "drizzle-kit": "1.0.0-rc.5-5935859",
     "jscpd": "5.4.0",
     "knip": "6.39.0",
     "lefthook": "2.1.15",
@@ -53,6 +55,7 @@
     }
   },
   "patchedDependencies": {
-    "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch"
+    "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch",
+    "drizzle-orm@1.0.0-rc.5-5935859": "patches/drizzle-orm@1.0.0-rc.5-5935859.patch"
   }
 }

@@ -1,24 +1,41 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
-import { DatabaseSync } from "node:sqlite";
+import { parseArgs } from "node:util";
 import { createServer } from "vite";
 
 const folder = resolve(".dev");
 for (const name of ["state", "cache", "data"])
   mkdirSync(resolve(folder, name), { recursive: true, mode: 0o700 });
-const databasePath = resolve(folder, "opencode.db");
-const database = new DatabaseSync(databasePath);
-database.exec("CREATE TABLE IF NOT EXISTS synthetic (id TEXT PRIMARY KEY)");
-database.close();
+const { values } = parseArgs({
+  args: process.argv.slice(2).filter((arg) => arg !== "--"),
+  options: { db: { type: "string" } },
+});
+const databasePath = resolve(values.db ?? resolve(folder, "synthetic-opencode-v1.db"));
+if (values.db === undefined) {
+  const synthetic = spawnSync(
+    process.execPath,
+    ["--no-install", "packages/stats-store/src/testing/dev.ts", "--db", databasePath],
+    { stdio: "inherit" },
+  );
+  if (synthetic.status !== 0) throw new Error("Synthetic OpenCode database creation failed.");
+}
 const vite = await createServer({
   root: "packages/dashboard",
   configFile: "packages/dashboard/vite.config.ts",
 });
 const dashboardServer = spawn(
   process.execPath,
-  ["--no-env-file", "--no-install", "packages/dashboard-server/src/process.ts", "--port", "22440"],
+  [
+    "--no-env-file",
+    "--no-install",
+    "packages/dashboard-server/src/process.ts",
+    "--port",
+    "22440",
+    "--db",
+    databasePath,
+  ],
   {
     stdio: "inherit",
     env: {

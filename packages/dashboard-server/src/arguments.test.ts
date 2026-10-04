@@ -3,16 +3,26 @@ import { parseArguments } from "./arguments.ts";
 
 describe("dashboard server arguments", () => {
   it("keeps the fixed default and accepts an explicit port", () => {
-    expect(parseArguments([])).toEqual({ port: 22439 });
-    expect(parseArguments(["--port", "22440"])).toEqual({ port: 22440 });
-    expect(parseArguments(["--port=1"])).toEqual({ port: 1 });
-    expect(parseArguments(["--port", "65535"])).toEqual({ port: 65535 });
+    for (const [args, port] of [
+      [[], 22439],
+      [["--port", "22440"], 22440],
+      [["--port=1"], 1],
+      [["--port", "65535"], 65535],
+    ] as const) {
+      expect(parseArguments([...args, "--db", "synthetic.db"])).toEqual({
+        port,
+        db: "synthetic.db",
+      });
+    }
   });
   it.each(
     [
       null,
+      [],
+      ["--db", ""],
       [1],
       ["--host", "0.0.0.0"],
+      ["--db", "synthetic.db", "--host", "0.0.0.0"],
       ["--port"],
       ["22440"],
       ["--port", "0"],

@@ -2,12 +2,18 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     ".": {
-      "entry": ["scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,commit-message}.ts"],
+      "entry": [
+        "scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,generate,commit-message}.ts"
+      ],
       "project": ["scripts/**/*.{ts,tsx}", "*.{js,ts}"]
     },
     "packages/dashboard-server": {
       "entry": ["src/process.ts!", "src/**/*.contract.test.{ts,tsx}"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}!", "!src/testing/**!", "!src/**/*.node.ts!"]
+    },
+    "packages/stats-store": {
+      "entry": ["src/sync-worker.ts!", "src/testing/dev.ts", "src/**/*.contract.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}!", "!src/testing/**!", "!src/**/*.node.ts!"]
     },
     "packages/dashboard": {
       "entry": ["src/style.css!"],

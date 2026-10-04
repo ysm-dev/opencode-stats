@@ -1,5 +1,11 @@
 [
   {
+    "path": "packages/stats-store/src/sync-worker.ts",
+    "gates": ["coverage", "mutation"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): sync worker global scope selects the Bun database layer and runs the tested worker program. In-thread tests exercise its boundary and Bun contracts exercise native Worker startup.",
+    "added": "2026-10-04"
+  },
+  {
     "path": "packages/dashboard-server/src/process.ts",
     "gates": ["coverage", "mutation"],
     "reason": "Maintainer-approved under #27 (issuecomment-5977547319): process entry reads argv and selects Bun adapters. The program and HTTP behavior run on Node; real Bun contracts cover the adapter.",

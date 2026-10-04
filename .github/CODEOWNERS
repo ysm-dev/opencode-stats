@@ -25,3 +25,12 @@
 /turbo.json               @ysm-dev
 /.gitignore               @ysm-dev
 /.prettierignore          @ysm-dev
+/packages/stats-store/src/sync-worker.ts @ysm-dev
+/packages/stats-store/src/generation.test.ts @ysm-dev
+/packages/stats-store/src/testing/types.ts @ysm-dev
+/patches/drizzle-orm@1.0.0-rc.5-5935859.patch @ysm-dev
+/scripts/generate.ts @ysm-dev
+/scripts/gate-counting-checks.ts @ysm-dev
+/packages/stats-store/src/fingerprint.test.ts @ysm-dev
+/packages/stats-store/src/types.test.ts @ysm-dev
+/packages/stats-store/src/fingerprints.json @ysm-dev

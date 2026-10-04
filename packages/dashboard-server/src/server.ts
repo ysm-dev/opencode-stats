@@ -5,10 +5,18 @@ import * as HttpServer from "effect/http/HttpServer";
 import * as Response from "effect/http/HttpServerResponse";
 import { HttpServerRequest } from "effect/http/HttpServerRequest";
 import { dashboardFiles } from "./paths.ts";
+import { copyApi } from "./copy-api.ts";
+import { encodeStore } from "./copy.ts";
+import type { StoreCopy } from "@opencode-stats/stats-store";
 
-export const startServer = Effect.fnUntraced(function* (files: string = dashboardFiles) {
+export const startServer = Effect.fnUntraced(function* (
+  files: string = dashboardFiles,
+  copy?: StoreCopy,
+) {
   const server = yield* HttpServer.HttpServer;
   const origin = HttpServer.formatAddress(server.address);
+  const bytes = copy ? encodeStore(copy) : new Uint8Array();
+  const api = yield* copyApi(() => bytes);
   const app = Effect.gen(function* () {
     const request = yield* HttpServerRequest;
     const host = new URL(origin).host;
@@ -23,6 +31,7 @@ export const startServer = Effect.fnUntraced(function* (files: string = dashboar
     }
     if (!read) return Response.empty({ status: 405 });
     const path = new URL(request.url, origin).pathname;
+    if (path === "/api/browser-copy" && copy) return yield* api;
     if (
       path.startsWith("/api/") ||
       (path.startsWith("/assets/") && !/^\/assets\/[\w.-]+$/u.test(path))

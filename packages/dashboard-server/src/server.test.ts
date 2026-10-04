@@ -35,6 +35,9 @@ const withServer = (check: (origin: string) => Promise<void>): Promise<void> =>
 describe("dashboard HTTP", () => {
   it("serves the dashboard skeleton and hashed files on IPv4 loopback", async () => {
     await withServer(async (origin) => {
+      const copy = await fetch(`${origin}/api/browser-copy`);
+      expect(copy.status).toBe(404);
+      expect((await copy.arrayBuffer()).byteLength).toBe(0);
       expect(origin).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/u);
       for (const path of ["/", "/models?range=30", "/sessions"]) {
         const response = await fetch(`${origin}${path}`);
