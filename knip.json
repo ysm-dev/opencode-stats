@@ -2,7 +2,9 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     ".": {
-      "entry": ["scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,commit-message}.ts"],
+      "entry": [
+        "scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,commit-message,release,bundle-check}.ts"
+      ],
       "project": ["scripts/**/*.{ts,tsx}", "*.{js,ts}"]
     },
     "packages/dashboard-server": {
@@ -12,6 +14,13 @@
     "packages/dashboard": {
       "entry": ["src/style.css!"],
       "project": ["src/**/*.{ts,tsx,css}"]
+    },
+    "packages/opencode-stats": {
+      "project": ["src/**/*.{ts,tsx}!", "testing/**/*.ts"]
+    },
+    "packages/e2e": {
+      "entry": ["tests/**/*.test.ts"],
+      "project": ["tests/**/*.ts"]
     }
   }
 }

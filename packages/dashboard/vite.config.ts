@@ -4,7 +4,15 @@ import tailwind from "@tailwindcss/vite";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
 
+const require = createRequire(import.meta.url);
+
 export default defineConfig({
+  // The published UI's CSS imports Tailwind from its own path, outside the workspace under Bun's global store.
+  resolve: {
+    alias: {
+      tailwindcss: dirname(require.resolve("tailwindcss/package.json")),
+    },
+  },
   plugins: [tailwind(), solid()],
   server: {
     host: "127.0.0.1",
@@ -13,7 +21,7 @@ export default defineConfig({
     fs: {
       allow: [
         searchForWorkspaceRoot(decodeURIComponent(new URL(".", import.meta.url).pathname)),
-        dirname(createRequire(import.meta.url).resolve("@opencode/ui/fonts/Inter.ttf")),
+        dirname(require.resolve("@opencode/ui/fonts/Inter.ttf")),
       ],
     },
     headers: {

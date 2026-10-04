@@ -3,7 +3,7 @@ import exceptions from "./quality-exceptions.json" with { type: "json" };
 
 export default defineConfig({
   test: {
-    projects: ["packages/*"],
+    projects: ["packages/!(e2e)"],
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**/*.{ts,tsx}"],

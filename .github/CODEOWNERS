@@ -5,6 +5,7 @@
 /.github/workflows/       @ysm-dev
 /packages/dashboard-server/src/process.ts @ysm-dev
 /packages/dashboard/src/client.tsx @ysm-dev
+/packages/opencode-stats/src/bin.ts @ysm-dev
 /.oxlintrc.*              @ysm-dev
 /.oxfmtrc.json            @ysm-dev
 /.jscpd.json              @ysm-dev
