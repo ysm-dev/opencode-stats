@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import * as fc from "fast-check";
+import type { Step } from "@opencode-stats/browser-copy";
 import {
   inMemoryDashboardServer,
   propertyParameters,
@@ -15,6 +16,21 @@ function loadingEngine() {
     return release.promise;
   });
   return { engine: inThreadEngine(server.fetch), server, started, release };
+}
+
+async function allTimeState(steps: readonly Step[]) {
+  const server = inMemoryDashboardServer(syntheticCopy(steps));
+  const engine = inThreadEngine(server.fetch);
+  try {
+    const outcome = await engine.client.request({ kind: "all-time" });
+    expect(engine.answers).toHaveLength(1);
+    expect(engine.answers[0]).not.toHaveProperty("copy");
+    expect(engine.answers[0]).not.toHaveProperty("steps");
+    return outcome;
+  } finally {
+    await engine.dispose();
+    await server.dispose();
+  }
 }
 
 it("paints complete all-time Tokens through the real page-worker channel and HttpApi", async () => {
@@ -46,28 +62,45 @@ it("paints complete all-time Tokens through the real page-worker channel and Htt
 it("equals the independent reference for synthetic history through the channel", async () => {
   await fc.assert(
     fc.asyncProperty(syntheticSteps, async (steps) => {
-      const server = inMemoryDashboardServer(syntheticCopy(steps));
-      const engine = inThreadEngine(server.fetch);
-      try {
-        expect(await engine.client.request({ kind: "all-time" })).toEqual({
-          kind: "paint",
-          state: {
-            screen: "dashboard",
-            address: "/?range=all",
-            rangeLabel: "All time",
-            tokens: referenceTokens(steps),
-          },
-        });
-        expect(engine.answers).toHaveLength(1);
-        expect(engine.answers[0]).not.toHaveProperty("copy");
-        expect(engine.answers[0]).not.toHaveProperty("steps");
-      } finally {
-        await engine.dispose();
-        await server.dispose();
-      }
+      expect(await allTimeState(steps)).toEqual({
+        kind: "paint",
+        state: {
+          screen: "dashboard",
+          address: "/?range=all",
+          rangeLabel: "All time",
+          tokens: referenceTokens(steps),
+        },
+      });
     }),
     propertyParameters,
   );
+});
+
+it("does not lose low-order counts when all-time Tokens exceed a safe integer", async () => {
+  const steps = [9007199254740991, 2, 1].map((input) => ({
+    start: 0,
+    input,
+    cacheRead: 0,
+    cacheWrite: 0,
+    output: 0,
+    reasoning: 0,
+  }));
+  expect(await allTimeState(steps)).toEqual({
+    kind: "paint",
+    state: {
+      screen: "dashboard",
+      address: "/?range=all",
+      rangeLabel: "All time",
+      tokens: {
+        total: 9007199254740994,
+        input: 9007199254740994,
+        cacheRead: 0,
+        cacheWrite: 0,
+        output: 0,
+        reasoning: 0,
+      },
+    },
+  });
 });
 
 it("replaces an unanswered request, emits only the newest complete state and keeps the copy in the worker", async () => {

@@ -1,7 +1,7 @@
 import type { Step } from "@opencode-stats/browser-copy";
 
 // Row-oriented, integer arithmetic reference, independent of the engine's
-// column-oriented floating-point accumulation and the binary codec.
+// column-oriented accumulation and the binary codec.
 export function referenceTokens(steps: readonly Step[]) {
   const sum = (read: (step: Step) => number | null): number =>
     Number(steps.reduce((total, step) => total + BigInt(read(step) ?? 0), 0n));
