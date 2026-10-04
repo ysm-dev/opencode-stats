@@ -1,0 +1,67 @@
+@import "@opencode/ui/styles/tailwind";
+@import "@opencode/ui/styles/tokens";
+@source "./";
+
+@font-face {
+  font-family: Inter;
+  src: url("@opencode/ui/fonts/Inter.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: block;
+}
+
+html {
+  background: var(--v2-background-bg-deep);
+}
+body {
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 440;
+  color: var(--v2-text-text-base);
+  margin: 0;
+  min-width: 320px;
+}
+header,
+nav,
+main {
+  padding: 16px;
+}
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+nav a {
+  padding: 4px 8px;
+  min-height: 28px;
+  border-radius: 4px;
+}
+main {
+  background: var(--v2-background-bg-base);
+  margin: 0 16px;
+  border-radius: 8px;
+}
+h1 {
+  font-size: 20px;
+}
+a:focus-visible {
+  outline: 2px solid var(--v2-text-text-base);
+  outline-offset: 2px;
+}
+.skip-link {
+  position: absolute;
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+}
+@media (pointer: coarse) {
+  nav a {
+    min-height: 44px;
+  }
+}

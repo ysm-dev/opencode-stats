@@ -28,5 +28,6 @@ binary decoding and token computation. Dispose both the engine and server.
 The row-oriented BigInt reference checks results independently of the engine's
 column accumulation. Property seeds follow browser-copy's testing policy.
 
-The four-line worker entry has a proposed coverage/mutation exception and an
-exact CODEOWNERS line; it needs human approval before landing.
+The four-line worker entry has a maintainer-approved coverage/mutation
+exception under #27 (issuecomment-5977547319) and an exact CODEOWNERS line.
+All channel and engine logic is tested through the in-thread adapter.

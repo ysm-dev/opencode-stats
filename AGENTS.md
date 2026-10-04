@@ -27,6 +27,7 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 | Duplication          | Zero                                                                                                                                 | `dup`          |
 | Exceptions           | Reasoned single-line suppressions and human-owned whole-file waivers                                                                 | `exceptions`   |
 | Package shape        | `exports`, `bin`, `types` point into each package's own `src/`                                                                       | `shape`        |
+| Runtime contracts    | Every Bun adapter has nonempty, passing tests on real Bun                                                                            | `contracts`    |
 | Dependency freshness | New unheld releases fail after 7 days                                                                                                | `outdated`     |
 | Gate verification    | Planted violations rejected in `.ts` and `.tsx`                                                                                      | `verify-gates` |
 
@@ -35,9 +36,9 @@ Every gate reads `.ts` and `.tsx`; `dist/`, `.release/` and `.dev/` are artifact
 ### Rules that are easy to get wrong
 
 - **`any` is banned outright.** No exceptions.
-- **`unknown` is allowed only at a trust boundary** — a function taking untrusted input (CLI arguments, parsed JSON, environment variables) and narrowing it before anything downstream sees it. It is banned in every other declared parameter, return, or field type. See `packages/duration/src/parse-duration.ts` for the intended shape.
+- **`unknown` is allowed only at a trust boundary** — a function taking untrusted input (CLI arguments, parsed JSON, environment variables) and narrowing it before anything downstream sees it. It is banned in every other declared parameter, return, or field type. See `packages/dashboard-server/src/arguments.ts` for the intended shape.
 - **Coverage is per file, not global.** A global average is trivially gamed by one large well-covered file.
-- **Untestable code goes in a thin edge file**, not behind a coverage ignore comment. `packages/cli/src/index.ts` is the worked example: all logic lives in `main.ts`, and the shim that reads `process.argv` is the only excused file.
+- **Untestable code goes in a thin edge file**, not behind a coverage ignore comment. `packages/dashboard-server/src/process.ts` is the worked example: argument parsing and serving live in tested modules; the edge only reads `process.argv` and selects Bun adapters.
 
 ### When a gate blocks you
 
