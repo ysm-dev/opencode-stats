@@ -10,5 +10,11 @@
     "gates": ["coverage", "mutation"],
     "reason": "Maintainer-approved under #27 (issuecomment-5977547319): browser entry waits for fonts and mounts the tested dashboard into the document. User-event and axe tests exercise its real components.",
     "added": "2026-10-04"
+  },
+  {
+    "path": "packages/engine/src/worker.ts",
+    "gates": ["coverage", "mutation"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): the dedicated-worker global scope is wired only here; page-client and engine behavior are tested through the in-thread page-worker channel. Real worker startup is an end-to-end seam.",
+    "added": "2026-10-04"
   }
 ]
