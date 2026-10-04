@@ -1,6 +1,8 @@
 node_modules/
 coverage/
 dist/
+.release/
+.dev/
 .turbo/
 .vitest/
 .stryker-tmp/

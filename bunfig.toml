@@ -13,3 +13,4 @@ linker = "isolated"
 # protection on formatting output, and oxlint-tsgolint is hard-pinned to a
 # TypeScript patch release. Enforced at install time rather than left to review.
 exact = true
+minimumReleaseAge = 259200 # Three days, in seconds.
