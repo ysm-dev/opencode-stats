@@ -2,5 +2,5 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": { "rootDir": "..", "types": ["node"], "lib": ["es2024", "WebWorker"] },
   "include": ["../**/*.test.ts", "../**/*.test.tsx", "./**/*.ts", "./**/*.tsx"],
-  "exclude": []
+  "exclude": ["**/node_modules/**", "**/dist/**", "**/.release/**", "**/.dev/**"]
 }
