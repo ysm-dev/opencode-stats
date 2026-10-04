@@ -1,8 +1,14 @@
 [
   {
-    "path": "packages/cli/src/index.ts",
+    "path": "packages/dashboard-server/src/process.ts",
     "gates": ["coverage", "mutation"],
-    "reason": "Entry shim: reads process.argv and exits. All logic lives in main.ts, which is fully covered.",
-    "added": "2026-09-20"
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): process entry reads argv and selects Bun adapters. The program and HTTP behavior run on Node; real Bun contracts cover the adapter.",
+    "added": "2026-10-04"
+  },
+  {
+    "path": "packages/dashboard/src/client.tsx",
+    "gates": ["coverage", "mutation"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): browser entry waits for fonts and mounts the tested dashboard into the document. User-event and axe tests exercise its real components.",
+    "added": "2026-10-04"
   }
 ]

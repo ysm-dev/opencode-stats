@@ -5,8 +5,8 @@ export const withWaiver = (path: string, gates = ["coverage", "mutation"]): stri
   JSON.stringify([...exceptions, { path, gates, reason: "Temporary verifier canary" }]);
 
 export function* manifestChecks(extension: string): Generator<Check> {
-  const listed = `packages/duration/src/gate-canary-waived.${extension}`;
-  const unlisted = `packages/duration/src/gate-canary-neighbour.${extension}`;
+  const listed = `packages/dashboard/src/gate-canary-waived.${extension}`;
+  const unlisted = `packages/dashboard/src/gate-canary-neighbour.${extension}`;
   const content = "export const increase = (n: number): number => n + 1;\n";
   const manifest = withWaiver(listed);
   for (const command of ["test", "mutate"]) {

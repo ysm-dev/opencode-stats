@@ -5,11 +5,12 @@ import { exceptionChecks } from "./gate-exception-checks.ts";
 import { shapeChecks } from "./gate-shape-checks.ts";
 import { scopeChecks } from "./gate-scope-checks.ts";
 import { hookChecks } from "./gate-hook-checks.ts";
+import { contractChecks } from "./gate-contract-checks.ts";
 
 const repeat = (count: number, make: (index: number) => string): string =>
   `${Array.from({ length: count }, (_, index) => make(index)).join("\n")}\n`;
 
-const source = "packages/duration/src/gate-canary";
+const source = "packages/dashboard/src/gate-canary";
 const mutation = "export const increase = (n: number): number => n + 1;\n";
 
 const mutationTest = (extension: string, assertion: string): string =>
@@ -26,6 +27,7 @@ const lintCheck = (extension: string, gate: string, content: string, rule: strin
 });
 
 export function* checks(): Generator<Check> {
+  yield* contractChecks();
   yield* hookChecks();
   yield* shapeChecks();
   for (const extension of ["ts", "tsx"]) {

@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import root from "../package.json" with { type: "json" };
-import duration from "../packages/duration/package.json" with { type: "json" };
+import dashboard from "../packages/dashboard/package.json" with { type: "json" };
+import serverPackage from "../packages/dashboard-server/package.json" with { type: "json" };
 import holds from "../dependency-holds.json" with { type: "json" };
 import type { Check } from "./verify-gates.ts";
 
@@ -11,6 +12,10 @@ export async function* freshnessChecks(): AsyncGenerator<Check> {
   let bunOld = false;
   let newerYoung = false;
   const versions: Readonly<Record<string, string>> = {
+    ...dashboard.dependencies,
+    ...dashboard.devDependencies,
+    ...serverPackage.dependencies,
+    ...serverPackage.devDependencies,
     ...root.devDependencies,
     bun: root.devEngines.packageManager.version,
   };
@@ -60,10 +65,10 @@ export async function* freshnessChecks(): AsyncGenerator<Check> {
   const url = `http://127.0.0.1:${address.port}`;
   const env = { npm_config_registry: url, GITHUB_API_URL: url };
   const manifest = JSON.stringify({
-    ...duration,
-    devDependencies: { ...duration.devDependencies, "gate-canary-dependency": "1.0.0" },
+    ...dashboard,
+    devDependencies: { ...dashboard.devDependencies, "gate-canary-dependency": "1.0.0" },
   });
-  const files = { "packages/duration/package.json": manifest };
+  const files = { "packages/dashboard/package.json": manifest };
   try {
     yield {
       gate: "old unheld dependency rejected",

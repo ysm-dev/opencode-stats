@@ -53,7 +53,7 @@ jobs:
 
   verification:
     name: Gate verification
-    needs: [checks, mutation]
+    needs: [checks, mutation, contracts]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -67,15 +67,27 @@ jobs:
       # Plants source and changes configs: must be last, in its own checkout.
       - run: bun run verify-gates
 
+  contracts:
+    name: Bun contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2.2.0
+      - run: bun install --frozen-lockfile
+      - run: bun run contracts
+
   gates:
     name: Quality gates
-    needs: [checks, mutation, verification]
+    needs: [checks, mutation, contracts, verification]
     if: always()
     runs-on: ubuntu-latest
     steps:
       # Keep the ruleset's existing required check meaningful even if a job skips.
-      - run: test "$CHECKS" = success && test "$MUTATION" = success && test "$VERIFICATION" = success
+      - run: test "$CHECKS" = success && test "$MUTATION" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success
         env:
           CHECKS: ${{ needs.checks.result }}
           MUTATION: ${{ needs.mutation.result }}
+          CONTRACTS: ${{ needs.contracts.result }}
           VERIFICATION: ${{ needs.verification.result }}

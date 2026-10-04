@@ -1,18 +1,21 @@
 {
-  "name": "@opencode-stats/cli",
+  "name": "@opencode-stats/dashboard-server",
   "version": "0.0.0",
   "private": true,
-  "bin": {
-    "duration": "./src/index.ts"
-  },
   "type": "module",
+  "exports": {
+    ".": "./src/server.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@opencode-stats/duration": "workspace:*"
+    "@effect/platform-bun": "4.0.0",
+    "effect": "4.0.0"
   },
   "devDependencies": {
+    "@effect/platform-node": "4.0.0",
+    "@types/bun": "1.4.2",
     "@types/node": "26.6.3",
     "typescript": "7.0.2",
     "vitest": "5.0.3"
