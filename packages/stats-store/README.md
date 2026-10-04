@@ -16,6 +16,9 @@ source writes belongs to #35.
   Native contracts and the installed fixture retain the writer's WAL companions,
   as a running OpenCode writer does; inactive companion-free WAL sources remain
   a genuine native-driver limitation to resolve with the maintainer.
+  [The blocker investigation](../../docs/research/issue-33-readonly-wal.md)
+  records the failing inactive public contract and a successful upstream-library
+  differential; #33 remains blocked pending that runtime/release decision.
 - The resolved source path names a SHA-256 SQLite file under
   `${XDG_CACHE_HOME:-~/.cache}/opencode-stats/`. The directory is 0700; the
   database and existing WAL/SHM files are 0600. Only the derived store enables
