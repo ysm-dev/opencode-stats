@@ -67,12 +67,14 @@ describe("installed release", () => {
         ).toHaveProperty("sourcesContent");
       }
       expect(await readFile(bin, "utf8")).toMatch(/^#!\/usr\/bin\/env bun\n/u);
+      const command = process.platform === "win32" ? "bun" : bin;
+      const prefix = process.platform === "win32" ? ["--no-install", bin] : [];
       expect(
-        execFileSync("bun", ["--no-install", bin, "--version"], { cwd: folder, encoding: "utf8" }),
+        execFileSync(command, [...prefix, "--version"], { cwd: folder, encoding: "utf8" }),
       ).toBe("opencode-stats 0.2.0\n");
-      expect(
-        execFileSync("bun", ["--no-install", bin, "--help"], { cwd: folder, encoding: "utf8" }),
-      ).toBe("Usage: opencode-stats [--port <n>] [--no-open] [--help] [--version]\n");
+      expect(execFileSync(command, [...prefix, "--help"], { cwd: folder, encoding: "utf8" })).toBe(
+        "Usage: opencode-stats [--port <n>] [--no-open] [--help] [--version]\n",
+      );
       const node = spawn(process.execPath, [bin, "--help"], { cwd: folder });
       let message = "";
       node.stderr.on("data", (chunk: Buffer) => {
@@ -89,21 +91,18 @@ describe("installed release", () => {
       if (!address || typeof address === "string") throw new Error("No port");
       await new Promise<void>((done) => socket.close(() => done()));
       const origin = `http://127.0.0.1:${address.port}`;
-      const child = spawn(
-        "bun",
-        ["--no-install", bin, "--no-open", "--port", String(address.port)],
-        {
-          cwd: folder,
-          env: {
-            ...process.env,
-            OPENCODE_DB: join(folder, "synthetic.db"),
-            HOME: folder,
-            XDG_STATE_HOME: folder,
-            XDG_CACHE_HOME: folder,
-            XDG_DATA_HOME: folder,
-          },
+      const child = spawn(command, [...prefix, "--no-open", "--port", String(address.port)], {
+        cwd: folder,
+        detached: true,
+        env: {
+          ...process.env,
+          OPENCODE_DB: join(folder, "synthetic.db"),
+          HOME: folder,
+          XDG_STATE_HOME: folder,
+          XDG_CACHE_HOME: folder,
+          XDG_DATA_HOME: folder,
         },
-      );
+      });
       const exit = once(child, "close");
       let output = "";
       let error = "";
@@ -134,7 +133,11 @@ describe("installed release", () => {
         } finally {
           await browser.close();
         }
-        child.kill("SIGINT");
+        if (process.platform === "win32") child.kill("SIGINT");
+        else {
+          if (!child.pid) throw new Error("Bin has no process group");
+          process.kill(-child.pid, "SIGINT");
+        }
         expect(await exit).toEqual([0, null]);
         expect(output).toBe(`opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\nStopped.\n`);
         expect(error).toBe("");

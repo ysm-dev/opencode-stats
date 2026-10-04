@@ -2,7 +2,14 @@
   "$schema": "https://turborepo.com/schema.json",
   "tasks": {
     "typecheck": {
-      "inputs": ["src/**", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"]
+      "inputs": [
+        "src/**",
+        "tests/**",
+        "testing/**",
+        "tsconfig.json",
+        "package.json",
+        "$TURBO_ROOT$/tsconfig.base.json"
+      ]
     }
   }
 }

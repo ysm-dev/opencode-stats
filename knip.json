@@ -16,11 +16,11 @@
       "project": ["src/**/*.{ts,tsx,css}"]
     },
     "packages/opencode-stats": {
-      "project": ["src/**/*.{ts,tsx}!", "testing/**/*.ts"]
+      "project": ["src/**/*.{ts,tsx}!", "testing/**/*.{ts,tsx}"]
     },
     "packages/e2e": {
-      "entry": ["tests/**/*.test.ts"],
-      "project": ["tests/**/*.ts"]
+      "entry": ["tests/**/*.test.{ts,tsx}"],
+      "project": ["tests/**/*.{ts,tsx}"]
     }
   }
 }
