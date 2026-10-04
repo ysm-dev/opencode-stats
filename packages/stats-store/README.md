@@ -10,15 +10,14 @@ source writes belongs to #35.
 - Source connections use native readonly, disableWAL and a 20 ms busy timeout.
   A fully consumed scalar SELECT has no explicit read transaction. Busy reads
   back off for 20, 40 and 80 ms before stopping this startup build.
-  Bun 1.4.2's default macOS native reader can reject a checkpointed WAL database with
-  no `-wal`/`-shm` coordination files (`SQLITE_CANTOPEN`). The library reports a
-  build failure rather than opening the source writable or using `immutable`.
-  The live-writer contract checks normal native coordination; a separate inactive
-  contract checkpoints/closes its synthetic producer and requires the same facts
-  without companions. That case is currently red on the default macOS library.
-  [The blocker investigation](../../docs/research/issue-33-readonly-wal.md)
-  records the failing inactive public contract and a successful upstream-library
-  differential; #33 remains blocked pending that runtime/release decision.
+  ADR 0017 selects the controlled universal macOS SQLite library before any
+  native client opens, including `node:sqlite` and the sync worker. The library
+  is prepared by root tooling in source and shipped in the tarball; no setting,
+  Homebrew lookup, install hook or runtime download is used. Both live and
+  companion-free inactive WAL sources pass the same unsuppressed contracts.
+  [Native provenance and update policy](../../native/sqlite/README.md) records
+  the verified source, arm64/x64 build, hashes and notice. Linux/Windows retain
+  Bun's native library; Node tests retain their Node adapter.
 - The resolved source path names a SHA-256 SQLite file under
   `${XDG_CACHE_HOME:-~/.cache}/opencode-stats/`. The directory is 0700; the
   database and existing WAL/SHM files are 0600. Only the derived store enables

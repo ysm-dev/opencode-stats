@@ -13,6 +13,7 @@ export const busy = { remaining: 0 };
 
 // A native Node database behind Bun's synchronous surface, not a mock of counting logic.
 export class NodeBunDatabase {
+  static setCustomSQLite(_file: string): void {}
   readonly db: DatabaseSync;
   readonly record: (typeof connections)[number];
   constructor(

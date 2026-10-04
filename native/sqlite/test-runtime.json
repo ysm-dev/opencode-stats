@@ -1,0 +1,5 @@
+{
+  "opencode": "2.0.21",
+  "released": "2026-09-30T23:01:48.315Z",
+  "reason": "Newest eligible OpenCode executable at the 2026-10-04 verification; 2.0.22 was younger than three days. This pins embedded-Bun testing, not the source schema support list."
+}

@@ -8,168 +8,195 @@ import { syntheticDatabase } from "@opencode-stats/stats-store/testing";
 import { decode } from "@opencode-stats/browser-copy";
 import { chromium } from "playwright";
 import { describe, expect, it, vi } from "vitest";
+import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import sqlite from "../../../native/sqlite/manifest.json" with { type: "json" };
+import { checkEmbedded } from "./testing/embedded.ts";
+import { capture } from "./testing/process.ts";
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const shell = process.platform === "win32";
 const release = resolve(".release");
 
 describe("installed release", () => {
-  it("installs only our tarball with lifecycle scripts off and serves it under --no-install", async () => {
-    const tarballs = (await readdir(release)).filter((file) => file.endsWith(".tgz"));
-    expect(tarballs).toHaveLength(1);
-    const folder = await mkdtemp(join(tmpdir(), "stats-installed-"));
-    let writer: ReturnType<typeof syntheticDatabase> | undefined;
-    await writeFile(join(folder, "package.json"), JSON.stringify({ private: true }));
-    try {
-      execFileSync(
-        npm,
-        [
-          "install",
-          "--ignore-scripts",
-          "--no-audit",
-          "--no-fund",
-          "--package-lock=false",
-          join(release, String(tarballs[0])),
-        ],
-        { cwd: folder, shell },
-      );
-      const installed = join(folder, "node_modules/opencode-stats");
-      expect(
-        (await readdir(join(folder, "node_modules"))).filter((name) => !name.startsWith(".")),
-      ).toEqual(["opencode-stats"]);
-      expect(JSON.parse(await readFile(join(installed, "package.json"), "utf8"))).toMatchObject({
-        name: "opencode-stats",
-        version: "0.2.0",
-        engines: { bun: ">=1.4.2" },
-      });
-      const manifest = await readFile(join(installed, "package.json"), "utf8");
-      for (const field of [
-        "dependencies",
-        "devDependencies",
-        "peerDependencies",
-        "optionalDependencies",
-        "scripts",
-        "private",
-      ])
-        expect(manifest).not.toContain(`"${field}"`);
-      const bin = join(installed, "bin.js");
-      const notices = await readFile(join(installed, "THIRD_PARTY_NOTICES.md"), "utf8");
-      expect(notices).toContain("## effect 4.0.0");
-      expect(notices).toContain("## drizzle-orm 1.0.0-rc.5-5935859");
-      expect(notices).toContain("Apache License");
-      expect(notices).toContain("## katex");
-      expect(notices).toContain("SIL OPEN FONT LICENSE Version 1.1");
-      expect(
-        (await readdir(join(installed, "dashboard/assets"))).filter((file) => file.endsWith(".js")),
-      ).toHaveLength(1);
-      for (const name of ["bin", "process", "sync-worker"]) {
-        const code = await readFile(join(installed, `${name}.js`), "utf8");
-        expect(code).toContain("// opencode-stats 0.2.0");
-        expect(code).toContain(`//# sourceMappingURL=${name}.js.map`);
-        expect(
-          JSON.parse(await readFile(join(installed, `${name}.js.map`), "utf8")),
-        ).toHaveProperty("sourcesContent");
-      }
-      expect(await readFile(bin, "utf8")).toMatch(/^#!\/usr\/bin\/env bun\n/u);
-      const command = process.platform === "win32" ? "bun" : bin;
-      const prefix = process.platform === "win32" ? ["--no-install", bin] : [];
-      expect(
-        execFileSync(command, [...prefix, "--version"], { cwd: folder, encoding: "utf8" }),
-      ).toBe("opencode-stats 0.2.0\n");
-      expect(execFileSync(command, [...prefix, "--help"], { cwd: folder, encoding: "utf8" })).toBe(
-        "Usage: opencode-stats [--port <n>] [--db <path>] [--no-open] [--help] [--version]\n",
-      );
-      const node = spawn(process.execPath, [bin, "--help"], { cwd: folder });
-      let message = "";
-      node.stderr.on("data", (chunk: Buffer) => {
-        message += chunk.toString();
-      });
-      expect(await once(node, "close")).toEqual([1, null]);
-      expect(message).toBe("opencode-stats needs Bun: run `bunx opencode-stats`\n");
-      const db = syntheticDatabase(join(folder, "synthetic.db"));
-      writer = db;
-      db.session("ses-installed");
-      db.message({
-        id: "msg-installed",
-        session: "ses-installed",
-        seq: 0,
-        start: 1234567890000,
-        tokens: { input: 1, cache: { read: 2, write: 3 }, output: 4, reasoning: 5 },
-      });
-      // Like OpenCode, keep the WAL writer alive while its readonly consumer
-      // runs. Bun rejects a checkpointed WAL file with no coordination files.
-      const port = await temporaryPort();
-      const origin = `http://127.0.0.1:${port}`;
-      const child = spawn(
-        command,
-        [...prefix, "--no-open", "--port", String(port), "--db", join(folder, "synthetic.db")],
-        {
-          cwd: folder,
-          detached: true,
-          env: {
-            ...process.env,
-            OPENCODE_DB: join(folder, "missing-override.db"),
-            HOME: folder,
-            XDG_STATE_HOME: folder,
-            XDG_CACHE_HOME: folder,
-            XDG_DATA_HOME: folder,
-          },
-        },
-      );
-      const exit = once(child, "close");
-      let output = "";
-      let error = "";
-      child.stdout.on("data", (chunk: Buffer) => {
-        output += chunk.toString();
-      });
-      child.stderr.on("data", (chunk: Buffer) => {
-        error += chunk.toString();
-      });
+  it.each(["live", "inactive"])(
+    "installs only our tarball and serves a %s WAL source under --no-install",
+    async (state) => {
+      const tarballs = (await readdir(release)).filter((file) => file.endsWith(".tgz"));
+      expect(tarballs).toHaveLength(1);
+      const folder = await mkdtemp(join(tmpdir(), "stats-installed-"));
+      let writer: ReturnType<typeof syntheticDatabase> | undefined;
+      await writeFile(join(folder, "package.json"), JSON.stringify({ private: true }));
       try {
-        await vi.waitFor(
-          () => expect(output).toBe(`opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\n`),
-          { timeout: 10000 },
+        execFileSync(
+          npm,
+          [
+            "install",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--package-lock=false",
+            join(release, String(tarballs[0])),
+          ],
+          { cwd: folder, shell },
         );
-        const response = await fetch(`${origin}/api/browser-copy`);
-        expect(response.headers.get("content-type")).toBe("application/octet-stream");
-        const copy = decode(await response.arrayBuffer());
-        expect(Array.from(copy.steps.start)).toEqual([1234567890000]);
-        expect(Array.from(copy.steps.input)).toEqual([1]);
-        expect(Array.from(copy.steps.reasoning)).toEqual([5]);
-        const browser = await chromium.launch({ headless: true });
+        const installed = join(folder, "node_modules/opencode-stats");
+        expect(
+          (await readdir(join(folder, "node_modules"))).filter((name) => !name.startsWith(".")),
+        ).toEqual(["opencode-stats"]);
+        expect(JSON.parse(await readFile(join(installed, "package.json"), "utf8"))).toMatchObject({
+          name: "opencode-stats",
+          version: "0.2.0",
+          engines: { bun: ">=1.4.2" },
+        });
+        const manifest = await readFile(join(installed, "package.json"), "utf8");
+        for (const field of [
+          "dependencies",
+          "devDependencies",
+          "peerDependencies",
+          "optionalDependencies",
+          "scripts",
+          "private",
+        ])
+          expect(manifest).not.toContain(`"${field}"`);
+        const bin = join(installed, "bin.js");
+        const native = join(installed, "native/sqlite/libsqlite3.dylib");
+        expect(createHash("sha256").update(readFileSync(native)).digest("hex")).toBe(sqlite.sha256);
+        expect(
+          JSON.parse(await readFile(join(installed, "native/sqlite/manifest.json"), "utf8")),
+        ).toEqual(sqlite);
+        const notices = await readFile(join(installed, "THIRD_PARTY_NOTICES.md"), "utf8");
+        expect(notices).toContain("## effect 4.0.0");
+        expect(notices).toContain("## drizzle-orm 1.0.0-rc.5-5935859");
+        expect(notices).toContain("Apache License");
+        expect(notices).toContain("SQLite 3.53.4");
+        expect(notices).toContain("SQLite is in the public domain");
+        expect(notices).toContain("## katex");
+        expect(notices).toContain("SIL OPEN FONT LICENSE Version 1.1");
+        expect(
+          (await readdir(join(installed, "dashboard/assets"))).filter((file) =>
+            file.endsWith(".js"),
+          ),
+        ).toHaveLength(1);
+        for (const name of ["bin", "process", "sync-worker"]) {
+          const code = await readFile(join(installed, `${name}.js`), "utf8");
+          expect(code).toContain("// opencode-stats 0.2.0");
+          expect(code).toContain(`//# sourceMappingURL=${name}.js.map`);
+          expect(
+            JSON.parse(await readFile(join(installed, `${name}.js.map`), "utf8")),
+          ).toHaveProperty("sourcesContent");
+        }
+        expect(await readFile(bin, "utf8")).toMatch(/^#!\/usr\/bin\/env bun\n/u);
+        const command = process.platform === "win32" ? "bun" : bin;
+        const prefix = process.platform === "win32" ? ["--no-install", bin] : [];
+        expect(
+          execFileSync(command, [...prefix, "--version"], { cwd: folder, encoding: "utf8" }),
+        ).toBe("opencode-stats 0.2.0\n");
+        expect(
+          execFileSync(command, [...prefix, "--help"], { cwd: folder, encoding: "utf8" }),
+        ).toBe(
+          "Usage: opencode-stats [--port <n>] [--db <path>] [--no-open] [--help] [--version]\n",
+        );
+        const node = spawn(process.execPath, [bin, "--help"], { cwd: folder });
+        let message = "";
+        node.stderr.on("data", (chunk: Buffer) => {
+          message += chunk.toString();
+        });
+        expect(await once(node, "close")).toEqual([1, null]);
+        expect(message).toBe("opencode-stats needs Bun: run `bunx opencode-stats`\n");
+        const db = syntheticDatabase(join(folder, "synthetic.db"));
+        writer = db;
+        db.session("ses-installed");
+        db.message({
+          id: "msg-installed",
+          session: "ses-installed",
+          seq: 0,
+          start: 1234567890000,
+          tokens: { input: 1, cache: { read: 2, write: 3 }, output: 4, reasoning: 5 },
+        });
+        if (state === "inactive") {
+          db.close();
+          writer = undefined;
+        }
+        expect(existsSync(join(folder, "synthetic.db-wal"))).toBe(state === "live");
+        expect(existsSync(join(folder, "synthetic.db-shm"))).toBe(state === "live");
+        const before = readFileSync(join(folder, "synthetic.db"));
+        const walBefore = state === "live" ? readFileSync(join(folder, "synthetic.db-wal")) : null;
+        const port = await temporaryPort();
+        const origin = `http://127.0.0.1:${port}`;
+        const child = spawn(
+          command,
+          [...prefix, "--no-open", "--port", String(port), "--db", join(folder, "synthetic.db")],
+          {
+            cwd: folder,
+            detached: true,
+            env: {
+              ...process.env,
+              OPENCODE_DB: join(folder, "missing-override.db"),
+              HOME: folder,
+              XDG_STATE_HOME: folder,
+              XDG_CACHE_HOME: folder,
+              XDG_DATA_HOME: folder,
+            },
+          },
+        );
+        const { transcript, closed: exit } = capture(child);
         try {
-          const page = await browser.newPage();
-          const failures: string[] = [];
-          page.on("pageerror", (failure) => {
-            failures.push(failure.message);
-          });
-          await page.goto(origin);
-          await page.getByRole("heading", { name: "Overview", exact: true }).waitFor();
-          expect(await page.title()).toBe("Overview · opencode-stats");
-          expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
-          expect(await page.getByRole("navigation").count()).toBe(1);
-          expect(failures).toEqual([]);
+          await vi.waitFor(
+            () =>
+              expect(transcript.output).toBe(
+                `opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\n`,
+              ),
+            { timeout: 10000 },
+          );
+          const response = await fetch(`${origin}/api/browser-copy`);
+          expect(response.headers.get("content-type")).toBe("application/octet-stream");
+          const copy = decode(await response.arrayBuffer());
+          expect(Array.from(copy.steps.start)).toEqual([1234567890000]);
+          expect(Array.from(copy.steps.input)).toEqual([1]);
+          expect(Array.from(copy.steps.reasoning)).toEqual([5]);
+          expect(readFileSync(join(folder, "synthetic.db"))).toEqual(before);
+          const walAfter = walBefore ? readFileSync(join(folder, "synthetic.db-wal")) : null;
+          expect(walAfter).toEqual(walBefore);
+          const browser = await chromium.launch({ headless: true });
+          try {
+            const page = await browser.newPage();
+            const failures: string[] = [];
+            page.on("pageerror", (failure) => {
+              failures.push(failure.message);
+            });
+            await page.goto(origin);
+            await page.getByRole("heading", { name: "Overview", exact: true }).waitFor();
+            expect(await page.title()).toBe("Overview · opencode-stats");
+            expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+            expect(await page.getByRole("navigation").count()).toBe(1);
+            expect(failures).toEqual([]);
+          } finally {
+            await browser.close();
+          }
+          if (process.platform === "win32") child.kill("SIGINT");
+          else {
+            if (!child.pid) throw new Error("Bin has no process group");
+            process.kill(-child.pid, "SIGINT");
+          }
+          expect(await exit).toEqual([0, null]);
+          expect(transcript.output).toBe(
+            `opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\nStopped.\n`,
+          );
+          expect(transcript.error).toBe("");
+          await expect(fetch(origin)).rejects.toThrow("fetch failed");
+          if (process.platform === "darwin")
+            await checkEmbedded(installed, join(folder, "synthetic.db"), folder);
         } finally {
-          await browser.close();
+          child.kill();
+          await exit;
         }
-        if (process.platform === "win32") child.kill("SIGINT");
-        else {
-          if (!child.pid) throw new Error("Bin has no process group");
-          process.kill(-child.pid, "SIGINT");
-        }
-        expect(await exit).toEqual([0, null]);
-        expect(output).toBe(`opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\nStopped.\n`);
-        expect(error).toBe("");
-        await expect(fetch(origin)).rejects.toThrow("fetch failed");
       } finally {
-        child.kill();
-        await exit;
+        writer?.close();
+        await rm(folder, { recursive: true, force: true });
       }
-    } finally {
-      writer?.close();
-      await rm(folder, { recursive: true, force: true });
-    }
-  });
+    },
+  );
   it("checks real bundles and rejects planted forbidden imports and bin dependencies", async () => {
     expect(execFileSync("bun", ["run", "scripts/bundle-check.ts"], { encoding: "utf8" })).toBe(
       "Bundle imports checked.\n",

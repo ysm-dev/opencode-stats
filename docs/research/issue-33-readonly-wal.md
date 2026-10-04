@@ -1,8 +1,11 @@
 # #33: companion-free WAL native-reader blocker
 
-2026-10-04. Synthetic databases only; no OpenCode installation was read. This is
-an unresolved runtime choice, not completion of #33 and not a source-write
-workaround.
+Historical investigation, 2026-10-04. Synthetic databases only; no OpenCode
+installation was read. The maintainer subsequently approved ADR 0017: the
+product now ships a verified universal upstream SQLite 3.53.4 library and
+initializes it before native opens. The inactive public regression is retained
+and passes. See `native/sqlite/README.md` and its manifest for current build/pin
+provenance; the observations below explain why Apple's default was replaced.
 
 ## Regression and scope
 

@@ -16,6 +16,11 @@ const assets: string[] = [];
 await rm(folder, { recursive: true, force: true });
 await mkdir(packed, { recursive: true });
 await mkdir(resolve(folder, "metafiles"));
+execFileSync(
+  process.execPath,
+  ["run", "scripts/native-prepare.ts", resolve(packed, "native/sqlite")],
+  { stdio: "inherit" },
+);
 
 const paths = {
   [resolve("packages/opencode-stats/src/paths.ts")]:
@@ -25,7 +30,7 @@ const paths = {
   [resolve("packages/dashboard-server/src/paths.ts")]:
     "import {fileURLToPath} from 'node:url'; export const dashboardFiles=fileURLToPath(new URL('./dashboard/',import.meta.url));",
   [resolve("packages/stats-store/src/paths.ts")]:
-    "export const syncWorkerFile=new URL('./sync-worker.js',import.meta.url).href;",
+    "import {fileURLToPath} from 'node:url'; export const syncWorkerFile=new URL('./sync-worker.js',import.meta.url).href; export const sqliteLibraryFile=fileURLToPath(new URL('./native/sqlite/libsqlite3.dylib',import.meta.url));",
 };
 
 for (const [name, entry] of [
@@ -91,7 +96,7 @@ await copyFile("README.md", resolve(packed, "README.md"));
 await copyFile("LICENSE", resolve(packed, "LICENSE"));
 await writeFile(
   resolve(packed, "THIRD_PARTY_NOTICES.md"),
-  `# Bundled server and asset dependencies\n\n${notices(metafiles, assets)}\n## Inter\n\n${await readFile("docs/licenses/inter.txt", "utf8")}\nDashboard JavaScript dependency notices: dashboard/THIRD_PARTY_NOTICES.md.\n`,
+  `# Bundled server and asset dependencies\n\n${notices(metafiles, assets)}\n## SQLite\n\n${await readFile("native/sqlite/NOTICE.txt", "utf8")}\nNative source/build provenance and checksums: native/sqlite/manifest.json.\n## Inter\n\n${await readFile("docs/licenses/inter.txt", "utf8")}\nDashboard JavaScript dependency notices: dashboard/THIRD_PARTY_NOTICES.md.\n`,
 );
 await chmod(resolve(packed, "bin.js"), 0o755);
 await writeFile(
@@ -111,6 +116,7 @@ await writeFile(
         "*.js.map",
         "empty-bunfig.toml",
         "dashboard",
+        "native",
         "README.md",
         "LICENSE",
         "THIRD_PARTY_NOTICES.md",

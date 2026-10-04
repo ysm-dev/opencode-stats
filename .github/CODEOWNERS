@@ -36,3 +36,14 @@
 /packages/stats-store/src/types.test.ts @ysm-dev
 /packages/stats-store/src/fingerprints.json @ysm-dev
 /docs/licenses/drizzle-orm.txt @ysm-dev
+/native/sqlite/ @ysm-dev
+/scripts/native-build.ts @ysm-dev
+/scripts/native-prepare.ts @ysm-dev
+/packages/stats-store/src/sqlite-library.bun.ts @ysm-dev
+/packages/stats-store/src/sqlite-library.bun.test.ts @ysm-dev
+/packages/stats-store/src/sqlite-library.bun.contract.test.ts @ysm-dev
+/scripts/native-outdated.ts @ysm-dev
+/scripts/gate-native-checks.ts @ysm-dev
+/scripts/opencode-prepare.ts @ysm-dev
+/packages/e2e/tests/native.test.ts @ysm-dev
+/scripts/testing/native-setup.ts @ysm-dev

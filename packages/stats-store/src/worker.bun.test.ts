@@ -9,6 +9,7 @@ import { nodeDatabase } from "./runtime.node.ts";
 import { workerProgram } from "./worker-program.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { InThreadWorker } from "./testing/worker.ts";
+vi.mock("bun:sqlite", () => ({ Database: { setCustomSQLite: vi.fn<(file: string) => void>() } }));
 
 it("builds through the Bun Worker adapter with an in-thread worker, and removes listeners before terminating", async () => {
   const fixture = syntheticFixture();

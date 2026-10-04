@@ -3,6 +3,7 @@ import exceptions from "./quality-exceptions.json" with { type: "json" };
 
 export default defineConfig({
   test: {
+    globalSetup: ["scripts/testing/native-setup.ts"],
     projects: ["packages/!(e2e)"],
     coverage: {
       provider: "v8",
