@@ -14,6 +14,31 @@ export function* scopeChecks(extension: string): Generator<Check> {
     command: ["typecheck"],
     expect: ["TS2322", `gate-canary.${extension}`],
   };
+  for (const directory of ["packages/e2e/tests", "packages/opencode-stats/testing"]) {
+    const path = `${directory}/gate-canary.${extension}`;
+    yield {
+      gate: `test-only folders checked by types (${path})`,
+      files: { [path]: 'export const bad: number = "not a number";\n' },
+      command: ["typecheck"],
+      expect: ["TS2322", `gate-canary.${extension}`],
+    };
+    yield {
+      gate: `test-only folders checked by dead code (${path})`,
+      files: { [path]: "export const unused = 1;\n" },
+      command: ["knip"],
+      expect: ["Unused files", `gate-canary.${extension}`],
+    };
+    const duplicate =
+      "export const clone = (n: number): number => {\n" +
+      Array.from({ length: 30 }, (_, i) => `const value${i} = n * ${i};`).join("\n") +
+      "\nreturn n;\n};\n";
+    yield {
+      gate: `test-only folders checked by duplication (${path})`,
+      files: { [path]: duplicate, [`${directory}/gate-canary-clone.${extension}`]: duplicate },
+      command: ["dup"],
+      expect: ["Clone found"],
+    };
+  }
   yield {
     gate: `type-aware lint (${extension})`,
     files: { [file]: "export const floating = (): void => { Promise.resolve(1); };\n" },

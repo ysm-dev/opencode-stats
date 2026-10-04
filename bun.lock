@@ -7,6 +7,7 @@
       "devDependencies": {
         "@stryker-mutator/core": "10.0.0",
         "@stryker-mutator/vitest-runner": "10.0.0",
+        "@types/bun": "1.4.2",
         "@types/node": "26.6.3",
         "@types/semver": "7.8.0",
         "@vitest/coverage-v8": "5.0.3",
@@ -54,6 +55,7 @@
         "@testing-library/user-event": "14.6.7",
         "axe-core": "4.13.0",
         "jsdom": "30.1.1",
+        "tailwindcss": "4.3.3",
         "typescript": "7.0.2",
         "vite": "8.3.1",
         "vite-plugin-solid": "2.11.14",
@@ -70,6 +72,40 @@
       "devDependencies": {
         "@effect/platform-node": "4.0.0",
         "@types/bun": "1.4.2",
+        "@types/node": "26.6.3",
+        "typescript": "7.0.2",
+        "vitest": "5.0.3",
+      },
+    },
+    "packages/e2e": {
+      "name": "@opencode-stats/e2e",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/node": "26.6.3",
+        "playwright": "1.63.0",
+        "typescript": "7.0.2",
+        "vitest": "5.0.3",
+      },
+    },
+    "packages/launcher": {
+      "name": "@opencode-stats/launcher",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/node": "26.6.3",
+        "typescript": "7.0.2",
+        "vitest": "5.0.3",
+      },
+    },
+    "packages/opencode-stats": {
+      "name": "opencode-stats",
+      "version": "0.2.0",
+      "bin": {
+        "opencode-stats": "./src/bin.ts",
+      },
+      "dependencies": {
+        "@opencode-stats/launcher": "workspace:*",
+      },
+      "devDependencies": {
         "@types/node": "26.6.3",
         "typescript": "7.0.2",
         "vitest": "5.0.3",
@@ -267,6 +303,10 @@
     "@opencode-stats/dashboard": ["@opencode-stats/dashboard@workspace:packages/dashboard"],
 
     "@opencode-stats/dashboard-server": ["@opencode-stats/dashboard-server@workspace:packages/dashboard-server"],
+
+    "@opencode-stats/e2e": ["@opencode-stats/e2e@workspace:packages/e2e"],
+
+    "@opencode-stats/launcher": ["@opencode-stats/launcher@workspace:packages/launcher"],
 
     "@opencode/ui": ["@opencode/ui@2.0.21", "", { "dependencies": { "@kobalte/core": "0.13.13", "@pierre/diffs": "1.5.1", "@solid-primitives/event-listener": "2.4.6", "@solid-primitives/resize-observer": "2.2.0", "fuzzysort": "3.1.0", "katex": "0.16.47", "marked": "18.0.11", "marked-shiki": "1.2.1", "motion": "12.34.5", "remeda": "2.26.0", "shiki": "4.4.3", "solid-list": "0.3.0", "solid-sonner": "0.3.1" }, "peerDependencies": { "@solidjs/meta": "^0.29.0", "solid-js": "^1.9.8" } }, "sha512-ueNi21VE6OxDW6LQbFeAsN9eJSQ7eND0r27u7VxDtB4Jm8ut5IxA8Xjbr9izaJb+ZQJ1HnE61kipv/LuYfQiJA=="],
 
@@ -1038,6 +1078,8 @@
 
     "oniguruma-to-es": ["oniguruma-to-es@4.3.6", "", { "dependencies": { "oniguruma-parser": "^0.12.2", "regex": "^6.1.0", "regex-recursion": "^6.0.2" } }, "sha512-csuQ9x3Yr0cEIs/Zgx/OEt9iBw9vqIunAPQkx19R/fiMq2oGVTgcMqO/V3Ybqefr1TBvosI6jU539ksaBULJyA=="],
 
+    "opencode-stats": ["opencode-stats@workspace:packages/opencode-stats"],
+
     "oxc-parser": ["oxc-parser@0.152.0", "", { "dependencies": { "@oxc-project/types": "^0.152.0" }, "optionalDependencies": { "@oxc-parser/binding-android-arm-eabi": "0.152.0", "@oxc-parser/binding-android-arm64": "0.152.0", "@oxc-parser/binding-darwin-arm64": "0.152.0", "@oxc-parser/binding-darwin-x64": "0.152.0", "@oxc-parser/binding-freebsd-x64": "0.152.0", "@oxc-parser/binding-linux-arm-gnueabihf": "0.152.0", "@oxc-parser/binding-linux-arm-musleabihf": "0.152.0", "@oxc-parser/binding-linux-arm64-gnu": "0.152.0", "@oxc-parser/binding-linux-arm64-musl": "0.152.0", "@oxc-parser/binding-linux-ppc64-gnu": "0.152.0", "@oxc-parser/binding-linux-riscv64-gnu": "0.152.0", "@oxc-parser/binding-linux-riscv64-musl": "0.152.0", "@oxc-parser/binding-linux-s390x-gnu": "0.152.0", "@oxc-parser/binding-linux-x64-gnu": "0.152.0", "@oxc-parser/binding-linux-x64-musl": "0.152.0", "@oxc-parser/binding-openharmony-arm64": "0.152.0", "@oxc-parser/binding-win32-arm64-msvc": "0.152.0", "@oxc-parser/binding-win32-ia32-msvc": "0.152.0", "@oxc-parser/binding-win32-x64-msvc": "0.152.0" } }, "sha512-ZztsZgaCWmPeKYMdoTT5e0oV/oxD1NeLWNR3kAtr/G707cUPYaaozRlVDHLCGnszHJRszN9mJwmPNpqgwloC0A=="],
 
     "oxc-resolver": ["oxc-resolver@11.24.2", "", { "optionalDependencies": { "@oxc-resolver/binding-android-arm-eabi": "11.24.2", "@oxc-resolver/binding-android-arm64": "11.24.2", "@oxc-resolver/binding-darwin-arm64": "11.24.2", "@oxc-resolver/binding-darwin-x64": "11.24.2", "@oxc-resolver/binding-freebsd-x64": "11.24.2", "@oxc-resolver/binding-linux-arm-gnueabihf": "11.24.2", "@oxc-resolver/binding-linux-arm-musleabihf": "11.24.2", "@oxc-resolver/binding-linux-arm64-gnu": "11.24.2", "@oxc-resolver/binding-linux-arm64-musl": "11.24.2", "@oxc-resolver/binding-linux-ppc64-gnu": "11.24.2", "@oxc-resolver/binding-linux-riscv64-gnu": "11.24.2", "@oxc-resolver/binding-linux-riscv64-musl": "11.24.2", "@oxc-resolver/binding-linux-s390x-gnu": "11.24.2", "@oxc-resolver/binding-linux-x64-gnu": "11.24.2", "@oxc-resolver/binding-linux-x64-musl": "11.24.2", "@oxc-resolver/binding-openharmony-arm64": "11.24.2", "@oxc-resolver/binding-wasm32-wasi": "11.24.2", "@oxc-resolver/binding-win32-arm64-msvc": "11.24.2", "@oxc-resolver/binding-win32-x64-msvc": "11.24.2" } }, "sha512-FY91FiDBj7ls5MsFS9jN3tjz2o0/zsdSsymlakySaBwVJZorHhkWyICLZMKxlu1R9vYo+sd3z1jwb4J8x7bNDw=="],
@@ -1061,6 +1103,10 @@
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
     "picomatch": ["picomatch@4.0.7", "", {}, "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="],
+
+    "playwright": ["playwright@1.63.0", "", { "dependencies": { "playwright-core": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg=="],
+
+    "playwright-core": ["playwright-core@1.63.0", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg=="],
 
     "postcss": ["postcss@8.5.28", "", { "dependencies": { "nanoid": "^3.3.18", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A=="],
 

@@ -12,6 +12,7 @@ export const program = (args: unknown, adapter: typeof nodeServer) =>
     });
     yield* Effect.gen(function* () {
       yield* startServer();
+      yield* Effect.sync(() => process.stdout.write("opencode-stats-ready\n"));
       yield* Effect.never;
     }).pipe(Effect.provide(adapter(options.port)));
   }).pipe(Effect.scoped);
