@@ -10,12 +10,12 @@ source writes belongs to #35.
 - Source connections use native readonly, disableWAL and a 20 ms busy timeout.
   A fully consumed scalar SELECT has no explicit read transaction. Busy reads
   back off for 20, 40 and 80 ms before stopping this startup build.
-  Bun 1.4.2's native readonly reader can reject a checkpointed WAL database with
+  Bun 1.4.2's default macOS native reader can reject a checkpointed WAL database with
   no `-wal`/`-shm` coordination files (`SQLITE_CANTOPEN`). The library reports a
   build failure rather than opening the source writable or using `immutable`.
-  Native contracts and the installed fixture retain the writer's WAL companions,
-  as a running OpenCode writer does; inactive companion-free WAL sources remain
-  a genuine native-driver limitation to resolve with the maintainer.
+  The live-writer contract checks normal native coordination; a separate inactive
+  contract checkpoints/closes its synthetic producer and requires the same facts
+  without companions. That case is currently red on the default macOS library.
   [The blocker investigation](../../docs/research/issue-33-readonly-wal.md)
   records the failing inactive public contract and a successful upstream-library
   differential; #33 remains blocked pending that runtime/release decision.
