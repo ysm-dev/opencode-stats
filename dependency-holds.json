@@ -6,8 +6,8 @@
   },
   {
     "package": "drizzle-kit",
-    "allowedVersions": "1.0.0-rc.5-ab785fc",
-    "reason": "Keep the schema generator on the tested drizzle release-candidate line. Lift with the ORM hold after generated statements and SQL contracts pass."
+    "allowedVersions": "1.0.0-rc.5-5935859",
+    "reason": "Matches the held ORM and tested in-process generation; ab785fc imports CockroachArray, absent from that ORM. Lift with the ORM hold after in-process generation and SQL contracts pass."
   },
   {
     "package": "@opencode/ui",
