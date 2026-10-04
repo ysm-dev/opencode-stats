@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { createRequire } from "node:module";
 import { object, readJson, text } from "./json.ts";
@@ -19,7 +19,7 @@ const packageFolder = (file: string): string => {
 
 export const notices = (metafiles: Json[], assets: string[]): string => {
   const require = createRequire(
-    resolve("packages/dashboard/node_modules/@opencode/ui/package.json"),
+    realpathSync("packages/dashboard/node_modules/@opencode/ui/package.json"),
   );
   const assetOwners = assets
     .filter((path) => path.includes("node_modules/"))
