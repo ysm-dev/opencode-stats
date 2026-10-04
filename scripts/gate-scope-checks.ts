@@ -1,7 +1,7 @@
 import type { Check } from "./verify-gates.ts";
 
 export function* scopeChecks(extension: string): Generator<Check> {
-  const file = `packages/duration/src/gate-canary.${extension}`;
+  const file = `packages/dashboard/src/gate-canary.${extension}`;
   yield {
     gate: `formatting (${extension})`,
     files: { [file]: "export    const badlyFormatted=1\n" },
@@ -24,11 +24,11 @@ export function* scopeChecks(extension: string): Generator<Check> {
     yield {
       gate: `testing code and contracts excluded from ${gate} (${extension})`,
       files: {
-        [`packages/duration/src/testing/gate-canary.${extension}`]:
+        [`packages/dashboard/src/testing/gate-canary.${extension}`]:
           "export const untested = (n: number): number => n + 1;\n",
-        [`packages/cli/src/gate-canary.contract.test.${extension}`]:
+        [`packages/dashboard-server/src/gate-canary.contract.test.${extension}`]:
           'throw new Error("Contracts must not run in Vitest");\n',
-        [`packages/duration/src/gate-canary.contract.test.${extension}`]:
+        [`packages/dashboard/src/gate-canary.contract.test.${extension}`]:
           'throw new Error("Contracts must not run in Vitest");\n',
       },
       command: [gate],
@@ -38,7 +38,7 @@ export function* scopeChecks(extension: string): Generator<Check> {
   }
   const artifacts = ["dist", ".release", ".dev"].flatMap((folder) => [
     `${folder}/gate-canary.${extension}`,
-    `packages/duration/src/${folder}/gate-canary.${extension}`,
+    `packages/dashboard/src/${folder}/gate-canary.${extension}`,
     `scripts/${folder}/gate-canary.${extension}`,
   ]);
   for (const gate of [

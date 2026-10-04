@@ -2,7 +2,7 @@ import { withWaiver } from "./gate-manifest-checks.ts";
 import type { Check } from "./verify-gates.ts";
 
 export function* lintChecks(extension: string): Generator<Check> {
-  const file = `packages/duration/src/gate-canary.${extension}`;
+  const file = `packages/dashboard/src/gate-canary.${extension}`;
   const cases = [
     [
       "unused disable",
@@ -16,7 +16,7 @@ export function* lintChecks(extension: string): Generator<Check> {
     ],
     [
       "production testing import",
-      'import type { Example } from "@opencode-stats/duration/testing";\nexport type GateCanary = Example;\n',
+      'import type { Example } from "@opencode-stats/dashboard/testing";\nexport type GateCanary = Example;\n',
       "no-restricted-imports",
     ],
   ] as const;
@@ -29,14 +29,14 @@ export function* lintChecks(extension: string): Generator<Check> {
     };
   }
   for (const path of [
-    `packages/duration/src/gate-canary.test.${extension}`,
-    `packages/duration/src/testing/gate-canary.${extension}`,
+    `packages/dashboard/src/gate-canary.test.${extension}`,
+    `packages/dashboard/src/testing/gate-canary.${extension}`,
   ]) {
     yield {
       gate: `testing import allowed (${path})`,
       files: {
         [path]:
-          'import type { Example } from "@opencode-stats/duration/testing";\nexport type GateCanary = Example;\n',
+          'import type { Example } from "@opencode-stats/dashboard/testing";\nexport type GateCanary = Example;\n',
       },
       command: ["lint", path],
       expect: [],

@@ -1,4 +1,4 @@
-import duration from "../packages/duration/package.json" with { type: "json" };
+import dashboard from "../packages/dashboard/package.json" with { type: "json" };
 import type { Check } from "./verify-gates.ts";
 
 export function* shapeChecks(): Generator<Check> {
@@ -18,21 +18,26 @@ export function* shapeChecks(): Generator<Check> {
     yield {
       gate: `package ${field} must point into src`,
       files: {
-        "packages/duration/package.json": JSON.stringify({
-          ...duration,
+        "packages/dashboard/package.json": JSON.stringify({
+          ...dashboard,
           [field]: "./dist/index.js",
         }),
       },
       command: ["shape"],
-      expect: ["packages/duration/package.json", field, "src/"],
+      expect: ["packages/dashboard/package.json", field, "src/"],
     };
   }
   yield {
     gate: "conditional exports cannot escape src",
     files: {
-      "packages/duration/package.json": JSON.stringify({
-        ...duration,
-        exports: { ".": { types: "./src/../../cli/src/index.ts", default: "./src/index.ts" } },
+      "packages/dashboard/package.json": JSON.stringify({
+        ...dashboard,
+        exports: {
+          ".": {
+            types: "./src/../../dashboard-server/src/server.ts",
+            default: "./src/dashboard.tsx",
+          },
+        },
       }),
     },
     command: ["shape"],
@@ -41,10 +46,10 @@ export function* shapeChecks(): Generator<Check> {
   yield {
     gate: "conditional source exports allowed",
     files: {
-      "packages/duration/package.json": JSON.stringify({
-        ...duration,
+      "packages/dashboard/package.json": JSON.stringify({
+        ...dashboard,
         exports: {
-          ".": { types: "./src/index.ts", default: "./src/index.ts" },
+          ".": { types: "./src/dashboard.tsx", default: "./src/dashboard.tsx" },
           "./*": "./src/*.ts",
         },
       }),

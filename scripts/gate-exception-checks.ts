@@ -23,7 +23,7 @@ export function* exceptionChecks(extension: string): Generator<Check> {
     "// @ts-expect-error",
     "// oxlint-disable-next-line typescript/no-restricted-types -- not a declared boundary",
   ];
-  for (const directory of ["packages/duration/src", "scripts"]) {
+  for (const directory of ["packages/dashboard/src", "scripts"]) {
     const file = `${directory}/gate-canary.${extension}`;
     for (const form of forms) {
       yield {
@@ -51,7 +51,7 @@ export function* exceptionChecks(extension: string): Generator<Check> {
       accepts: true,
     };
   }
-  const file = `packages/duration/src/gate-canary.${extension}`;
+  const file = `packages/dashboard/src/gate-canary.${extension}`;
   for (const [gate, gates, expect] of [
     ["coverage without mutation", ["coverage"], "coverage requires mutation"],
     ["any manifest entry", ["typescript/no-explicit-any"], "forbidden gate"],
