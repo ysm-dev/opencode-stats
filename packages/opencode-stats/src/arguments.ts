@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 
-export const help = "Usage: opencode-stats [--port <n>] [--no-open] [--help] [--version]\n";
+export const help =
+  "Usage: opencode-stats [--port <n>] [--db <path>] [--no-open] [--help] [--version]\n";
 
 export const parseArguments = (args: string[]) => {
   const { values } = parseArgs({
@@ -8,6 +9,7 @@ export const parseArguments = (args: string[]) => {
     strict: true,
     options: {
       port: { type: "string", default: "22439" },
+      db: { type: "string" },
       "no-open": { type: "boolean" },
       help: { type: "boolean" },
       version: { type: "boolean" },
@@ -15,5 +17,12 @@ export const parseArguments = (args: string[]) => {
   });
   const port = Number(values.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error();
-  return { port, open: !values["no-open"], help: values.help, version: values.version };
+  if (values.db !== undefined && values.db.length === 0) throw new Error();
+  return {
+    port,
+    db: values.db,
+    open: !values["no-open"],
+    help: values.help,
+    version: values.version,
+  };
 };

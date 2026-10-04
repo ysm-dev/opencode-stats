@@ -7,6 +7,8 @@ import { scopeChecks } from "./gate-scope-checks.ts";
 import { hookChecks } from "./gate-hook-checks.ts";
 import { runtimeChecks } from "./gate-runtime-checks.ts";
 import { contractChecks } from "./gate-contract-checks.ts";
+import { countingChecks } from "./gate-counting-checks.ts";
+import { nativeChecks } from "./gate-native-checks.ts";
 
 const repeat = (count: number, make: (index: number) => string): string =>
   `${Array.from({ length: count }, (_, index) => make(index)).join("\n")}\n`;
@@ -32,6 +34,8 @@ export function* checks(): Generator<Check> {
   yield* hookChecks();
   yield* shapeChecks();
   for (const extension of ["ts", "tsx"]) {
+    yield* nativeChecks(extension);
+    yield* countingChecks(extension);
     yield* runtimeChecks(extension);
     yield* scopeChecks(extension);
     yield* exceptionChecks(extension);

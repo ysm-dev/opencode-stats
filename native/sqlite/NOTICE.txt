@@ -1,0 +1,19 @@
+SQLite 3.53.4
+https://www.sqlite.org/releaselog/3_53_4.html
+Source/build provenance and checksums: manifest.json
+
+SQLite is in the public domain. All deliverable code and documentation has
+been dedicated to the public domain by its authors. Anyone is free to copy,
+modify, publish, use, compile, sell or distribute the original SQLite code,
+in source or compiled binary form, for any purpose, commercial or
+non-commercial, and by any means.
+https://www.sqlite.org/copyright.html
+
+The upstream amalgamation carries this blessing:
+May you do good and not evil.
+May you find forgiveness for yourself and forgive others.
+May you share freely, never taking more than you give.
+
+opencode-stats builds the unmodified verified amalgamation with the recorded
+flags, combines arm64/x86_64 slices into one universal macOS library and signs
+it ad hoc. No SQLite source code modifications are applied.

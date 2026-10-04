@@ -1,13 +1,60 @@
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { once } from "node:events";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { start } from "./start.ts";
 import { execFileSync } from "node:child_process";
 import { text } from "node:stream/consumers";
+const home = vi.hoisted(() => ({ path: "" }));
+vi.mock("node:os", async (original) => ({
+  ...(await original<typeof import("node:os")>()),
+  homedir: () => home.path,
+}));
 
 describe("launcher start command", () => {
+  it.each(["flag", "environment", "xdg", "home", "fallback"])(
+    "passes an absolute source address selected by %s without opening it",
+    async (kind) => {
+      const folder = await mkdtemp(join(tmpdir(), "stats-source-address-"));
+      home.path = join(folder, "fallback-home");
+      const executable = join(folder, "host");
+      await writeFile(
+        executable,
+        `#!${process.execPath}\nprocess.stdout.write(process.argv.at(-1));`,
+        { mode: 0o700 },
+      );
+      const env: NodeJS.ProcessEnv = {};
+      if (kind === "flag" || kind === "environment")
+        env["OPENCODE_DB"] = join(folder, "environment.db");
+      if (kind === "xdg") env["XDG_DATA_HOME"] = join(folder, "data");
+      if (kind === "home") env["HOME"] = folder;
+      try {
+        const child = start({
+          executable,
+          script: join(folder, "server.ts"),
+          port: 22439,
+          env,
+          db: kind === "flag" ? join(folder, "chosen.db") : undefined,
+        });
+        const [output, status] = await Promise.all([text(child.stdout), once(child, "close")]);
+        expect(status).toEqual([0, null]);
+        const expected =
+          kind === "flag"
+            ? join(folder, "chosen.db")
+            : kind === "environment"
+              ? join(folder, "environment.db")
+              : kind === "xdg"
+                ? join(folder, "data/opencode/opencode.db")
+                : kind === "home"
+                  ? join(folder, ".local/share/opencode/opencode.db")
+                  : join(folder, "fallback-home/.local/share/opencode/opencode.db");
+        expect(output).toBe(expected);
+      } finally {
+        await rm(folder, { recursive: true });
+      }
+    },
+  );
   it("runs the supplied executable as Bun without credentials, env files or preloads", async () => {
     const folder = await mkdtemp(join(tmpdir(), "stats-launcher-"));
     const executable = join(folder, "host");
@@ -52,6 +99,8 @@ describe("launcher start command", () => {
           join(folder, "server.ts"),
           "--port",
           "22439",
+          "--db",
+          resolve("synthetic.db"),
         ],
         env: { ...needed, BUN_BE_BUN: "1" },
       });

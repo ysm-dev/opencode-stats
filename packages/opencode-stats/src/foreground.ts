@@ -11,6 +11,7 @@ export const foreground = (
     script?: string;
     env?: NodeJS.ProcessEnv;
     startupTimeout?: number;
+    db?: string | undefined;
   },
 ) =>
   new Promise<number>((resolve) => {
@@ -19,6 +20,7 @@ export const foreground = (
       script: options.script ?? serverScript,
       port,
       env: options.env ?? process.env,
+      db: options.db,
     });
     const lines = createInterface({ input: child.stdout });
     let stopping = false;

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { dirname } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { emptyConfig } from "./paths.ts";
 
 export const start = (options: {
@@ -7,7 +8,17 @@ export const start = (options: {
   script: string;
   port: number;
   env: NodeJS.ProcessEnv;
+  db?: string | undefined;
 }) => {
+  const db = resolve(
+    options.db ??
+      (options.env["OPENCODE_DB"] ||
+        join(
+          options.env["XDG_DATA_HOME"] || join(options.env["HOME"] || homedir(), ".local", "share"),
+          "opencode",
+          "opencode.db",
+        )),
+  );
   const env: NodeJS.ProcessEnv = { BUN_BE_BUN: "1" };
   for (const key of [
     "HOME",
@@ -34,6 +45,8 @@ export const start = (options: {
       options.script,
       "--port",
       String(options.port),
+      "--db",
+      db,
     ],
     { env, cwd: dirname(options.script) },
   );

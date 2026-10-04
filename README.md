@@ -16,6 +16,7 @@ bun run ci
 
 ```
 packages/dashboard-server/  Effect 4 HTTP program; Bun adapter and Node test twin.
+packages/stats-store/        Private SQLite step facts; readonly source and sync worker.
 packages/dashboard/         Solid dashboard; typed TanStack routes on Vite.
 packages/opencode-stats/    Private workspace bin; release generates its public manifest.
 packages/launcher/          Node-built-in-only child start command.
@@ -62,7 +63,7 @@ The bin argument reader, `packages/opencode-stats/src/bin.ts`, passes arguments 
 
 Only `bun run release` bundles: Bun emits unminified bin/server ES modules with linked maps, and Vite emits one minified dashboard bundle into `.release/package/`. It generates the dependency-free manifest and packs one `.release/opencode-stats-<version>.tgz`. Paths are swapped at bundle time, never redirected by runtime environment variables. Source server static-file tests use that release-owned layout; development continues to use Vite.
 
-For the installed standalone skeleton, run `bunx opencode-stats --no-open` (Bun ≥ 1.4.2), or pass `--port <n>`. It opens a browser by default and keeps the dashboard server as its foreground child until Ctrl+C. Update standalone mode with `bunx opencode-stats@latest`. Database sync, diagnostics and plugin activation arrive in later spec tickets; this skeleton does not read a real database.
+For the installed standalone slice, run `bunx opencode-stats --no-open --db <path>` (Bun ≥ 1.4.2), or pass `--port <n>`. `--db` wins over `OPENCODE_DB`, otherwise the source is `$XDG_DATA_HOME/opencode/opencode.db` (default `~/.local/share/opencode/opencode.db`). The file must exist. Its step facts are built once, with five independently nullable token kinds, into a private XDG cache; no source connection can write. macOS uses the controlled upstream SQLite library included in this same package, for arm64 and x64, with no compiler, extra installation, native-library setting or runtime download. See [stats-store](packages/stats-store/README.md) for provenance and source safety. The bin opens a browser by default and keeps the server as its foreground child until Ctrl+C. Update standalone mode with `bunx opencode-stats@latest`. Following writes, diagnostics and plugin activation arrive in later spec tickets.
 
 `bun run e2e` installs the existing tarball through npm with lifecycle scripts off into an otherwise empty temp folder, then checks the installed bin and Chromium. Install its browser once with `bun run --cwd packages/e2e playwright install chromium`. CI bundles and tests on Bun 1.4.2: Linux and macOS block, Windows reports. `bun run bundle:check` checks Bun metafiles, rejecting non-built-in external imports and any Effect/drizzle input in the bin.
 

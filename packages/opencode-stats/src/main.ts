@@ -27,5 +27,5 @@ export const run = async (
     process.stdout.write(`opencode-stats ${version}\n`);
     return 0;
   }
-  return foreground(flags.port, flags.open, options);
+  return foreground(flags.port, flags.open, { ...options, db: flags.db ?? options.db });
 };

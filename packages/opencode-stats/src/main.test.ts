@@ -3,6 +3,7 @@ import { run } from "./main.ts";
 import { fixture, serving, installOpener } from "../testing/server.ts";
 import { readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { syntheticFixture } from "@opencode-stats/stats-store/testing";
 
 const terminal = () => ({
   output: vi.spyOn(process.stdout, "write").mockReturnValue(true),
@@ -54,7 +55,7 @@ describe("standalone bin", () => {
     try {
       expect(await run(["--help"])).toBe(0);
       expect(output).toHaveBeenCalledExactlyOnceWith(
-        "Usage: opencode-stats [--port <n>] [--no-open] [--help] [--version]\n",
+        "Usage: opencode-stats [--port <n>] [--db <path>] [--no-open] [--help] [--version]\n",
       );
       for (const args of [
         ["--unknown"],
@@ -64,11 +65,13 @@ describe("standalone bin", () => {
         ["--port", "65536"],
         ["--port", "1.5"],
         ["--port", "abc"],
+        ["--db"],
+        ["--db", ""],
       ]) {
         expect(await run(args)).toBe(2);
       }
       expect(error.mock.calls).toEqual(
-        Array.from({ length: 7 }, () => ["Bad flags. Use `opencode-stats --help`.\n"]),
+        Array.from({ length: 9 }, () => ["Bad flags. Use `opencode-stats --help`.\n"]),
       );
     } finally {
       output.mockRestore();
@@ -259,7 +262,14 @@ describe("standalone bin", () => {
     const executable = execFileSync("bun", ["--print", "process.execPath"], {
       encoding: "utf8",
     }).trim();
-    const result = run(["--no-open", "--port", String(fixtureFiles.port)], { executable });
+    const database = syntheticFixture();
+    const result = run(
+      ["--no-open", "--port", String(fixtureFiles.port), "--db", database.source],
+      {
+        executable,
+        env: { ...process.env, HOME: database.folder, XDG_CACHE_HOME: database.folder },
+      },
+    );
     try {
       await vi.waitFor(
         () =>
@@ -281,6 +291,7 @@ describe("standalone bin", () => {
       error.mockRestore();
       vi.unstubAllGlobals();
       await fixtureFiles.clean();
+      database.dispose();
     }
   });
   it("uses the current executable, source script and environment when none are supplied", async () => {

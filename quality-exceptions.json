@@ -1,5 +1,11 @@
 [
   {
+    "path": "packages/stats-store/src/sync-worker.ts",
+    "gates": ["coverage", "mutation"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): sync worker global scope selects the Bun database layer and runs the tested worker program. In-thread tests exercise its boundary and Bun contracts exercise native Worker startup.",
+    "added": "2026-10-04"
+  },
+  {
     "path": "packages/opencode-stats/src/bin.ts",
     "gates": ["coverage", "mutation"],
     "reason": "Maintainer-approved under #27 (issuecomment-5977547319): bin argument reader passes argv to the tested standalone program. Installed-tarball smoke tests exercise the Bun shebang and process exit code.",

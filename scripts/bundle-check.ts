@@ -26,6 +26,31 @@ const checkImport = (value: Json): void => {
   if (!builtins.has(path)) throw new Error(`Forbidden external import: ${path}`);
 };
 
+const emittedInputs = (
+  inputs: ReturnType<typeof object>,
+  outputs: ReturnType<typeof object>,
+): Set<string> => {
+  const emitted = new Set<string>();
+  const accounted = new Set<string>();
+  for (const output of Object.values(outputs)) {
+    const contributions = object(object(output)["inputs"]);
+    for (const [name, contribution] of Object.entries(contributions)) {
+      if (!Object.hasOwn(inputs, name)) throw new Error("Unknown input contribution");
+      const bytes = object(contribution)["bytesInOutput"];
+      if (typeof bytes !== "number" || !Number.isSafeInteger(bytes) || bytes < 0)
+        throw new Error("Invalid input contribution");
+      accounted.add(name);
+      if (bytes > 0) emitted.add(name);
+    }
+    // A side-effect-only external import is still visible here, even if its
+    // originating barrel has zero bytes in the output.
+    imports(object(output)["imports"]).forEach(checkImport);
+  }
+  if (Object.keys(inputs).some((name) => !accounted.has(name)))
+    throw new Error("Missing input contribution");
+  return emitted;
+};
+
 const check = (file: string): void => {
   const meta = object(readJson(file));
   const inputs = object(meta["inputs"]);
@@ -40,18 +65,24 @@ const check = (file: string): void => {
   ) {
     throw new Error("Bin bundle contains Effect or drizzle");
   }
-  for (const input of Object.values(inputs)) {
+  const emitted = emittedInputs(inputs, outputs);
+  for (const [name, input] of Object.entries(inputs)) {
+    // Bun marks unused Drizzle barrel imports external; a zero-byte barrel
+    // contains no runtime imports. Never skip emitted inputs or output imports.
+    if (!emitted.has(name)) continue;
     imports(object(input)["imports"])
       .filter((entry) => object(entry)["external"] === true)
       .forEach(checkImport);
   }
-  for (const output of Object.values(outputs))
-    imports(object(output)["imports"]).forEach(checkImport);
 };
 
 const folder = resolve(process.argv[2] ?? ".release/metafiles");
 const files = readdirSync(folder).filter((file) => file.endsWith(".json"));
-if (!files.includes("bin.json") || !files.includes("process.json"))
+if (
+  !files.includes("bin.json") ||
+  !files.includes("process.json") ||
+  !files.includes("sync-worker.json")
+)
   throw new Error("Missing bundle metafiles");
 for (const file of files) check(`${folder}/${file}`);
 process.stdout.write("Bundle imports checked.\n");

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/start.ts"
+    ".": "./src/start.ts",
+    "./testing": "./src/testing/port.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

@@ -3,13 +3,17 @@
   "workspaces": {
     ".": {
       "entry": [
-        "scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,commit-message,release,bundle-check}.ts"
+        "scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,generate,commit-message,release,bundle-check,native-build,native-prepare,native-outdated,opencode-prepare}.ts"
       ],
       "project": ["scripts/**/*.{ts,tsx}", "*.{js,ts}"]
     },
     "packages/dashboard-server": {
       "entry": ["src/process.ts!", "src/**/*.contract.test.{ts,tsx}"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}!", "!src/testing/**!", "!src/**/*.node.ts!"]
+    },
+    "packages/stats-store": {
+      "entry": ["src/sync-worker.ts!", "src/testing/dev.ts", "src/**/*.contract.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}!", "!src/testing/**!", "!src/**/*.node.ts!"]
     },
     "packages/dashboard": {
       "entry": ["src/style.css!"],

@@ -3,6 +3,9 @@ import { dirname, resolve, isAbsolute } from "node:path";
 import { createRequire } from "node:module";
 import { object, readJson, text } from "./json.ts";
 import type { Json } from "./json.ts";
+const archived: Readonly<Record<string, string>> = {
+  "drizzle-orm@1.0.0-rc.5-5935859": "docs/licenses/drizzle-orm.txt",
+};
 
 const packageFolder = (file: string): string => {
   // Bun 1.4.2 can prepend ../ segments to an absolute cache path on another Windows drive.
@@ -39,9 +42,13 @@ export const notices = (metafiles: Json[], assets: string[]): string => {
       const files = readdirSync(folder).filter((file) =>
         /^(?:license|notice)(?:\.[\w-]+)?$/iu.test(file),
       );
-      if (!files.length)
+      const source = archived[`${text(manifest["name"])}@${text(manifest["version"])}`];
+      if (!files.length && source === undefined)
         throw new Error(`Bundled dependency needs license text: ${text(manifest["name"])}`);
-      return `## ${text(manifest["name"])} ${text(manifest["version"])}\n\n${files.map((file) => readFileSync(resolve(folder, file), "utf8")).join("\n")}\n`;
+      const license = files.length
+        ? files.map((file) => readFileSync(resolve(folder, file), "utf8")).join("\n")
+        : readFileSync(resolve(source!), "utf8");
+      return `## ${text(manifest["name"])} ${text(manifest["version"])}\n\n${license}\n`;
     })
     .join("\n");
 };

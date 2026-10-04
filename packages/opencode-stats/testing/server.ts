@@ -1,7 +1,7 @@
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer } from "node:http";
+import { temporaryPort } from "@opencode-stats/launcher/testing";
 
 export const fixture = async (body: string) => {
   const folder = await mkdtemp(join(tmpdir(), "stats-bin-"));
@@ -13,16 +13,11 @@ export const fixture = async (body: string) => {
     { mode: 0o700 },
   );
   await writeFile(script, body);
-  const socket = createServer();
-  await new Promise<void>((done) => socket.listen(0, "127.0.0.1", done));
-  const address = socket.address();
-  if (!address || typeof address === "string") throw new Error("No TCP address");
-  await new Promise<void>((done) => socket.close(() => done()));
   return {
     executable,
     script,
     folder,
-    port: address.port,
+    port: await temporaryPort(),
     clean: () => rm(folder, { recursive: true, force: true }),
   };
 };
