@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { dirname } from "node:path";
 import { emptyConfig } from "./paths.ts";
 
 export const start = (options: {
@@ -34,6 +35,6 @@ export const start = (options: {
       "--port",
       String(options.port),
     ],
-    { env },
+    { env, cwd: dirname(options.script) },
   );
 };

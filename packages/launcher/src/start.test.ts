@@ -72,15 +72,12 @@ describe("launcher start command", () => {
       script,
       "process.stdout.write(JSON.stringify({ loaded: process.env.LOADED_FROM_ENV ?? null, host: process.env.BUN_BE_BUN }));\n",
     );
-    const previous = process.cwd();
     try {
-      process.chdir(folder);
       const child = start({ executable, script, port: 22439, env: { HOME: folder } });
       const [output, status] = await Promise.all([text(child.stdout), once(child, "close")]);
       expect(status).toEqual([0, null]);
       expect(JSON.parse(output)).toEqual({ loaded: null, host: "1" });
     } finally {
-      process.chdir(previous);
       await rm(folder, { recursive: true, force: true });
     }
   });
