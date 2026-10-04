@@ -1,0 +1,24 @@
+{
+  "name": "@opencode-stats/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker": "./src/worker.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/testing/tsconfig.json"
+  },
+  "dependencies": {
+    "@opencode-stats/browser-copy": "workspace:*",
+    "effect": "4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.3",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

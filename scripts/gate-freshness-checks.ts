@@ -1,9 +1,29 @@
 import { createServer } from "node:http";
+import { globSync } from "node:fs";
 import root from "../package.json" with { type: "json" };
 import dashboard from "../packages/dashboard/package.json" with { type: "json" };
-import serverPackage from "../packages/dashboard-server/package.json" with { type: "json" };
 import holds from "../dependency-holds.json" with { type: "json" };
 import type { Check } from "./verify-gates.ts";
+import { object, readJson, text } from "./json.ts";
+
+const installedVersions = (): Record<string, string> => {
+  const versions: Record<string, string> = { bun: root.devEngines.packageManager.version };
+  for (const path of globSync("{package.json,packages/*/package.json}")) {
+    const manifest = object(readJson(path));
+    for (const dependencies of [
+      manifest["dependencies"],
+      manifest["devDependencies"],
+      manifest["peerDependencies"],
+      manifest["optionalDependencies"],
+    ]) {
+      for (const [name, version] of Object.entries(object(dependencies ?? {}))) {
+        const pin = text(version);
+        if (!pin.startsWith("workspace:")) versions[name] = pin;
+      }
+    }
+  }
+  return versions;
+};
 
 export async function* freshnessChecks(): AsyncGenerator<Check> {
   let age = 8;
@@ -11,14 +31,7 @@ export async function* freshnessChecks(): AsyncGenerator<Check> {
   let broken = false;
   let bunOld = false;
   let newerYoung = false;
-  const versions: Readonly<Record<string, string>> = {
-    ...dashboard.dependencies,
-    ...dashboard.devDependencies,
-    ...serverPackage.dependencies,
-    ...serverPackage.devDependencies,
-    ...root.devDependencies,
-    bun: root.devEngines.packageManager.version,
-  };
+  const versions = installedVersions();
   const server = createServer((request, response) => {
     const path = decodeURIComponent(request.url ?? "");
     const published = new Date(Date.now() - age * 86400000).toISOString();
