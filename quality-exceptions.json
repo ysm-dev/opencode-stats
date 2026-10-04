@@ -6,6 +6,12 @@
     "added": "2026-10-04"
   },
   {
+    "path": "packages/opencode-stats/src/bin.ts",
+    "gates": ["coverage", "mutation"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): bin argument reader passes argv to the tested standalone program. Installed-tarball smoke tests exercise the Bun shebang and process exit code.",
+    "added": "2026-10-04"
+  },
+  {
     "path": "packages/dashboard-server/src/process.ts",
     "gates": ["coverage", "mutation"],
     "reason": "Maintainer-approved under #27 (issuecomment-5977547319): process entry reads argv and selects Bun adapters. The program and HTTP behavior run on Node; real Bun contracts cover the adapter.",

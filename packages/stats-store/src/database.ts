@@ -1,6 +1,6 @@
 import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
+import type * as Effect from "effect/Effect";
+import type * as Layer from "effect/Layer";
 import type * as Scope from "effect/Scope";
 import type { SqlClient } from "effect/sql/SqlClient";
 import type { EffectSQLiteNodeDatabase } from "drizzle-orm/effect-sqlite-node";

@@ -54,16 +54,33 @@ export function* lintChecks(extension: string): Generator<Check> {
   ]) {
     yield {
       gate: `${gate} (${extension})`,
-      files: { "quality-exceptions.json": withWaiver(file), [file]: content ?? "" },
-      command: ["lint", file],
+      files: {
+        "quality-exceptions.json": withWaiver(
+          `packages/opencode-stats/src/gate-canary.${extension}`,
+        ),
+        [`packages/opencode-stats/src/gate-canary.${extension}`]: content ?? "",
+      },
+      command: ["lint", `packages/opencode-stats/src/gate-canary.${extension}`],
       expect: [rule ?? ""],
     };
   }
   yield {
     gate: `clean edge (${extension})`,
-    files: { "quality-exceptions.json": withWaiver(file), [file]: "export const fine = 1;\n" },
-    command: ["lint", file],
+    files: {
+      "quality-exceptions.json": withWaiver(`packages/opencode-stats/src/gate-canary.${extension}`),
+      [`packages/opencode-stats/src/gate-canary.${extension}`]: "export const fine = 1;\n",
+    },
+    command: ["lint", `packages/opencode-stats/src/gate-canary.${extension}`],
     expect: [],
     accepts: true,
+  };
+  yield {
+    gate: `launcher cannot import Effect (${extension})`,
+    files: {
+      [`packages/launcher/src/gate-canary.${extension}`]:
+        'import * as Effect from "effect/Effect";\nexport const forbidden = Effect.succeed(1);\n',
+    },
+    command: ["typecheck"],
+    expect: ["TS2307", `gate-canary.${extension}`, "effect/Effect"],
   };
 }

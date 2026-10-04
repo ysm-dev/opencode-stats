@@ -5,7 +5,7 @@
   "reporters": ["console"],
   "absolute": true,
   "gitignore": true,
-  "pattern": "{packages/*/src,scripts}/**/*.{ts,tsx}",
+  "pattern": "{packages/*/{src,tests,testing},scripts}/**/*.{ts,tsx}",
   "ignore": [
     "**/node_modules/**",
     "**/coverage/**",

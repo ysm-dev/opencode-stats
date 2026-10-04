@@ -3,7 +3,7 @@
   "workspaces": {
     ".": {
       "entry": [
-        "scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,generate,commit-message}.ts"
+        "scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,generate,commit-message,release,bundle-check}.ts"
       ],
       "project": ["scripts/**/*.{ts,tsx}", "*.{js,ts}"]
     },
@@ -18,6 +18,13 @@
     "packages/dashboard": {
       "entry": ["src/style.css!"],
       "project": ["src/**/*.{ts,tsx,css}"]
+    },
+    "packages/opencode-stats": {
+      "project": ["src/**/*.{ts,tsx}!", "testing/**/*.{ts,tsx}"]
+    },
+    "packages/e2e": {
+      "entry": ["tests/**/*.test.{ts,tsx}"],
+      "project": ["tests/**/*.{ts,tsx}"]
     }
   }
 }

@@ -10,6 +10,12 @@ source writes belongs to #35.
 - Source connections use native readonly, disableWAL and a 20 ms busy timeout.
   A fully consumed scalar SELECT has no explicit read transaction. Busy reads
   back off for 20, 40 and 80 ms before stopping this startup build.
+  Bun 1.4.2's native readonly reader can reject a checkpointed WAL database with
+  no `-wal`/`-shm` coordination files (`SQLITE_CANTOPEN`). The library reports a
+  build failure rather than opening the source writable or using `immutable`.
+  Native contracts and the installed fixture retain the writer's WAL companions,
+  as a running OpenCode writer does; inactive companion-free WAL sources remain
+  a genuine native-driver limitation to resolve with the maintainer.
 - The resolved source path names a SHA-256 SQLite file under
   `${XDG_CACHE_HOME:-~/.cache}/opencode-stats/`. The directory is 0700; the
   database and existing WAL/SHM files are 0600. Only the derived store enables

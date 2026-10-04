@@ -1,24 +1,15 @@
-import { createServer } from "node:http";
+import { temporaryPort } from "@opencode-stats/launcher/testing";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { nodeServer } from "./http.node.ts";
 import { program } from "./main.ts";
 import { syntheticFixture } from "@opencode-stats/stats-store/testing";
 import { nodeRuntime } from "@opencode-stats/stats-store/node";
 import { decode } from "@opencode-stats/browser-copy";
-
-const unusedPort = async (): Promise<number> => {
-  const socket = createServer();
-  await new Promise<void>((done) => socket.listen(0, "127.0.0.1", done));
-  const address = socket.address();
-  if (!address || typeof address === "string") throw new Error("No address");
-  await new Promise<void>((done) => socket.close(() => done()));
-  return address.port;
-};
 
 const readWhenReady = async (url: string): Promise<Response> => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -32,11 +23,11 @@ const readWhenReady = async (url: string): Promise<Response> => {
 };
 
 describe("dashboard server program", () => {
-  it("serves source-preview assets at the requested port until interrupted", async () => {
-    const port = await unusedPort();
+  it("serves release-owned assets at the requested port until interrupted", async () => {
+    const port = await temporaryPort();
     const asset = `/assets/test-fixture-${randomUUID()}.js`;
-    const file = resolve(`.dev/dashboard${asset}`);
-    await mkdir(resolve(".dev/dashboard/assets"), { recursive: true });
+    const file = resolve(`.release/package/dashboard${asset}`);
+    await mkdir(resolve(".release/package/dashboard/assets"), { recursive: true });
     await writeFile(file, "synthetic-preview", { flag: "wx" });
     const fixture = syntheticFixture();
     fixture.writer.session("ses-http");
@@ -56,6 +47,7 @@ describe("dashboard server program", () => {
     });
     const previous = process.env["XDG_CACHE_HOME"];
     process.env["XDG_CACHE_HOME"] = fixture.folder;
+    const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     const fiber = Effect.runFork(
       Effect.scoped(
         program(["--port", String(port), "--db", fixture.source], nodeServer, nodeRuntime),
@@ -64,6 +56,7 @@ describe("dashboard server program", () => {
     try {
       const response = await readWhenReady(`http://127.0.0.1:${port}${asset}`);
       expect(response.status).toBe(200);
+      expect(output).toHaveBeenCalledExactlyOnceWith("opencode-stats-ready\n");
       expect(await response.text()).toBe("synthetic-preview");
       const again = await fetch(`http://127.0.0.1:${port}${asset}`);
       expect(again.status).toBe(200);
@@ -85,6 +78,7 @@ describe("dashboard server program", () => {
       fixture.dispose();
       if (previous === undefined) delete process.env["XDG_CACHE_HOME"];
       else process.env["XDG_CACHE_HOME"] = previous;
+      output.mockRestore();
     }
     await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow("fetch failed");
   });
@@ -97,10 +91,12 @@ describe("dashboard server program", () => {
   });
   it("refuses a missing database without creating it or binding a port", async () => {
     const fixture = syntheticFixture();
+    const adapter = vi.fn<typeof nodeServer>(nodeServer);
     try {
       await expect(
-        Effect.runPromise(program(["--db", `${fixture.source}.missing`], nodeServer, nodeRuntime)),
+        Effect.runPromise(program(["--db", `${fixture.source}.missing`], adapter, nodeRuntime)),
       ).rejects.toThrow("OpenCode database must be an existing readable file.");
+      expect(adapter).not.toHaveBeenCalled();
     } finally {
       fixture.dispose();
     }

@@ -12,12 +12,13 @@ export const program = (args: unknown, adapter: typeof bunServer, runtime: Store
       catch: () =>
         new Error("Can't start: invalid dashboard server arguments. Use --db <path> --port <n>."),
     });
+    let copy: StoreCopy | undefined;
+    yield* stayInSync({ source: options.db }, runtime, (value) => {
+      copy = value;
+    });
     yield* Effect.gen(function* () {
-      let copy: StoreCopy | undefined;
-      yield* stayInSync({ source: options.db }, runtime, (value) => {
-        copy = value;
-      });
       yield* startServer(undefined, copy);
+      yield* Effect.sync(() => process.stdout.write("opencode-stats-ready\n"));
       yield* Effect.never;
     }).pipe(Effect.provide(adapter(options.port)));
   }).pipe(Effect.scoped);

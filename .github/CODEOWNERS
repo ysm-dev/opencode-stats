@@ -5,6 +5,7 @@
 /.github/workflows/       @ysm-dev
 /packages/dashboard-server/src/process.ts @ysm-dev
 /packages/dashboard/src/client.tsx @ysm-dev
+/packages/opencode-stats/src/bin.ts @ysm-dev
 /.oxlintrc.*              @ysm-dev
 /.oxfmtrc.json            @ysm-dev
 /.jscpd.json              @ysm-dev
@@ -34,3 +35,4 @@
 /packages/stats-store/src/fingerprint.test.ts @ysm-dev
 /packages/stats-store/src/types.test.ts @ysm-dev
 /packages/stats-store/src/fingerprints.json @ysm-dev
+/docs/licenses/drizzle-orm.txt @ysm-dev
