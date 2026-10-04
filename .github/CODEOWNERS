@@ -17,6 +17,8 @@
 /dependency-holds.json    @ysm-dev
 /patches/                 @ysm-dev
 /scripts/                 @ysm-dev
+/scripts/gate-runtime-checks.ts @ysm-dev
+/packages/engine/src/worker.ts @ysm-dev
 /package.json             @ysm-dev
 /packages/*/package.json  @ysm-dev
 /turbo.json               @ysm-dev

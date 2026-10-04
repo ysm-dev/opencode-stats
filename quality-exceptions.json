@@ -4,5 +4,10 @@
     "gates": ["coverage", "mutation"],
     "reason": "Entry shim: reads process.argv and exits. All logic lives in main.ts, which is fully covered.",
     "added": "2026-09-20"
+  },
+  {
+    "path": "packages/engine/src/worker.ts",
+    "gates": ["coverage", "mutation"],
+    "reason": "Proposed for human approval under #32: the dedicated-worker global scope is wired only here; page-client and engine behavior are tested through the in-thread page-worker channel. Real worker startup is an end-to-end seam."
   }
 ]
