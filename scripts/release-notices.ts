@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, isAbsolute } from "node:path";
 import { createRequire } from "node:module";
 import { object, readJson, text } from "./json.ts";
 import type { Json } from "./json.ts";
@@ -8,7 +8,9 @@ const archived: Readonly<Record<string, string>> = {
 };
 
 const packageFolder = (file: string): string => {
-  let folder = dirname(resolve(file));
+  // Bun 1.4.2 can prepend ../ segments to an absolute cache path on another Windows drive.
+  const suffix = file.replace(/^(?:\.\.[/\\])+/u, "");
+  let folder = dirname(realpathSync(isAbsolute(suffix) ? suffix : file));
   while (!existsSync(resolve(folder, "package.json"))) {
     const parent = dirname(folder);
     if (parent === folder) throw new Error(`Bundled input has no manifest: ${file}`);

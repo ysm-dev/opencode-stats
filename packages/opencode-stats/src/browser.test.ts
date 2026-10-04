@@ -1,9 +1,19 @@
 import { writeFile, readFile } from "node:fs/promises";
 import { watch } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, inject } from "vitest";
 import { fixture } from "../testing/server.ts";
+import { heldBrowser } from "../testing/held-browser.ts";
 import { openBrowser } from "./browser.ts";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+
+// Stryker's Vitest runner provides this ID; its instrumented modules accept it through this environment variable.
+declare module "vitest" {
+  interface ProvidedContext {
+    activeMutant: string | undefined;
+  }
+}
 
 describe("browser opening", () => {
   it.each([
@@ -56,31 +66,33 @@ describe("browser opening", () => {
       openBrowser("http://127.0.0.1:22439", "linux", { PATH: "/does-not-exist" }),
     ).rejects.toThrow("ENOENT");
   });
-  it("does not keep its caller's event loop alive for a long-running browser", async () => {
-    const files = await fixture("");
-    const record = join(files.folder, "browser-pid");
+  it("lets the caller exit naturally while its browser remains alive", async ({
+    onTestFinished,
+  }) => {
+    const local = await heldBrowser();
+    onTestFinished(local.release);
+    // Execute the same public call here so Stryker's per-test selection includes this subprocess probe.
+    await openBrowser("http://127.0.0.1:22439", "linux", local.env);
+    expect(await local.pid).toBeGreaterThan(0);
+    const browser = await heldBrowser();
+    onTestFinished(browser.release);
+    const script = join(browser.folder, "caller.mjs");
     await writeFile(
-      join(files.folder, "xdg-open"),
-      `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(record)},String(process.pid)); setInterval(()=>{},1000);`,
-      { mode: 0o700 },
+      script,
+      `import {openBrowser} from ${JSON.stringify(new URL("./browser.ts", import.meta.url).href)}; await openBrowser('http://127.0.0.1:22439','linux',process.env);`,
     );
-    const before = process.getActiveResourcesInfo().filter((name) => name === "ProcessWrap");
-    let pid = 0;
-    try {
-      await openBrowser("http://127.0.0.1:22439", "linux", { PATH: files.folder });
-      await vi.waitFor(
-        async () => {
-          pid = Number(await readFile(record, "utf8"));
-          expect(pid).toBeGreaterThan(0);
-        },
-        { timeout: 5000 },
-      );
-      expect(process.getActiveResourcesInfo().filter((name) => name === "ProcessWrap")).toEqual(
-        before,
-      );
-    } finally {
-      if (pid > 0) process.kill(pid, "SIGTERM");
-      await files.clean();
-    }
+    const caller = spawn(process.execPath, [script], {
+      env: { ...process.env, ...browser.env, __STRYKER_ACTIVE_MUTANT__: inject("activeMutant") },
+      stdio: "pipe",
+    });
+    const controller = new AbortController();
+    const exit = once(caller, "exit", { signal: controller.signal });
+    onTestFinished(() => {
+      controller.abort();
+      caller.kill();
+    });
+    const pid = await browser.pid;
+    expect(await exit).toEqual([0, null]);
+    expect(process.kill(pid, 0)).toBe(true);
   });
 });
