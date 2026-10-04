@@ -1,6 +1,8 @@
 import exceptions from "./quality-exceptions.json" with { type: "json" };
 
-const excluded = [...exceptions.coverage, ...exceptions.mutation].map((entry) => `!${entry.path}`);
+const excluded = exceptions
+  .filter((entry) => entry.gates.includes("mutation"))
+  .map((entry) => `!${entry.path}`);
 
 export default {
   $schema: "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
@@ -37,7 +39,16 @@ export default {
   tsconfigFile: "tsconfig.stryker-disabled.json",
 
   coverageAnalysis: "perTest",
-  mutate: ["packages/*/src/**/*.ts", "!**/*.test.ts", ...excluded],
+  ignorePatterns: ["**/dist/**", "**/.release/**", "**/.dev/**"],
+  mutate: [
+    "packages/*/src/**/*.{ts,tsx}",
+    "!**/*.test.{ts,tsx}",
+    "!**/testing/**",
+    "!**/dist/**",
+    "!**/.release/**",
+    "!**/.dev/**",
+    ...excluded,
+  ],
   thresholds: { high: 100, low: 100, break: 100 },
   reporters: ["progress", "clear-text"],
 };

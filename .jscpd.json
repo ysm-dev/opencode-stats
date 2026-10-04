@@ -5,6 +5,13 @@
   "reporters": ["console"],
   "absolute": true,
   "gitignore": true,
-  "pattern": "packages/*/src/**/*.ts",
-  "ignore": ["**/node_modules/**", "**/coverage/**", "**/dist/**", "fixtures/**"]
+  "pattern": "{packages/*/src,scripts}/**/*.{ts,tsx}",
+  "ignore": [
+    "**/node_modules/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/.release/**",
+    "**/.dev/**",
+    "fixtures/**"
+  ]
 }

@@ -14,18 +14,23 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Quality gates
 
-This repo enforces eight gates. They are not advisory. `bun run ci` runs all of them and CI blocks on it.
+`bun run ci` runs every gate below, with gate verification last. CI blocks on all of them; mutation has its own full-run job on every PR.
 
-| Gate                  | Threshold      | Enforced by                     |
-| --------------------- | -------------- | ------------------------------- |
-| Cyclomatic complexity | < 22           | oxlint `eslint/complexity`      |
-| Cognitive complexity  | < 22           | `oxlint-plugin-complexity`      |
-| Lines per file        | < 500          | oxlint `eslint/max-lines`       |
-| Test coverage         | 100%, per file | vitest `thresholds.perFile`     |
-| Surviving mutants     | 0              | Stryker `thresholds.break: 100` |
-| Dead code             | 0              | knip                            |
-| Duplicated code       | 0              | jscpd                           |
-| `any` types           | 0              | oxlint `no-explicit-any`        |
+| Gate                 | Threshold / enforcement                                                                                                              | `bun run`      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| Formatting           | Clean                                                                                                                                | `format:check` |
+| Lint                 | Both complexity measures < 22 via `oxlint-plugin-complexity`; < 500 lines; no `any`; `unknown` only at trust boundaries; no warnings | `lint`         |
+| Types                | Clean                                                                                                                                | `typecheck`    |
+| Coverage             | 100% in all four measures, per file                                                                                                  | `test`         |
+| Mutation             | No surviving or uncovered mutants                                                                                                    | `mutate`       |
+| Dead code            | Normal and `--production --strict`                                                                                                   | `knip`         |
+| Duplication          | Zero                                                                                                                                 | `dup`          |
+| Exceptions           | Reasoned single-line suppressions and human-owned whole-file waivers                                                                 | `exceptions`   |
+| Package shape        | `exports`, `bin`, `types` point into each package's own `src/`                                                                       | `shape`        |
+| Dependency freshness | New unheld releases fail after 7 days                                                                                                | `outdated`     |
+| Gate verification    | Planted violations rejected in `.ts` and `.tsx`                                                                                      | `verify-gates` |
+
+Every gate reads `.ts` and `.tsx`; `dist/`, `.release/` and `.dev/` are artifacts, excluded everywhere. Tests, `testing/` code and contract tests are excluded from coverage and mutation by rule, not by waiver. Testing code stays under the other gates and is importable only from tests or testing code.
 
 ### Rules that are easy to get wrong
 
@@ -40,8 +45,12 @@ Do **not** delete the test, weaken the type, or inline a duplicate to get green.
 
 Exceptions live in `quality-exceptions.json`, which is owned by a human via CODEOWNERS. You may propose an entry; you cannot land one. Every entry needs a `reason`. Inline suppressions must carry `-- <reason>` and are reported by `bun run exceptions`.
 
+Each manifest entry names one file and its gates. Coverage requires mutation too. Those edge files are limited to 30 lines, no branches and no nested functions, and need an exact CODEOWNERS line. Use only reasoned line suppressions or described `@ts-expect-error`; block/blanket disables, `@ts-ignore`, `@ts-nocheck`, coverage ignores and duplication ignores are rejected. The `any` and `no-unsafe-*` rules admit no suppressions.
+
+Dependency updates are manual. `dependency-holds.json` records allowed versions, a reason and the condition for lifting each hold. Install releases at least 3 days old; keep oxfmt updates and their reformatting in a separate change. Add ownership and planted verification whenever a ticket adds a gate file.
+
 A sudden burst of `no-unsafe-*` errors means the TypeScript program is misconfigured, **not** that you should add a disable comment.
 
 ### Package shape
 
-Packages are Just-in-Time: `exports` points at `./src/index.ts`, there is no build step, and relative imports use explicit `.ts` extensions. Do not add a `build` script or emit `dist/` — an unbuilt compiled package makes type-aware lint and knip exit 0 while enforcing nothing.
+Packages are Just-in-Time: exports point at source, and relative imports use explicit `.ts` (or `.tsx`) extensions. No package exports compiled output; only a release bundles into `.release/` (ADR 0012). Package-level build scripts or `dist/` exports make source gates silently enforce nothing.

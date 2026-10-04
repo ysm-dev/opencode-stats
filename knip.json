@@ -1,5 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["scripts/*.ts"],
-  "ignore": [".agents/**", "scripts/**/*.mjs"]
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/{exceptions,verify-gates,shape,outdated,commit-message}.ts"],
+      "project": ["scripts/**/*.{ts,tsx}", "*.{js,ts}"]
+    }
+  }
 }

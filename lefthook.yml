@@ -6,7 +6,7 @@ pre-commit:
     # have the last word on any lint auto-fix.
     - name: lint
       glob: "*.{ts,tsx}"
-      run: bunx --no-install oxlint --fix {staged_files}
+      run: bunx --no-install oxlint -c .oxlintrc.ts --fix --report-unused-disable-directives --deny-warnings {staged_files}
       stage_fixed: true
     - name: format
       run: bunx --no-install oxfmt --no-error-on-unmatched-pattern {staged_files}
@@ -19,3 +19,8 @@ pre-push:
       run: bun run typecheck
     - name: test
       run: bun run test
+
+commit-msg:
+  jobs:
+    - name: conventional-commit
+      run: bun run scripts/commit-message.ts {1}

@@ -15,8 +15,8 @@ concurrency:
 permissions: {}
 
 jobs:
-  gates:
-    name: Quality gates
+  checks:
+    name: Source gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -25,13 +25,57 @@ jobs:
       - uses: oven-sh/setup-bun@v2.2.0
       # Vitest requires Node >= 22.12 and does not support the bun runtime with
       # the v8 coverage provider. bun installs and runs scripts; Node runs tests.
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
       # A clean checkout is always a clean tree. bun's isolated installs are not
       # pruned incrementally, so a stale local node_modules can hide a removed
       # dependency that fails here.
       - run: bun install --frozen-lockfile
-      # Includes mutation testing, which runs in ~2s today. If it stops being cheap,
-      # split it into its own job: incremental on PRs, full on main and nightly.
-      - run: bun run ci
+      - run: bun run ci:checks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  mutation:
+    name: Mutation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2.2.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - run: bun install --frozen-lockfile
+      # Authoritative full run on every PR; no incremental cache.
+      - run: bun run mutate
+
+  verification:
+    name: Gate verification
+    needs: [checks, mutation]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2.2.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - run: bun install --frozen-lockfile
+      # Plants source and changes configs: must be last, in its own checkout.
+      - run: bun run verify-gates
+
+  gates:
+    name: Quality gates
+    needs: [checks, mutation, verification]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      # Keep the ruleset's existing required check meaningful even if a job skips.
+      - run: test "$CHECKS" = success && test "$MUTATION" = success && test "$VERIFICATION" = success
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          MUTATION: ${{ needs.mutation.result }}
+          VERIFICATION: ${{ needs.verification.result }}
