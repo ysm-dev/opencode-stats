@@ -10,7 +10,13 @@
 }
 
 html {
-  background: var(--v2-background-bg-deep);
+  --dashboard-background: #fafafa;
+  background: var(--dashboard-background);
+}
+@media (prefers-color-scheme: dark) {
+  html {
+    --dashboard-background: #080808;
+  }
 }
 body {
   font-family: Inter, sans-serif;
@@ -20,36 +26,59 @@ body {
   margin: 0;
   min-width: 320px;
 }
-header,
-nav,
-main {
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
   padding: 16px;
+}
+.sidebar {
+  display: flex;
+  flex-direction: column;
+}
+.sidebar footer {
+  margin-top: auto;
 }
 nav {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
 }
 nav a {
+  display: flex;
+  align-items: center;
   padding: 4px 8px;
   min-height: 28px;
   border-radius: 4px;
 }
 main {
   background: var(--v2-background-bg-base);
-  margin: 0 16px;
   border-radius: 8px;
+  padding: 24px;
+  min-width: 0;
+}
+header {
+  margin-bottom: 24px;
 }
 h1 {
   font-size: 20px;
 }
-a:focus-visible {
+h2 {
+  font-size: 13px;
+}
+.headline-number {
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+}
+:focus-visible {
   outline: 2px solid var(--v2-text-text-base);
   outline-offset: 2px;
 }
 .skip-link {
   position: absolute;
   transform: translateY(-200%);
+  background: var(--v2-background-bg-base);
+  padding: 8px;
 }
 .skip-link:focus {
   transform: none;
@@ -63,5 +92,10 @@ a:focus-visible {
 @media (pointer: coarse) {
   nav a {
     min-height: 44px;
+  }
+}
+@media (min-width: 768px) {
+  .shell {
+    grid-template-columns: 224px 1fr;
   }
 }

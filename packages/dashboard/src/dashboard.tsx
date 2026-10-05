@@ -1,4 +1,5 @@
-import { For, createEffect } from "solid-js";
+import { Show, createContext, createSignal, onCleanup, onMount, useContext } from "solid-js";
+import { render } from "solid-js/web";
 import { MetaProvider } from "@solidjs/meta";
 import { ThemeProvider } from "@opencode/ui/theme/context";
 import {
@@ -9,57 +10,56 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/solid-router";
+import type { EngineState, createPageClient } from "@opencode-stats/engine";
 
-const pages = [
-  { path: "/", title: "Overview" },
-  { path: "/models", title: "Models" },
-  { path: "/projects", title: "Projects" },
-  { path: "/agents", title: "Agents" },
-  { path: "/tools", title: "Tools" },
-  { path: "/sessions", title: "Sessions" },
-] as const;
+type PageClient = ReturnType<typeof createPageClient>;
+type CompletePage = Extract<EngineState, { screen: "dashboard" }>;
+const PageState = createContext<CompletePage>();
 
-const Page = (props: { title: string }) => {
-  createEffect(() => {
-    document.title = `${props.title} · opencode-stats`;
-  });
+const Overview = () => {
+  const state = useContext(PageState)!;
   return (
     <>
-      <h1>{props.title}</h1>
-      <p>No activity to show yet.</p>
+      <header>
+        <h1>Overview</h1>
+        <p>{state.rangeLabel}</p>
+      </header>
+      <section aria-labelledby="tokens">
+        <h2 id="tokens">Tokens</h2>
+        <p class="headline-number">{state.tokens.total.toLocaleString("en-US")}</p>
+      </section>
     </>
   );
 };
 
-const PageLink = (page: (typeof pages)[number]) => <Link to={page.path}>{page.title}</Link>;
-
+const skipToPage = (event: MouseEvent) => {
+  event.preventDefault();
+  document.getElementById("main")!.focus();
+};
 const Shell = () => (
-  <>
-    <a class="skip-link" href="#main">
-      Skip to content
+  <div class="shell">
+    <a class="skip-link" href="#main" onClick={skipToPage}>
+      Skip to page
     </a>
-    <header>
-      <span>opencode-stats</span>
-    </header>
-    <nav aria-label="Pages">
-      <For each={pages}>{PageLink}</For>
-    </nav>
+    <aside class="sidebar">
+      <nav aria-label="Pages">
+        <Link to="/" search={true}>
+          Overview
+        </Link>
+      </nav>
+      <footer />
+    </aside>
     <main id="main" tabIndex={-1}>
       <Outlet />
     </main>
-  </>
+  </div>
 );
 
-const root = createRootRoute({ component: Shell });
-const routes = pages.map((page) =>
-  createRoute({
-    getParentRoute: () => root,
-    path: page.path,
-    component: () => <Page title={page.title} />,
-  }),
-);
-
-const makeRouter = () => createRouter({ routeTree: root.addChildren(routes) });
+const makeRouter = () => {
+  const root = createRootRoute({ component: Shell });
+  const overview = createRoute({ getParentRoute: () => root, path: "/", component: Overview });
+  return createRouter({ routeTree: root.addChildren([overview]) });
+};
 
 declare module "@tanstack/solid-router" {
   interface Register {
@@ -67,10 +67,61 @@ declare module "@tanstack/solid-router" {
   }
 }
 
-export const Dashboard = () => (
-  <MetaProvider>
-    <ThemeProvider defaultTheme="oc-2">
-      <RouterProvider router={makeRouter()} />
-    </ThemeProvider>
-  </MetaProvider>
-);
+const CompleteDashboard = (props: {
+  state: EngineState;
+  router: ReturnType<typeof makeRouter>;
+}) => {
+  document.title = "Overview · opencode-stats";
+  return (
+    <MetaProvider>
+      <ThemeProvider defaultTheme="oc-2">
+        <Show
+          when={props.state.screen === "dashboard" && props.state}
+          fallback={
+            <main tabIndex={-1}>
+              <h1>Can't load the dashboard</h1>
+              <p>Reload to try again.</p>
+            </main>
+          }
+          keyed
+        >
+          {(state) => (
+            <PageState.Provider value={state}>
+              <RouterProvider router={props.router} />
+            </PageState.Provider>
+          )}
+        </Show>
+      </ThemeProvider>
+    </MetaProvider>
+  );
+};
+
+export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void | object> }) => {
+  const [state, setState] = createSignal<EngineState>();
+  const router = makeRouter();
+  onMount(() => {
+    void Promise.all([
+      props.ready,
+      props.client.request({ kind: "address", address: window.location.href }),
+    ]).then(async ([, result]) => {
+      if (result.kind !== "paint") return undefined;
+      if (result.state.screen === "dashboard") {
+        router.history.replace(result.state.address);
+        await router.load();
+      }
+      return setState(result.state);
+    });
+  });
+  onCleanup(() => props.client.dispose());
+  return (
+    <Show when={state()} keyed>
+      {(complete) => <CompleteDashboard state={complete} router={router} />}
+    </Show>
+  );
+};
+
+export const mountDashboard = (
+  root: HTMLElement,
+  client: PageClient,
+  ready: PromiseLike<void | object>,
+) => render(() => <Dashboard client={client} ready={ready} />, root);

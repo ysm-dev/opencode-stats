@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { run } from "./main.ts";
 import { fixture, serving, installOpener } from "../testing/server.ts";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { syntheticFixture } from "@opencode-stats/stats-store/testing";
@@ -20,7 +20,70 @@ const terminal = () => {
   };
 };
 
+const interrupt = async (result: Promise<number> | undefined) => {
+  process.emit("SIGINT");
+  return result;
+};
+
+const expectInterruptedStartup = async (
+  result: Promise<number>,
+  output: ReturnType<typeof terminal>["output"],
+) => {
+  expect(await interrupt(result)).toBe(0);
+  expect(output.mock.calls).toEqual([["waiting\n"], ["Stopped.\n"]]);
+};
+
 describe("standalone bin", () => {
+  it("rejects a missing --db with its path and fix, without starting a server or opening a browser", async () => {
+    vi.stubGlobal("Bun", { version: "1.4.2" });
+    const server = await fixture("process.stdout.write('should not start\\n'); process.exit(1);");
+    const opened = await installOpener(server.folder);
+    const db = `${server.folder}/missing.db`;
+    const { output, error } = terminal();
+    try {
+      expect(await run(["--db", db], { ...server, env: { PATH: server.folder } })).toBe(1);
+      expect(error.mock.calls).toEqual([
+        [`Can't find the OpenCode database: ${db}\nRun OpenCode once, or pass \`--db <path>\`\n`],
+      ]);
+      expect(output).not.toHaveBeenCalled();
+      await expect(stat(db)).rejects.toThrow("ENOENT");
+      await expect(readFile(opened)).rejects.toThrow("ENOENT");
+    } finally {
+      output.mockRestore();
+      error.mockRestore();
+      vi.unstubAllGlobals();
+      await server.clean();
+    }
+  });
+  it("uses the same missing-file fix for a directory and an environment-selected database", async () => {
+    vi.stubGlobal("Bun", { version: "1.4.2" });
+    const server = await fixture("process.stdout.write('should not start\\n'); process.exit(1);");
+    const { output, error } = terminal();
+    try {
+      expect(await run(["--db", server.folder], server)).toBe(1);
+      expect(
+        await run([], {
+          ...server,
+          db: undefined,
+          env: { OPENCODE_DB: `${server.folder}/missing.db` },
+        }),
+      ).toBe(1);
+      expect(error.mock.calls).toEqual([
+        [
+          `Can't find the OpenCode database: ${server.folder}\nRun OpenCode once, or pass \`--db <path>\`\n`,
+        ],
+        [
+          `Can't find the OpenCode database: ${server.folder}/missing.db\nRun OpenCode once, or pass \`--db <path>\`\n`,
+        ],
+      ]);
+      expect(output).not.toHaveBeenCalled();
+    } finally {
+      output.mockRestore();
+      error.mockRestore();
+      vi.unstubAllGlobals();
+      await server.clean();
+    }
+  });
   it("checks the runtime before even parsing flags", async () => {
     const error = vi.spyOn(process.stderr, "write").mockReturnValue(true);
     try {
@@ -303,12 +366,9 @@ describe("standalone bin", () => {
       await vi.waitFor(() => expect(output).toHaveBeenCalledExactlyOnceWith("waiting\n"), {
         timeout: 5000,
       });
-      process.emit("SIGINT");
-      expect(await result).toBe(0);
-      expect(output.mock.calls).toEqual([["waiting\n"], ["Stopped.\n"]]);
+      await expectInterruptedStartup(result, output);
     } finally {
-      process.emit("SIGINT");
-      await result;
+      await interrupt(result);
       output.mockRestore();
       vi.unstubAllGlobals();
       await server.clean();
@@ -318,22 +378,41 @@ describe("standalone bin", () => {
     vi.stubGlobal("Bun", { version: "1.4.2" });
     const { output, error } = terminal();
     const server = await fixture(
-      "setTimeout(()=>process.stdout.write('opencode-stats-ready\\n'),100); setInterval(()=>{},1000);",
+      "setTimeout(()=>process.stdout.write('waiting\\n'),1200); setInterval(()=>{},1000);",
     );
+    let result: Promise<number> | undefined;
     try {
       const timers = process.getActiveResourcesInfo().filter((name) => name === "Timeout");
-      expect(await run(["--no-open"], { executable: "/does-not-exist" })).toBe(1);
+      expect(await run(["--no-open"], { executable: "/does-not-exist", db: server.db })).toBe(1);
       expect(process.getActiveResourcesInfo().filter((name) => name === "Timeout")).toEqual(timers);
       expect(error).toHaveBeenCalledExactlyOnceWith("Can't start: dashboard server stopped.\n");
-      const result = run(["--port", "1"], server);
-      process.emit("SIGINT");
-      expect(await result).toBe(0);
-      expect(output).toHaveBeenCalledExactlyOnceWith("Stopped.\n");
+      result = run(["--port", "1"], server);
+      await vi.waitFor(() => expect(output).toHaveBeenCalledExactlyOnceWith("waiting\n"), {
+        timeout: 4000,
+      });
+      await expectInterruptedStartup(result, output);
     } finally {
+      await interrupt(result);
       output.mockRestore();
       error.mockRestore();
       vi.unstubAllGlobals();
       await server.clean();
+    }
+  });
+
+  it("cancels discovery before a foreground child is started", async () => {
+    vi.stubGlobal("Bun", { version: "1.4.2" });
+    const files = await fixture("throw new Error('must not start');");
+    const sinks = terminal();
+    try {
+      const result = run(["--no-open"], { ...files, env: { XDG_STATE_HOME: files.folder } });
+      process.emit("SIGINT");
+      expect(await result).toBe(0);
+      expect(sinks.output).toHaveBeenCalledExactlyOnceWith("Stopped.\n");
+      expect(sinks.error).not.toHaveBeenCalled();
+    } finally {
+      sinks.restore();
+      await files.clean();
     }
   });
   it("finds the source server through fixed paths when only a Bun executable is supplied", async () => {
@@ -379,12 +458,16 @@ describe("standalone bin", () => {
     vi.stubGlobal("Bun", { version: "1.4.2" });
     const error = vi.spyOn(process.stderr, "write").mockReturnValue(true);
     try {
+      const database = syntheticFixture();
+      vi.stubEnv("OPENCODE_DB", database.source);
       expect(await run(["--no-open", "--port", "65535"])).toBe(1);
+      database.dispose();
       expect(error.mock.calls[0]?.[0]?.toString()).toContain("--no-env-file");
       expect(error).toHaveBeenLastCalledWith("Can't start: dashboard server stopped.\n");
     } finally {
       error.mockRestore();
       vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
     }
   });
 });

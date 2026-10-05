@@ -14,7 +14,7 @@ export type StartOptions = {
 export function start(options: StartOptions & { detached: true }): ChildProcess;
 export function start(options: StartOptions): ChildProcessWithoutNullStreams;
 export function start(options: StartOptions): ChildProcess {
-  const db = databasePath(options.env, options.db);
+  const db = databasePath(options);
   const env: NodeJS.ProcessEnv = { BUN_BE_BUN: "1" };
   for (const key of [
     "HOME",
@@ -53,12 +53,15 @@ export function start(options: StartOptions): ChildProcess {
   );
 }
 
-export const databasePath = (env: NodeJS.ProcessEnv, db?: string): string =>
+export const databasePath = (options: {
+  db?: string | undefined;
+  env: NodeJS.ProcessEnv;
+}): string =>
   resolve(
-    db ??
-      (env["OPENCODE_DB"] ||
+    options.db ??
+      (options.env["OPENCODE_DB"] ||
         join(
-          env["XDG_DATA_HOME"] || join(env["HOME"] || homedir(), ".local", "share"),
+          options.env["XDG_DATA_HOME"] || join(options.env["HOME"] || homedir(), ".local", "share"),
           "opencode",
           "opencode.db",
         )),

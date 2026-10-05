@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdtempSync, rmSync, watch } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, watch, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { publishRecord } from "@opencode-stats/launcher";
@@ -87,11 +87,16 @@ it.each([false, true])(
     const server = createServer((_request, response) =>
       response.end(JSON.stringify(answering ? record : {})),
     );
-    record = serverRecord(await listen(server), { starter: "terminal" });
+    record = serverRecord(await listen(server), {
+      starter: "terminal",
+      database: realpathSync(files.db),
+    });
     publishRecord(join(files.folder, "opencode-stats"), record);
+    const requested = conflict ? join(files.folder, "other.db") : files.db;
+    writeFileSync(requested, "synthetic source");
     try {
       expect(
-        await run(["--no-open", "--db", conflict ? "/synthetic/b.db" : record.database], {
+        await run(["--no-open", "--db", requested], {
           ...files,
           env: { XDG_STATE_HOME: files.folder },
         }),
@@ -101,7 +106,7 @@ it.each([false, true])(
         conflict
           ? [
               [
-                `A dashboard server for \`/synthetic/a.db\` is already running (opencode-stats 1.3.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
+                `A dashboard server for \`${record.database}\` is already running (opencode-stats 1.3.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
               ],
             ]
           : [],

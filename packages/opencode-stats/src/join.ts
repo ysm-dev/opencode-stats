@@ -14,7 +14,7 @@ export async function joinRunning(
   options: { env?: NodeJS.ProcessEnv; db?: string | undefined },
 ): Promise<0 | undefined> {
   const env = options.env ?? process.env;
-  const record = await discover(stateFolder(env), databasePath(env, options.db), version);
+  const record = await discover(stateFolder(env), databasePath({ env, db: options.db }), version);
   if (!record) return undefined;
   process.stdout.write(
     `opencode-stats ${record.version} · ${record.address} · already running, started ${starterLabel(record)}\nDatabase: ${displayPath(record.database)}\n`,
