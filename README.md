@@ -84,6 +84,16 @@ Every Vitest configuration also installs a whole-run deadline for direct invocat
 
 ## Design decisions worth knowing
 
+### Browser preferences
+
+Settings keeps exactly three choices at the dashboard's browser origin: the OpenCode theme,
+System/Light/Dark colour scheme, and single-key shortcuts (On by default). Another browser,
+a private window, a port change or cleared site data starts shortcuts On again. Nothing is
+written to an opencode-stats preference file or cookie. If storage is refused, the page uses
+memory and Settings says so; that memory does not survive a reload.
+
+Implementation and remaining verification work for #37 are recorded in `docs/preferences.md`.
+
 - **bun installs and runs scripts; Node runs tests.** Vitest treats bun as a package manager only, and the v8 coverage provider does not work on the bun runtime.
 - **No package exports compiled output; only a release bundles.** Workspace entries remain in each package's own `src/`; ADR 0012 permits one root release bundle into `.release/`. Nothing imports a release bundle from source.
 - **Exact version pins, no ranges.** oxfmt is pre-1.0 with no semver protection on formatting output, and `oxlint-tsgolint` is hard-pinned to a TypeScript patch release.
