@@ -3,7 +3,9 @@
   "workspaces": {
     ".": {
       "entry": [
-        "scripts/{exceptions,verify-gates,shape,outdated,contracts,dev,generate,commit-message,release,bundle-check,native-build,native-prepare,native-outdated,opencode-prepare}.ts"
+        "scripts/testing/shards.ts",
+        "stryker.canary.config.js",
+        "scripts/{exceptions,verify-gates,shape,outdated,contracts,e2e,dev,generate,commit-message,release,bundle-check,native-build,native-prepare,native-outdated,opencode-prepare}.ts"
       ],
       "project": ["scripts/**/*.{ts,tsx}", "*.{js,ts}"]
     },

@@ -14,3 +14,7 @@ linker = "isolated"
 # TypeScript patch release. Enforced at install time rather than left to review.
 exact = true
 minimumReleaseAge = 259200 # Three days, in seconds.
+
+[test]
+# Per-test fail-fast bound; the contracts command has a five-minute whole-run watchdog.
+timeout = 5000

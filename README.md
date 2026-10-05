@@ -31,6 +31,7 @@ dependency-holds.json     Reasoned version holds; updates are manual.
 | Gate                  | Threshold                   | Command                          |
 | --------------------- | --------------------------- | -------------------------------- |
 | Formatting            | clean                       | `bun run format:check`           |
+| Time budgets          | five minutes, hard limit    | `bun run budgets`                |
 | Cyclomatic complexity | < 22                        | `bun run lint`                   |
 | Cognitive complexity  | < 22                        | `bun run lint`                   |
 | Lines per file        | < 500                       | `bun run lint`                   |
@@ -68,6 +69,16 @@ For the installed standalone slice, run `bunx opencode-stats --no-open --db <pat
 `bun run e2e` installs the existing tarball through npm with lifecycle scripts off into an otherwise empty temp folder, then checks the installed bin and Chromium. Install its browser once with `bun run --cwd packages/e2e playwright install chromium`. CI bundles and tests on Bun 1.4.2: Linux and macOS block, Windows reports. `bun run bundle:check` checks Bun metafiles, rejecting non-built-in external imports and any Effect/drizzle input in the bin.
 
 Hooks run lint/format before commits, types/coverage before pushes, and reject non-Conventional Commit messages. CI runs full mutation separately, then gate verification; the required **Quality gates** check succeeds only when every job succeeds.
+
+### Time budgets
+
+Five minutes (300,000 ms) is a **failure threshold**, not a timing target. Every CI job has `timeout-minutes: 5`. The required **Quality gates** job also checks the current workflow attempt's start time and fails if the end-to-end run exceeds five minutes, including setup, waiting between jobs, and advisory jobs. Initial scheduling before the attempt starts is outside that clock; missing or invalid timing metadata fails closed.
+
+The public `test`, `mutate`, `contracts` and `e2e` commands have an external five-minute watchdog that terminates the command and its workers, including detached descendants, and fails on expiry. Preparation and tests share that deadline, including cold e2e runtime installation. Gate verification shares one five-minute deadline across its canaries and restores planted files on failure. Each CI shard has the same limit. Full mutation remains exhaustive across six shards; verification runs in four isolated checkouts after the other gates.
+
+Every Vitest configuration also installs a whole-run deadline for direct invocations, terminating blocked workers and their detached descendants before the coordinator. Unit tests and Bun contract tests retain five-second individual limits, e2e tests have 30 seconds, and Vitest hooks/teardown have ten seconds. Stryker's initial dry run has one minute. `bun run budgets` rejects missing/raised configuration limits, including those tighter individual caps; planted verification checks exercise watchdog expiry, process cleanup and configuration regressions with short fixtures.
+
+`bun run ci` is a local **sequential aggregate of separately bounded commands**, so its combined time can exceed five minutes. Hosted CI's parallel graph has the additional end-to-end limit. When a budget fails, optimize or shard the work while preserving coverage and mutation thresholds.
 
 ## Design decisions worth knowing
 

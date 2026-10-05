@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
+import { testTimeouts } from "../../scripts/test-timeouts.ts";
 
 export default defineConfig({
-  test: { include: ["packages/e2e/tests/**/*.test.{ts,tsx}"], testTimeout: 30000 },
+  test: { ...testTimeouts, include: ["packages/e2e/tests/**/*.test.{ts,tsx}"], testTimeout: 30000 },
 });

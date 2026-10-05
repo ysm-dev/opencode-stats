@@ -14,11 +14,14 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Quality gates
 
+**Five minutes is a hard limit.** Every CI job and each test, mutation, contract and gate-verification run must fail after 300 seconds. The required Quality gates job also rejects a workflow attempt over five minutes end-to-end, including setup and waiting between jobs. Preserve the watchdogs in `scripts/time-budget.ts`, shared Vitest timeouts, Bun test timeout, and workflow `timeout-minutes: 5`; `bun run budgets` checks this configuration. Optimize or shard work when the limit is hit. Keep individual test/hook limits tighter. See README's **Time budgets** for local aggregate runs and verification.
+
 `bun run ci` runs every gate below, with gate verification last. CI blocks on all of them; mutation has its own full-run job on every PR.
 
 | Gate                 | Threshold / enforcement                                                                                                              | `bun run`        |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
 | Formatting           | Clean                                                                                                                                | `format:check`   |
+| Time budgets         | Five-minute job/run maximum; required end-to-end CI budget; explicit test/hook timeouts                                              | `budgets`        |
 | Lint                 | Both complexity measures < 22 via `oxlint-plugin-complexity`; < 500 lines; no `any`; `unknown` only at trust boundaries; no warnings | `lint`           |
 | Types                | Clean                                                                                                                                | `typecheck`      |
 | Coverage             | 100% in all four measures, per file                                                                                                  | `test`           |
