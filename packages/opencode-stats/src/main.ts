@@ -8,7 +8,7 @@ import { stat } from "node:fs/promises";
 
 export const run = async (
   args: string[],
-  options: Parameters<typeof foreground>[2] = {},
+  options: Omit<Parameters<typeof foreground>[2], "database"> & { db?: string | undefined } = {},
 ): Promise<number> => {
   const problem = runtimeProblem();
   if (problem) {
@@ -38,7 +38,7 @@ export const run = async (
     return 1;
   }
   const db = database.path;
-  const settings = { ...options, db };
+  const settings = { ...options, database };
   let interrupted = false;
   const stop = (): void => {
     interrupted = true;

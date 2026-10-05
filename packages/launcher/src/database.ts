@@ -28,7 +28,9 @@ export type DatabaseOptions = {
   overrideSource?: "flag" | "plugin";
 };
 
-export function selectDatabase(options: DatabaseOptions): { path: string; source: string } {
+export type DatabaseSelection = { readonly path: string; readonly source: string };
+
+export function selectDatabase(options: DatabaseOptions): DatabaseSelection {
   if (options.db !== undefined)
     return {
       path: resolve(options.db),
