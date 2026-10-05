@@ -113,11 +113,12 @@ it("returns synchronously, starts through the host executable, and shares a hold
   const runtime = { env, executable: fixture.executable, script: fixture.script };
   const first = plugin.setup(context, runtime);
   const second = plugin.setup(context, runtime);
+  const observer = holdServer({ ...runtime, port, db: fixture.db, version });
   let pid: number | undefined;
   try {
     expect(typeof first).toBe("function");
-    await vi.waitFor(() => expect(readRecord(stateFolder(env))).toBeDefined());
-    const record = readRecord(stateFolder(env))!;
+    const record = await observer.ready;
+    observer.release();
     pid = record.pid;
     expect(record).toMatchObject({
       database: realpathSync(fixture.db),
@@ -140,6 +141,8 @@ it("returns synchronously, starts through the host executable, and shares a hold
   } finally {
     first();
     second();
+    observer.release();
+    await observer.closed;
     if (pid) await stopProcess(pid);
     opener.close();
     fixture.clean();
