@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { bunDatabase } from "./runtime.bun.ts";
+import { bunDatabase, bunSource } from "./runtime.bun.ts";
 import { workerProgram } from "./worker-program.ts";
 
-Effect.runFork(workerProgram(globalThis, bunDatabase));
+Effect.runFork(Effect.scoped(workerProgram(globalThis, bunDatabase, bunSource)));
