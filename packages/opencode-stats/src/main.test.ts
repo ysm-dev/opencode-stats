@@ -10,6 +10,19 @@ const terminal = () => ({
   error: vi.spyOn(process.stderr, "write").mockReturnValue(true),
 });
 
+const interrupt = async (result: Promise<number> | undefined) => {
+  process.emit("SIGINT");
+  return result;
+};
+
+const expectInterruptedStartup = async (
+  result: Promise<number>,
+  output: ReturnType<typeof terminal>["output"],
+) => {
+  expect(await interrupt(result)).toBe(0);
+  expect(output.mock.calls).toEqual([["waiting\n"], ["Stopped.\n"]]);
+};
+
 describe("standalone bin", () => {
   it("rejects a missing --db with its path and fix, without starting a server or opening a browser", async () => {
     vi.stubGlobal("Bun", { version: "1.4.2" });
@@ -272,12 +285,9 @@ describe("standalone bin", () => {
       await vi.waitFor(() => expect(output).toHaveBeenCalledExactlyOnceWith("waiting\n"), {
         timeout: 5000,
       });
-      process.emit("SIGINT");
-      expect(await result).toBe(0);
-      expect(output.mock.calls).toEqual([["waiting\n"], ["Stopped.\n"]]);
+      await expectInterruptedStartup(result, output);
     } finally {
-      process.emit("SIGINT");
-      await result;
+      await interrupt(result);
       output.mockRestore();
       vi.unstubAllGlobals();
       await server.clean();
@@ -287,19 +297,21 @@ describe("standalone bin", () => {
     vi.stubGlobal("Bun", { version: "1.4.2" });
     const { output, error } = terminal();
     const server = await fixture(
-      "process.stdout.write('waiting\\n'); setTimeout(()=>process.stdout.write('opencode-stats-ready\\n'),100); setInterval(()=>{},1000);",
+      "setTimeout(()=>process.stdout.write('waiting\\n'),1200); setInterval(()=>{},1000);",
     );
+    let result: Promise<number> | undefined;
     try {
       const timers = process.getActiveResourcesInfo().filter((name) => name === "Timeout");
       expect(await run(["--no-open"], { executable: "/does-not-exist", db: server.db })).toBe(1);
       expect(process.getActiveResourcesInfo().filter((name) => name === "Timeout")).toEqual(timers);
       expect(error).toHaveBeenCalledExactlyOnceWith("Can't start: dashboard server stopped.\n");
-      const result = run(["--port", "1"], server);
-      await vi.waitFor(() => expect(output).toHaveBeenCalledExactlyOnceWith("waiting\n"));
-      process.emit("SIGINT");
-      expect(await result).toBe(0);
-      expect(output.mock.calls).toEqual([["waiting\n"], ["Stopped.\n"]]);
+      result = run(["--port", "1"], server);
+      await vi.waitFor(() => expect(output).toHaveBeenCalledExactlyOnceWith("waiting\n"), {
+        timeout: 4000,
+      });
+      await expectInterruptedStartup(result, output);
     } finally {
+      await interrupt(result);
       output.mockRestore();
       error.mockRestore();
       vi.unstubAllGlobals();
