@@ -1,5 +1,6 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import process from "node:process";
+import { killProcessTree } from "./process-tree.ts";
 
 export const TIME_BUDGET_MS = 300_000;
 
@@ -10,35 +11,20 @@ export const remainingBudget = (started: number, now = performance.now()): numbe
   return remaining;
 };
 
-// Kill the command's process tree, including test workers that ignore SIGTERM.
-const killTree = (pid: number): void => {
-  if (process.platform === "win32") {
-    const result = spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore" });
-    if (result.error) throw result.error;
-  } else {
-    try {
-      process.kill(-pid, "SIGKILL");
-    } catch (error) {
-      if (!(error instanceof Error) || !("code" in error) || error.code !== "ESRCH") throw error;
-    }
-  }
-};
-
 export const runTimed = async (
   command: readonly string[],
   milliseconds = TIME_BUDGET_MS,
-  options: { capture?: boolean; env?: NodeJS.ProcessEnv; nested?: boolean } = {},
+  options: { capture?: boolean; env?: NodeJS.ProcessEnv } = {},
 ): Promise<{ status: number; output: string }> => {
   const [executable, ...args] = command;
   if (!executable || !(milliseconds > 0 && milliseconds <= TIME_BUDGET_MS))
     throw new Error("Expected a command and a time budget of at most five minutes");
   const started = performance.now();
-  // Public wrappers nested under verification stay in its process group, so
-  // the outer deadline can kill every worker before restoring planted files.
   const child = spawn(executable, args, {
-    detached: process.platform !== "win32" && !options.nested,
+    // Route terminal interrupts through our cleanup before workers can orphan.
+    detached: process.platform !== "win32",
     stdio: options.capture ? "pipe" : "inherit",
-    env: { ...(options.env ?? process.env), TIMED_COMMAND: "1" },
+    env: options.env ?? process.env,
   });
   let output = "";
   child.stdout?.setEncoding("utf8").on("data", (chunk: string) => {
@@ -50,10 +36,7 @@ export const runTimed = async (
   let expired = false;
   let interrupted = false;
   const stop = (): void => {
-    if (child.pid) {
-      if (options.nested && process.platform !== "win32") child.kill("SIGKILL");
-      else killTree(child.pid);
-    }
+    if (child.pid) killProcessTree(child.pid);
   };
   const interrupt = (): void => {
     interrupted = true;
@@ -82,8 +65,4 @@ export const runTimed = async (
 };
 
 if (import.meta.main)
-  process.exitCode = (
-    await runTimed(["bun", "run", ...process.argv.slice(2)], TIME_BUDGET_MS, {
-      nested: process.env["TIMED_COMMAND"] === "1",
-    })
-  ).status;
+  process.exitCode = (await runTimed(["bun", "run", ...process.argv.slice(2)])).status;

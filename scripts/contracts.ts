@@ -1,9 +1,10 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, globSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
+execFileSync("bun", ["run", "native:prepare"], { stdio: "inherit" });
 const exclude = ["**/node_modules/**", "**/dist/**", "**/.release/**", "**/.dev/**"];
 const adapters = globSync("packages/*/src/**/*.bun.{ts,tsx}", { exclude });
 const contracts = globSync("packages/*/src/**/*.contract.test.{ts,tsx}", { exclude });

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { remainingBudget, runTimed, TIME_BUDGET_MS } from "../time-budget.ts";
+import { verifyProcessCleanup } from "./process-tree.ts";
 
 assert.equal(TIME_BUDGET_MS, 300_000);
 assert.equal(remainingBudget(0, 299_999), 1);
@@ -63,4 +64,5 @@ assert.equal(
     .status,
   0,
 );
+await verifyProcessCleanup();
 process.stdout.write("Time budgets reject overdue runs and terminate test workers.\n");

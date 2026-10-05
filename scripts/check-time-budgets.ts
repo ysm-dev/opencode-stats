@@ -10,7 +10,7 @@ import { testTimeouts } from "./test-timeouts.ts";
 import { TIME_BUDGET_MS } from "./time-budget.ts";
 
 // oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: dynamically loaded Vitest configuration
-const checkTestConfig = (value: unknown): void => {
+const checkTestConfig = (value: unknown, testLimit: number): void => {
   if (typeof value !== "object" || value === null || !("default" in value))
     throw new Error("Missing test config");
   const config = value.default;
@@ -23,7 +23,8 @@ const checkTestConfig = (value: unknown): void => {
     const descriptor = Object.getOwnPropertyDescriptor(settings, key);
     if (!descriptor) throw new Error(`Missing ${key} time budget`);
     const timeout = narrowJson(descriptor.value);
-    if (typeof timeout !== "number" || !(timeout > 0 && timeout <= TIME_BUDGET_MS))
+    const limit = key === "testTimeout" ? testLimit : 10_000;
+    if (typeof timeout !== "number" || !(timeout > 0 && timeout <= limit))
       throw new Error(`Invalid ${key} time budget`);
   }
   if (
@@ -55,12 +56,13 @@ const bun = object(narrowJson(TOML.parse(readFileSync("bunfig.toml", "utf8"))));
 assert.equal(object(bun["test"])["timeout"], 5000, "Bun test timeout must stay at five seconds");
 for (const name of ["test", "mutate", "contracts", "e2e"] as const)
   assert.ok(
-    root.scripts[name].includes("scripts/time-budget.ts"),
+    root.scripts[name].startsWith("bun run scripts/time-budget.ts "),
     `${name} needs a whole-run watchdog`,
   );
 assert.equal(mutation.dryRunTimeoutMinutes, 1, "Mutation dry run must finish within one minute");
 assert.equal(mutation.timeoutMS, 5000, "Mutation test timeout must stay at five seconds");
 for (const file of globSync(["vitest.config.ts", "packages/*/vitest.config.ts"])) {
-  checkTestConfig(await import(pathToFileURL(resolve(file)).href));
+  const limit = file.replaceAll("\\", "/") === "packages/e2e/vitest.config.ts" ? 30_000 : 5_000;
+  checkTestConfig(await import(pathToFileURL(resolve(file)).href), limit);
 }
 process.stdout.write("Five-minute time budgets are enforced.\n");
