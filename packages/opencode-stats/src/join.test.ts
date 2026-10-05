@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdtempSync, realpathSync, rmSync, watch, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { publishRecord } from "@opencode-stats/launcher";
@@ -45,22 +45,16 @@ it("prints the running terminal server's actual identity and exits without spawn
       `Couldn't open the browser. Open ${record.address} instead.\n`,
     );
     const opened = await installOpener(folder);
-    const observer = watch(folder);
-    const completed = new Promise<void>((done, reject) => {
-      observer.on("error", reject);
-      observer.on("change", (_event, file) => {
-        if (file === "opened") done();
-      });
-    });
     error.mockClear();
     try {
       expect(
         await run(["--db", record.database], { ...options, env: { ...options.env, PATH: folder } }),
       ).toBe(0);
-      await completed;
-      expect(await readFile(opened, "utf8")).toBe(`${record.address}\n`);
+      await opened.completed;
+      expect(await readFile(opened.record, "utf8")).toBe(`${record.address}\n`);
+      expect(JSON.parse(await readFile(opened.exited, "utf8"))).toEqual({ code: 0 });
     } finally {
-      observer.close();
+      opened.close();
     }
     expect(error).not.toHaveBeenCalled();
   } finally {

@@ -47,11 +47,12 @@ describe("standalone bin", () => {
       ]);
       expect(output).not.toHaveBeenCalled();
       await expect(stat(db)).rejects.toThrow("ENOENT");
-      await expect(readFile(opened)).rejects.toThrow("ENOENT");
+      await expect(readFile(opened.record)).rejects.toThrow("ENOENT");
     } finally {
       output.mockRestore();
       error.mockRestore();
       vi.unstubAllGlobals();
+      opened.close();
       await server.clean();
     }
   });
@@ -171,7 +172,7 @@ describe("standalone bin", () => {
         { timeout: 5000 },
       );
       await new Promise((done) => setTimeout(done, 2200));
-      await expect(readFile(opened, "utf8")).rejects.toThrow("ENOENT");
+      await expect(readFile(opened.record, "utf8")).rejects.toThrow("ENOENT");
       const response = await fetch(`http://127.0.0.1:${server.port}`);
       expect(Number(await response.text())).not.toBe(process.pid);
       process.emit("SIGINT");
@@ -188,6 +189,7 @@ describe("standalone bin", () => {
       output.mockRestore();
       error.mockRestore();
       vi.unstubAllGlobals();
+      opened.close();
       await server.clean();
     }
   });
@@ -205,11 +207,9 @@ describe("standalone bin", () => {
     vi.stubEnv("PATH", server.folder);
     const result = run(["--port", String(server.port)], server);
     try {
-      await vi.waitFor(
-        async () =>
-          expect(await readFile(record, "utf8")).toBe(`http://127.0.0.1:${server.port}\n`),
-        { timeout: 5000 },
-      );
+      await record.completed;
+      expect(await readFile(record.record, "utf8")).toBe(`http://127.0.0.1:${server.port}\n`);
+      expect(JSON.parse(await readFile(record.exited, "utf8"))).toEqual({ code: 0 });
       process.emit("SIGTERM");
       expect(await result).toBe(0);
       expect(output.mock.calls).toEqual([
@@ -224,6 +224,7 @@ describe("standalone bin", () => {
       output.mockRestore();
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
+      record.close();
       await server.clean();
     }
   });
