@@ -1,10 +1,12 @@
-import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import process from "node:process";
 import { checks } from "./gate-checks.ts";
 import { freshnessChecks } from "./gate-freshness-checks.ts";
 import { shard } from "./shard.ts";
+import { remainingBudget, runTimed } from "./time-budget.ts";
+
+const verificationStarted = performance.now();
 
 export type Check = {
   readonly gate: string;
@@ -31,20 +33,15 @@ const verify = async (check: Check): Promise<void> => {
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, content);
     }
-    const result = spawn("bun", ["run", ...check.command], {
-      env: { ...process.env, FORCE_COLOR: "0", ...check.env },
-    });
-    let output = "";
-    result.stdout.setEncoding("utf8").on("data", (chunk: string) => {
-      output += chunk;
-    });
-    result.stderr.setEncoding("utf8").on("data", (chunk: string) => {
-      output += chunk;
-    });
-    const status = await new Promise<number | null>((resolve, reject) => {
-      result.once("error", reject);
-      result.once("close", resolve);
-    });
+    const result = await runTimed(
+      ["bun", "run", ...check.command],
+      remainingBudget(verificationStarted),
+      {
+        capture: true,
+        env: { ...process.env, FORCE_COLOR: "0", ...check.env },
+      },
+    );
+    const { status, output } = result;
     const matches = check.expect.every((text) => output.includes(text));
     if ((status === 0) !== (check.accepts === true) || !matches) {
       throw new Error(`${check.gate}: wrong result (exit ${status})\n${output}`);
@@ -62,3 +59,4 @@ const verify = async (check: Check): Promise<void> => {
 
 for (const check of shard([...checks()], process.env["VERIFICATION_SHARD"])) await verify(check);
 for await (const check of freshnessChecks()) await verify(check);
+remainingBudget(verificationStarted);

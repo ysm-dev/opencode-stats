@@ -14,6 +14,12 @@
 /stryker.config.*         @ysm-dev
 /stryker.canary.config.js @ysm-dev
 /scripts/shard.ts         @ysm-dev
+/scripts/time-budget.ts   @ysm-dev
+/scripts/test-timeouts.ts @ysm-dev
+/scripts/check-time-budgets.ts @ysm-dev
+/scripts/ci-duration.ts   @ysm-dev
+/scripts/gate-budget-checks.ts @ysm-dev
+/scripts/testing/time-budget-setup.ts @ysm-dev
 /**/tsconfig*.json        @ysm-dev
 /bunfig.toml              @ysm-dev
 /bun.lock                 @ysm-dev

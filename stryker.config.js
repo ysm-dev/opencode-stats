@@ -44,6 +44,10 @@ export default {
   tsconfigFile: "tsconfig.stryker-disabled.json",
 
   coverageAnalysis: "perTest",
+  // Individual mutant runs remain short; the public command bounds the whole run.
+  timeoutMS: 5_000,
+  timeoutFactor: 1.5,
+  dryRunTimeoutMinutes: 1,
   ignorePatterns: ["**/dist/**", "**/.release/**", "**/.dev/**"],
   mutate: [
     "packages/*/src/**/*.{ts,tsx}",

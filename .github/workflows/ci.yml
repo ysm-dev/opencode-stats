@@ -17,6 +17,7 @@ permissions: {}
 jobs:
   checks:
     name: Source gates
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,11 +38,12 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   mutation:
-    name: Mutation (${{ matrix.shard }}/4)
+    name: Mutation (${{ matrix.shard }}/6)
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -55,10 +57,11 @@ jobs:
       # Authoritative full run on every PR; no incremental cache.
       - run: bun run mutate
         env:
-          MUTATION_SHARD: ${{ matrix.shard }}/4
+          MUTATION_SHARD: ${{ matrix.shard }}/6
 
   verification:
     name: Gate verification (${{ matrix.shard }}/4)
+    timeout-minutes: 5
     needs: [checks, mutation, contracts, packed]
     strategy:
       fail-fast: false
@@ -81,6 +84,7 @@ jobs:
 
   contracts:
     name: Bun contracts
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -97,6 +101,7 @@ jobs:
 
   packed:
     name: Packed tarball (${{ matrix.os }})
+    timeout-minutes: 5
     needs: [package]
     strategy:
       fail-fast: false
@@ -118,6 +123,7 @@ jobs:
       # Headless smoke tests need only the shell. Windows --with-deps spends
       # over two minutes enabling Media Foundation, used for media playback.
       - run: bun run --cwd packages/e2e playwright install --only-shell ${{ runner.os == 'Linux' && '--with-deps' || '' }} chromium
+      - run: bun run scripts/testing/time-budgets.ts
       - uses: actions/download-artifact@v8.0.1
         with:
           name: complete-release
@@ -128,6 +134,7 @@ jobs:
 
   package:
     name: Complete release artifact
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -152,15 +159,32 @@ jobs:
 
   gates:
     name: Quality gates
+    timeout-minutes: 5
     needs: [checks, mutation, contracts, verification, packed]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2.2.0
       # Keep the ruleset's existing required check meaningful even if a job skips.
       - run: test "$CHECKS" = success && test "$MUTATION" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success
+        if: always()
         env:
           CHECKS: ${{ needs.checks.result }}
           MUTATION: ${{ needs.mutation.result }}
           CONTRACTS: ${{ needs.contracts.result }}
           VERIFICATION: ${{ needs.verification.result }}
           PACKED: ${{ needs.packed.result }}
+      # Attempt-specific start time includes setup, queueing between jobs and all
+      # matrix shards, including advisory jobs. A per-job timeout alone cannot.
+      - name: Enforce five-minute end-to-end budget
+        if: always()
+        run: |
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" --jq .run_started_at)
+          bun run scripts/ci-duration.ts "$started"
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -1,9 +1,11 @@
 import { defineConfig } from "vitest/config";
 import exceptions from "./quality-exceptions.json" with { type: "json" };
+import { testTimeouts } from "./scripts/test-timeouts.ts";
 
 export default defineConfig({
   test: {
-    globalSetup: ["scripts/testing/native-setup.ts"],
+    ...testTimeouts,
+    globalSetup: [...testTimeouts.globalSetup, "scripts/testing/native-setup.ts"],
     projects: ["packages/!(e2e)"],
     coverage: {
       provider: "v8",

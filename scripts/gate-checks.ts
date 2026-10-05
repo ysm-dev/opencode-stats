@@ -9,6 +9,7 @@ import { runtimeChecks } from "./gate-runtime-checks.ts";
 import { contractChecks } from "./gate-contract-checks.ts";
 import { countingChecks } from "./gate-counting-checks.ts";
 import { nativeChecks } from "./gate-native-checks.ts";
+import { budgetChecks } from "./gate-budget-checks.ts";
 
 const repeat = (count: number, make: (index: number) => string): string =>
   `${Array.from({ length: count }, (_, index) => make(index)).join("\n")}\n`;
@@ -30,6 +31,7 @@ const lintCheck = (extension: string, gate: string, content: string, rule: strin
 });
 
 function* allChecks(): Generator<Check> {
+  yield* budgetChecks();
   yield {
     gate: "CI shards are exhaustive and disjoint",
     files: {},
