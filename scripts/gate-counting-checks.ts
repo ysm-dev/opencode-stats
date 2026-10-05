@@ -4,7 +4,7 @@ import type { Check } from "./verify-gates.ts";
 const store = "packages/stats-store/src";
 export function* countingChecks(extension: string): Generator<Check> {
   const schema = readFileSync(`${store}/schema.ts`, "utf8");
-  const source = readFileSync(`${store}/source.ts`, "utf8");
+  const source = readFileSync(`${store}/source-reader.ts`, "utf8");
   const types = readFileSync(`${store}/testing/types.ts`, "utf8");
   yield {
     gate: `stats-store statements freshness (${extension})`,
@@ -22,10 +22,10 @@ export function* countingChecks(extension: string): Generator<Check> {
     gate: `stats-store counting fingerprint (${extension})`,
     files: {
       [`${store}/gate-canary.${extension}`]: source.replace(
-        "json_extract(${messages.data}, '$.time.created')",
-        "json_extract(${messages.data}, '$.time.created') + 1",
+        "json_extract(data,'$.time.created')",
+        "json_extract(data,'$.time.created') + 1",
       ),
-      [`${store}/source.ts`]: `export {readSource} from "./gate-canary.${extension}";\n`,
+      [`${store}/source-reader.ts`]: `export * from "./gate-canary.${extension}";\n`,
     },
     command: ["test", `${store}/fingerprint.test.ts`],
     expect: ["change the stats-store version"],

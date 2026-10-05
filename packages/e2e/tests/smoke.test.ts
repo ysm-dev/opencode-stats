@@ -14,6 +14,7 @@ import sqlite from "../../../native/sqlite/manifest.json" with { type: "json" };
 import { checkEmbedded } from "./testing/embedded.ts";
 import { capture } from "./testing/process.ts";
 import { checkOverview } from "./testing/dashboard.ts";
+import { checkReload, installedStep } from "./testing/reload.ts";
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const shell = process.platform === "win32";
@@ -127,13 +128,7 @@ describe("installed release", () => {
         const db = syntheticDatabase(join(folder, "synthetic.db"));
         writer = db;
         db.session("ses-installed");
-        db.message({
-          id: "msg-installed",
-          session: "ses-installed",
-          seq: 0,
-          start: 1234567890000,
-          tokens: { input: 1, cache: { read: 2, write: 3 }, output: 4, reasoning: 5 },
-        });
+        db.message(installedStep);
         if (state === "inactive") {
           db.close();
           writer = undefined;
@@ -181,6 +176,7 @@ describe("installed release", () => {
           const browser = await chromium.launch({ headless: true });
           try {
             await checkOverview(browser, origin, "15");
+            if (state === "live") await checkReload(browser, origin, copy, db);
           } finally {
             await browser.close();
           }
