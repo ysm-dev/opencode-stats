@@ -3,14 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { emptyConfig } from "./paths.ts";
 
-export const start = (options: {
-  executable: string;
-  script: string;
-  port: number;
-  env: NodeJS.ProcessEnv;
-  db?: string | undefined;
-}) => {
-  const db = resolve(
+export const databasePath = (options: { db?: string | undefined; env: NodeJS.ProcessEnv }) =>
+  resolve(
     options.db ??
       (options.env["OPENCODE_DB"] ||
         join(
@@ -19,6 +13,15 @@ export const start = (options: {
           "opencode.db",
         )),
   );
+
+export const start = (options: {
+  executable: string;
+  script: string;
+  port: number;
+  env: NodeJS.ProcessEnv;
+  db?: string | undefined;
+}) => {
+  const db = databasePath(options);
   const env: NodeJS.ProcessEnv = { BUN_BE_BUN: "1" };
   for (const key of [
     "HOME",

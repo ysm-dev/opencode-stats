@@ -2,11 +2,14 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { temporaryPort } from "@opencode-stats/launcher/testing";
+import { syntheticDatabase } from "@opencode-stats/stats-store/testing";
 
 export const fixture = async (body: string) => {
   const folder = await mkdtemp(join(tmpdir(), "stats-bin-"));
   const executable = join(folder, "host");
   const script = join(folder, "server.mjs");
+  const db = join(folder, "synthetic.db");
+  syntheticDatabase(db).close();
   await writeFile(
     executable,
     `#!${process.execPath}\nconst i=process.argv.indexOf('--no-install')+1; const script=process.argv[i]; process.argv=['node',script,...process.argv.slice(i+1)]; import(require('node:url').pathToFileURL(script).href);`,
@@ -17,6 +20,7 @@ export const fixture = async (body: string) => {
     executable,
     script,
     folder,
+    db,
     port: await temporaryPort(),
     clean: () => rm(folder, { recursive: true, force: true }),
   };

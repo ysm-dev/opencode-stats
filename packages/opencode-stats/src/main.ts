@@ -2,6 +2,8 @@ import { runtimeProblem } from "./runtime.ts";
 import { help, parseArguments } from "./arguments.ts";
 import { version } from "./paths.ts";
 import { foreground } from "./foreground.ts";
+import { databasePath } from "@opencode-stats/launcher";
+import { stat } from "node:fs/promises";
 
 export const run = async (
   args: string[],
@@ -27,5 +29,13 @@ export const run = async (
     process.stdout.write(`opencode-stats ${version}\n`);
     return 0;
   }
-  return foreground(flags.port, flags.open, { ...options, db: flags.db ?? options.db });
+  const db = databasePath({ db: flags.db ?? options.db, env: options.env ?? process.env });
+  const file = await stat(db).catch(() => undefined);
+  if (!file?.isFile()) {
+    process.stderr.write(
+      `Can't find the OpenCode database: ${db}\nRun OpenCode once, or pass \`--db <path>\`\n`,
+    );
+    return 1;
+  }
+  return foreground(flags.port, flags.open, { ...options, db });
 };
