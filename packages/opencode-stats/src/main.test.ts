@@ -2,13 +2,23 @@ import { describe, expect, it, vi } from "vitest";
 import { run } from "./main.ts";
 import { fixture, serving, installOpener } from "../testing/server.ts";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { syntheticFixture } from "@opencode-stats/stats-store/testing";
 
-const terminal = () => ({
-  output: vi.spyOn(process.stdout, "write").mockReturnValue(true),
-  error: vi.spyOn(process.stderr, "write").mockReturnValue(true),
-});
+const terminal = () => {
+  const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+  const error = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+  return {
+    output,
+    error,
+    restore: () => {
+      output.mockRestore();
+      error.mockRestore();
+      vi.unstubAllGlobals();
+    },
+  };
+};
 
 describe("standalone bin", () => {
   it("checks the runtime before even parsing flags", async () => {
@@ -208,6 +218,77 @@ describe("standalone bin", () => {
       output.mockRestore();
       error.mockRestore();
       vi.unstubAllGlobals();
+      await server.clean();
+    }
+  });
+
+  it("prints a decided child startup problem once, without appending a generic failure", async () => {
+    vi.stubGlobal("Bun", { version: "1.4.2" });
+    const server = await fixture(
+      "process.stderr.write('Can\\'t start: decided fixture problem.\\n'); process.exit(1);",
+    );
+    const { output, error } = terminal();
+    try {
+      expect(await run(["--no-open"], server)).toBe(1);
+      expect(error).toHaveBeenCalledExactlyOnceWith("Can't start: decided fixture problem.\n");
+      expect(output).not.toHaveBeenCalled();
+    } finally {
+      output.mockRestore();
+      error.mockRestore();
+      vi.unstubAllGlobals();
+      await server.clean();
+    }
+  });
+
+  it("restarts when every racing child lost its lock without publishing a winner, with a finite retry budget", async () => {
+    vi.stubGlobal("Bun", { version: "1.4.2" });
+    const server = await fixture(
+      "import fs from 'node:fs'; const file=new URL('./attempts',import.meta.url); const count=fs.existsSync(file)?Number(fs.readFileSync(file))+1:1; fs.writeFileSync(file,String(count)); process.exit(0);",
+    );
+    const { output, error } = terminal();
+    try {
+      expect(await run(["--no-open"], { ...server, env: { XDG_STATE_HOME: server.folder } })).toBe(
+        1,
+      );
+      expect(await readFile(join(server.folder, "attempts"), "utf8")).toBe("3");
+      expect(error).toHaveBeenCalledExactlyOnceWith("Can't start: dashboard server stopped.\n");
+      expect(output).not.toHaveBeenCalled();
+    } finally {
+      output.mockRestore();
+      error.mockRestore();
+      vi.unstubAllGlobals();
+      await server.clean();
+    }
+  });
+
+  it("a later retry becomes the foreground winner rather than being left orphaned", async () => {
+    vi.stubGlobal("Bun", { version: "1.4.2" });
+    const server = await fixture(
+      "import fs from 'node:fs'; const file=new URL('./attempts',import.meta.url); const count=fs.existsSync(file)?Number(fs.readFileSync(file))+1:1; fs.writeFileSync(file,String(count)); if(count<3)process.exit(0); " +
+        serving,
+    );
+    const sinks = terminal();
+    const { output, error } = sinks;
+    const result = run(["--no-open", "--port", String(server.port)], {
+      ...server,
+      env: { XDG_STATE_HOME: server.folder },
+    });
+    try {
+      await vi.waitFor(
+        () =>
+          expect(output).toHaveBeenCalledWith(
+            `opencode-stats 0.2.0-dev · http://127.0.0.1:${server.port}\nPress Ctrl+C to stop.\n`,
+          ),
+        { timeout: 4000 },
+      );
+      expect(await readFile(join(server.folder, "attempts"), "utf8")).toBe("3");
+      process.emit("SIGINT");
+      expect(await result).toBe(0);
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      process.emit("SIGINT");
+      await result;
+      sinks.restore();
       await server.clean();
     }
   });

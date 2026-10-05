@@ -2,9 +2,17 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { build } from "./build.ts";
 import type { DatabaseAdapter, StorePaths } from "./database.ts";
+import * as Cause from "effect/Cause";
+import { SqlFailure } from "./errors.ts";
+
+type WorkerFailure = {
+  readonly kind: "sqlite";
+  readonly code: string;
+  readonly statement: "readSource" | "writeSteps" | "readStore";
+};
 
 export type WorkerPort = {
-  postMessage(value: boolean | StorePaths): void;
+  postMessage(value: boolean | StorePaths | WorkerFailure): void;
   addEventListener(type: "message", listener: (event: MessageEvent) => void): void;
   removeEventListener(type: "message", listener: (event: MessageEvent) => void): void;
 };
@@ -25,7 +33,15 @@ export const workerProgram = Effect.fnUntraced(
   (effect, port) =>
     effect.pipe(
       Effect.matchCauseEffect({
-        onFailure: () => Effect.sync(() => port.postMessage(false)),
+        onFailure: (cause) =>
+          Effect.sync(() => {
+            const failure = Cause.squash(cause);
+            port.postMessage(
+              failure instanceof SqlFailure
+                ? { kind: "sqlite", code: failure.code, statement: failure.statement }
+                : false,
+            );
+          }),
         onSuccess: () => Effect.sync(() => port.postMessage(true)),
       }),
     ),

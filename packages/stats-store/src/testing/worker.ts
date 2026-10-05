@@ -1,9 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import { workerProgram } from "../worker-program.ts";
+import { workerProgram, type WorkerPort } from "../worker-program.ts";
 import { workerClient } from "../worker-client.ts";
 import { nodeDatabase } from "../runtime.node.ts";
-import type { DatabaseAdapter, StorePaths } from "../database.ts";
+import type { DatabaseAdapter } from "../database.ts";
 
 export class InThreadWorker {
   readonly listeners = new Map<string, Set<(event: MessageEvent) => void>>();
@@ -33,12 +33,12 @@ export class InThreadWorker {
   removeEventListener(type: "message" | "error", listener: (event: MessageEvent) => void) {
     this.listeners.get(type)!.delete(listener);
   }
-  postMessage(value: boolean | StorePaths) {
+  postMessage(value: Parameters<WorkerPort["postMessage"]>[0]) {
     queueMicrotask(() => {
       for (const listener of this.requests) listener(new MessageEvent("message", { data: value }));
     });
   }
-  emit(type: "message" | "error", value: boolean | string | StorePaths) {
+  emit(type: "message" | "error", value: Parameters<WorkerPort["postMessage"]>[0] | string) {
     for (const listener of this.listeners.get(type) ?? [])
       listener(new MessageEvent(type, { data: value }));
   }

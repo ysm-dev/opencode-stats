@@ -11,7 +11,10 @@ describe("dashboard startup", () => {
   it("reports other bind failures without leaking platform messages", async () => {
     await expect(
       Effect.runPromise(Effect.scoped(startServer("unused").pipe(Effect.provide(nodeServer(-1))))),
-    ).rejects.toMatchObject({ message: "Can't start: couldn't bind 127.0.0.1:-1." });
+    ).rejects.toMatchObject({
+      message: "Can't start: couldn't bind 127.0.0.1:-1.",
+      code: "BIND_FAILED",
+    });
   });
   it("reports a held port without binding a replacement", async () => {
     const held = createServer();
