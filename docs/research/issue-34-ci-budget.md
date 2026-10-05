@@ -1,5 +1,9 @@
 # #34: shortening the hosted critical path
 
+The initial measurements below describe the **139-test baseline**. They are
+historical evidence, not proof for the larger #39 suite. The combined-suite
+reassessment later in this report supersedes the original headroom projection.
+
 ## Measured failure
 
 Hosted run [37264585252](https://github.com/ysm-dev/opencode-stats/actions/runs/37264585252)
@@ -76,8 +80,8 @@ freshness controls under the existing shared five-minute deadline. The
 unsharded full local `bun run ci` additionally exercises every canary; the
 partition assertions prove none is omitted or assigned twice by the new matrix.
 
-Only the matrix count, corresponding check names, partition assertions and
-documentation change. Verification still starts after source, all six mutation
+The initial change touched only the matrix count, corresponding check names,
+partition assertions and documentation. Verification still starts after source, all six mutation
 shards, contracts and all packed jobs. Every canary, actual exclusion/waiver
 intersection and killed positive control remains unchanged. All per-job,
 whole-run, test/hook and end-to-end caps remain fixed.
@@ -92,6 +96,48 @@ The parent must replace required `Gate verification (1/4)` through `(4/4)` with
 validation. Other required check names do not change. Hosted proof must include
 both macOS architectures and the end-to-end Quality gates deadline; Windows
 remains advisory but is still counted by that deadline.
+
+## Combined #39 baseline: 255 tests
+
+Integration `0ea42c52742d92f7eac04c16a287a54e4e3462a0` adds the singleton
+lifecycle, logging/privacy, native lock, race and hold assertions. Its local CI
+orchestrator initially still selected four verification shards. Reconciliation
+changes that to sixteen, retains all six mutation shards, and tests clearing
+**both** inherited selectors. A planted count-drift canary rejects a regression
+to four local verification shards.
+
+Bounded public measurements on the same available arm64 Mac, with all existing
+limits and warm-but-reverified runtime preparation intact:
+
+| Command / selected shard                  | Elapsed | Workload / outcome                                       |
+| ----------------------------------------- | ------: | -------------------------------------------------------- |
+| `bun run test`                            | 19.34 s | 255 tests, 100% per-file coverage                        |
+| `bun run e2e`                             | 14.58 s | Nine independent source/installed/live/race/hold tests   |
+| Original-order `VERIFICATION_SHARD=2/4`   | 85.02 s | Complete selected canaries and freshness controls passed |
+| Original-order `VERIFICATION_SHARD=12/16` | 46.76 s | Complete selected canaries and freshness controls passed |
+| Balanced `VERIFICATION_SHARD=13/16`       | 31.63 s | Complete selected canaries and freshness controls passed |
+
+The original sixteen-shard partition clustered two full-suite coverage canaries
+on some shards and none on others. Its 46.76-second local candidate is larger
+than the old suite's 33.26-second candidate; the earlier 281.8-second hosted
+projection therefore cannot be carried forward.
+
+The final reconciliation keeps sixteen shards but sorts static canaries by
+public command family, then stable gate name, before the existing modulo
+partition. This distributes every command family with counts differing by at
+most one. All sixteen `test` canaries now occupy different shards. The partition
+assertion checks this balance, and a planted zero-comparator canary proves
+silent clustering is rejected. All **241 static canaries**, actual
+exclusions/waivers, killed positive controls and per-shard freshness controls
+remain present. No lifecycle or browser assertion, timeout, cache or clock
+boundary changes.
+
+The balanced candidate is materially faster on the actual larger suite, but
+the combined Intel packed-job duration and sixteen hosted verification jobs
+still require a fresh hosted attempt. There is **no measured combined hosted
+under-300-second result yet**. The final local aggregate runs all six mutation
+and sixteen verification shards sequentially under separate 300-second
+boundaries; local and hosted selectors/check names agree.
 
 Exact replacement required-check names:
 

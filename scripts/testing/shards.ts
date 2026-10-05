@@ -31,10 +31,22 @@ assert.ok(
   ),
 );
 
+const canaries = [...checks()];
 verifyPartition(
-  [...checks()].map((check) => check.gate),
+  canaries.map((check) => check.gate),
   16,
 );
+for (const command of new Set(canaries.map((check) => check.command[0]))) {
+  const amounts = Array.from(
+    { length: 16 },
+    (_, index) =>
+      shard(canaries, `${index + 1}/16`).filter((check) => check.command[0] === command).length,
+  );
+  assert.ok(
+    Math.max(...amounts) - Math.min(...amounts) <= 1,
+    `Unbalanced verification command ${command}`,
+  );
+}
 verifyPartition(globSync("packages/*/src/**/*.{ts,tsx}"), 6);
 
 const items = Array.from({ length: 227 }, (_, index) => String(index));

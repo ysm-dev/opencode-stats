@@ -121,7 +121,7 @@ function* allChecks(): Generator<Check> {
   }
 }
 
-export function* checks(): Generator<Check> {
+function* controlledChecks(): Generator<Check> {
   for (const check of allChecks()) {
     if (check.command[0] !== "mutate") {
       yield check;
@@ -143,4 +143,13 @@ export function* checks(): Generator<Check> {
       expect: [...check.expect, "gate-canary-control.ts"],
     };
   }
+}
+
+export function* checks(): Generator<Check> {
+  // Contiguous command families distribute evenly across the modulo shards:
+  // full-suite coverage runs must not cluster while other shards have none.
+  yield* [...controlledChecks()].toSorted(
+    (left, right) =>
+      left.command[0]!.localeCompare(right.command[0]!) || left.gate.localeCompare(right.gate),
+  );
 }

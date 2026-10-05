@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { runShards } from "../ci-shards.ts";
 
-const original = process.env["MUTATION_SHARD"];
+const original = {
+  MUTATION_SHARD: process.env["MUTATION_SHARD"],
+  VERIFICATION_SHARD: process.env["VERIFICATION_SHARD"],
+};
 process.env["MUTATION_SHARD"] = "inherited-canary-selection";
+process.env["VERIFICATION_SHARD"] = "inherited-canary-selection";
 try {
   for (const [mode, variable, count] of [
     ["mutate", "MUTATION_SHARD", 6],
-    ["verify-gates", "VERIFICATION_SHARD", 4],
+    ["verify-gates", "VERIFICATION_SHARD", 16],
   ] as const) {
     const observed: string[] = [];
     await runShards(mode, async (command, milliseconds, options) => {
@@ -35,7 +39,9 @@ try {
     assert.equal(calls, 1);
   }
 } finally {
-  if (original === undefined) delete process.env["MUTATION_SHARD"];
-  else process.env["MUTATION_SHARD"] = original;
+  for (const variable of ["MUTATION_SHARD", "VERIFICATION_SHARD"] as const) {
+    if (original[variable] === undefined) delete process.env[variable];
+    else process.env[variable] = original[variable];
+  }
 }
 process.stdout.write("Local CI shards are exhaustive, isolated and fail closed.\n");
