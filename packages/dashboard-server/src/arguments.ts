@@ -7,16 +7,23 @@ const port = Schema.NumberFromString.check(
   Schema.isLessThanOrEqualTo(65535),
 );
 
-// oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: process arguments are narrowed to supported flags and a valid TCP port
-export const parseArguments = (input: unknown): { readonly port: number; readonly db: string } => {
+export const parseArguments = (
+  // oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: process arguments are narrowed to supported flags and a valid TCP port
+  input: unknown,
+): { readonly port: number; readonly db: string; readonly starter: "plugin" | "terminal" } => {
   const args = Schema.decodeUnknownSync(Schema.Array(Schema.String))(input);
   const { values } = parseArgs({
     args,
-    options: { port: { type: "string", default: "22439" }, db: { type: "string" } },
+    options: {
+      port: { type: "string", default: "22439" },
+      db: { type: "string" },
+      starter: { type: "string", default: "terminal" },
+    },
     strict: true,
   });
   return {
     port: Schema.decodeUnknownSync(port)(values.port),
     db: Schema.decodeUnknownSync(Schema.String.check(Schema.isMinLength(1)))(values.db),
+    starter: Schema.decodeUnknownSync(Schema.Literals(["plugin", "terminal"]))(values.starter),
   };
 };

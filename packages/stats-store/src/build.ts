@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync, rmSync } from "node:fs";
 import * as Effect from "effect/Effect";
+import * as Cause from "effect/Cause";
+import { sqlFailure } from "./errors.ts";
 import { Database, type DatabaseAdapter, type StorePaths } from "./database.ts";
 import { readSource } from "./source.ts";
 import { metadata, steps } from "./schema.ts";
@@ -65,5 +67,5 @@ export const build = Effect.fnUntraced(
       ),
     );
   },
-  Effect.catchCause(() => Effect.fail(new Error("Stats store build failed."))),
+  Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "writeSteps"))),
 );

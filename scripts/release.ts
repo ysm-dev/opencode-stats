@@ -28,7 +28,7 @@ const paths = {
   [resolve("packages/launcher/src/paths.ts")]:
     "import {fileURLToPath} from 'node:url'; export const emptyConfig=fileURLToPath(new URL('./empty-bunfig.toml',import.meta.url));",
   [resolve("packages/dashboard-server/src/paths.ts")]:
-    "import {fileURLToPath} from 'node:url'; export const dashboardFiles=fileURLToPath(new URL('./dashboard/',import.meta.url));",
+    `import {fileURLToPath} from 'node:url'; export const version=${JSON.stringify(version)}; export const dashboardFiles=fileURLToPath(new URL('./dashboard/',import.meta.url));`,
   [resolve("packages/stats-store/src/paths.ts")]:
     "import {fileURLToPath} from 'node:url'; export const syncWorkerFile=new URL('./sync-worker.js',import.meta.url).href; export const sqliteLibraryFile=fileURLToPath(new URL('./native/sqlite/libsqlite3.dylib',import.meta.url));",
 };

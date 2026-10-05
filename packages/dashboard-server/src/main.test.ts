@@ -10,6 +10,7 @@ import { program } from "./main.ts";
 import { syntheticFixture } from "@opencode-stats/stats-store/testing";
 import { nodeRuntime } from "@opencode-stats/stats-store/node";
 import { decode } from "@opencode-stats/browser-copy";
+import { nodeLock } from "./lock.node.ts";
 
 const readWhenReady = async (url: string): Promise<Response> => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -50,10 +51,19 @@ describe("dashboard server program", () => {
     const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     const fiber = Effect.runFork(
       Effect.scoped(
-        program(["--port", String(port), "--db", fixture.source], nodeServer, nodeRuntime),
+        program(
+          ["--port", String(port), "--db", fixture.source],
+          nodeServer,
+          nodeRuntime,
+          nodeLock,
+          { XDG_STATE_HOME: fixture.folder },
+        ),
       ),
     );
     try {
+      await vi.waitFor(() =>
+        expect(output).toHaveBeenCalledExactlyOnceWith("opencode-stats-ready\n"),
+      );
       const response = await readWhenReady(`http://127.0.0.1:${port}${asset}`);
       expect(response.status).toBe(200);
       expect(output).toHaveBeenCalledExactlyOnceWith("opencode-stats-ready\n");
@@ -84,7 +94,9 @@ describe("dashboard server program", () => {
   });
   it("rejects invalid flags before serving", async () => {
     await expect(
-      Effect.runPromise(Effect.scoped(program(["--host", "0.0.0.0"], nodeServer, nodeRuntime))),
+      Effect.runPromise(
+        Effect.scoped(program(["--host", "0.0.0.0"], nodeServer, nodeRuntime, nodeLock)),
+      ),
     ).rejects.toMatchObject({
       message: "Can't start: invalid dashboard server arguments. Use --db <path> --port <n>.",
     });
@@ -94,7 +106,11 @@ describe("dashboard server program", () => {
     const adapter = vi.fn<typeof nodeServer>(nodeServer);
     try {
       await expect(
-        Effect.runPromise(program(["--db", `${fixture.source}.missing`], adapter, nodeRuntime)),
+        Effect.runPromise(
+          program(["--db", `${fixture.source}.missing`], adapter, nodeRuntime, nodeLock, {
+            XDG_STATE_HOME: fixture.folder,
+          }),
+        ),
       ).rejects.toThrow("OpenCode database must be an existing readable file.");
       expect(adapter).not.toHaveBeenCalled();
     } finally {

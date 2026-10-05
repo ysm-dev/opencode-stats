@@ -14,6 +14,8 @@
 /stryker.config.*         @ysm-dev
 /stryker.canary.config.js @ysm-dev
 /scripts/shard.ts         @ysm-dev
+/scripts/ci-shards.ts     @ysm-dev
+/scripts/testing/ci-shards.ts @ysm-dev
 /scripts/time-budget.ts   @ysm-dev
 /scripts/process-tree.ts  @ysm-dev
 /scripts/e2e.ts           @ysm-dev
