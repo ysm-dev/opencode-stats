@@ -36,8 +36,19 @@ export function* budgetChecks(): Generator<Check> {
     gate: "local verification count agrees with the hosted matrix",
     files: {
       "scripts/ci-shards.ts": readFileSync("scripts/ci-shards.ts", "utf8").replace(
+        'mode === "mutate" ? 12 : 16',
+        'mode === "mutate" ? 12 : 4',
+      ),
+    },
+    command: ["scripts/testing/ci-shards.ts"],
+    expect: ["Missing CI shards"],
+  };
+  yield {
+    gate: "local mutation count agrees with the hosted matrix",
+    files: {
+      "scripts/ci-shards.ts": readFileSync("scripts/ci-shards.ts", "utf8").replace(
+        'mode === "mutate" ? 12 : 16',
         'mode === "mutate" ? 6 : 16',
-        'mode === "mutate" ? 6 : 4',
       ),
     },
     command: ["scripts/testing/ci-shards.ts"],

@@ -9,7 +9,7 @@ process.env["MUTATION_SHARD"] = "inherited-canary-selection";
 process.env["VERIFICATION_SHARD"] = "inherited-canary-selection";
 try {
   for (const [mode, variable, count] of [
-    ["mutate", "MUTATION_SHARD", 6],
+    ["mutate", "MUTATION_SHARD", 12],
     ["verify-gates", "VERIFICATION_SHARD", 16],
   ] as const) {
     const observed: string[] = [];
