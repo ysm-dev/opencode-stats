@@ -60,3 +60,4 @@
 /scripts/opencode-prepare.ts @ysm-dev
 /packages/e2e/tests/native.test.ts @ysm-dev
 /scripts/testing/native-setup.ts @ysm-dev
+/docs/research/issue-34-ci-budget.md @ysm-dev

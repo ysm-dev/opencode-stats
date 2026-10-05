@@ -6,7 +6,7 @@ export async function runShards(
   run: typeof runTimed = runTimed,
 ): Promise<void> {
   const variable = mode === "mutate" ? "MUTATION_SHARD" : "VERIFICATION_SHARD";
-  const count = mode === "mutate" ? 6 : 4;
+  const count = mode === "mutate" ? 6 : 16;
   for (let index = 1; index <= count; index += 1) {
     const env = { ...process.env };
     delete env["MUTATION_SHARD"];

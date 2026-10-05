@@ -22,6 +22,28 @@ export function* budgetChecks(): Generator<Check> {
     expect: ["Missing CI shards"],
   };
   yield {
+    gate: "verification command families cannot silently cluster",
+    files: {
+      "scripts/gate-checks.ts": readFileSync("scripts/gate-checks.ts", "utf8").replace(
+        "left.command[0]!.localeCompare(right.command[0]!) || left.gate.localeCompare(right.gate)",
+        "0",
+      ),
+    },
+    command: ["scripts/testing/shards.ts"],
+    expect: ["Unbalanced verification command"],
+  };
+  yield {
+    gate: "local verification count agrees with the hosted matrix",
+    files: {
+      "scripts/ci-shards.ts": readFileSync("scripts/ci-shards.ts", "utf8").replace(
+        'mode === "mutate" ? 6 : 16',
+        'mode === "mutate" ? 6 : 4',
+      ),
+    },
+    command: ["scripts/testing/ci-shards.ts"],
+    expect: ["Missing CI shards"],
+  };
+  yield {
     gate: "time budgets terminate overdue commands",
     files: {},
     command: ["scripts/testing/time-budgets.ts"],
