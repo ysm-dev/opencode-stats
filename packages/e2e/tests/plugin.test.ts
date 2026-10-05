@@ -34,7 +34,7 @@ it.each([
       { cwd: home, timeout: 10000, shell: process.platform === "win32" },
     );
     const options = {
-      executable: opencodeExecutable(version),
+      executable: opencodeExecutable(version, process.env["OPENCODE_TEST_ARCH"] ?? process.arch),
       home,
       plugin:
         mode === "packed"
