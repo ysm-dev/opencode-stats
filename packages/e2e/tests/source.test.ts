@@ -3,8 +3,10 @@ import { chromium } from "playwright";
 import { expect, it, vi } from "vitest";
 import { capture } from "./testing/process.ts";
 import { checkOverview } from "./testing/dashboard.ts";
+import { coldSourceCache } from "./testing/source-cache.ts";
 
 it("bun run dev serves the same worker-driven Overview from source on synthetic history", async () => {
+  const restoreCache = await coldSourceCache();
   const child = spawn("bun", ["run", "dev"], {
     detached: true,
     // Vite decorates its URL with ANSI codes; HTTP, not terminal formatting, proves readiness.
@@ -33,10 +35,14 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
       await browser.close();
     }
   } finally {
-    if (process.platform === "win32") child.kill();
-    else {
-      process.kill(-child.pid!, "SIGTERM");
+    try {
+      if (process.platform === "win32") child.kill();
+      else {
+        process.kill(-child.pid!, "SIGTERM");
+      }
+      await closed;
+    } finally {
+      restoreCache();
     }
-    await closed;
   }
 });

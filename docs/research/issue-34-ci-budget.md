@@ -238,6 +238,70 @@ Mutation (11/12)
 Mutation (12/12)
 ```
 
+## #35 Intel source-load failure: cold worker dependency discovery
+
+The full failure JSON from hosted run `37334376285` identifies the first
+**copy gate at 360 px**, not a missing font/style URL match. Its sequence is:
+
+1. The initial document loads and creates the real engine worker.
+2. Worker dependency `effect_http-api_HttpApiSchema.js` returns **HTTP 504** with
+   the original Vite optimization hash.
+3. A second document load begins with a new optimization hash. The first worker
+   is gone; the replacement has not started. Effect/UI scripts and styles remain
+   pending when the original ten-second gate deadline expires.
+
+The cause is Vite's initial HTML dependency scan omitting the module worker's
+HttpApi import graph. First worker use discovers those dependencies, starts a
+second optimization, invalidates the old module hash and forces a full reload.
+On the faster local Mac this had silently recovered before the original gate
+assertion; Intel contention exposed the same restart as a missing copy request.
+
+The fix adds the engine's **public worker export** to native Vite
+`optimizeDeps.entries`, alongside `index.html`. The same cold work remains in
+startup; there is no preparatory browser visit, unverified cache, fake readiness,
+URL exclusion or timeout change. The healthy-browser assertion now rejects
+failed script responses, including the original 504, even when Vite recovers.
+
+The source fixture now explicitly starts with an empty **owned** Vite cache on
+every run, saves/restores any prior development cache, rejects caches outside
+the current worktree, checks the two source ports are free, and closes its owned
+process before restoring the cache. Synthetic `.dev` data, forced colors,
+workers, all six width/asset gates, axe and whole-paint assertions stay intact.
+
+Bounded cold RED→GREEN evidence on integration `5ee4e91`, with concurrent source,
+installed browser and lifecycle e2e load, using the same public `bun run e2e`
+deadline and existing individual limits:
+
+| Initial scan                 | Planned samples | Public command elapsed | Result                                             |
+| ---------------------------- | --------------- | ---------------------- | -------------------------------------------------- |
+| HTML only (old)              | 3               | 14.82, 14.71, 14.86 s  | **3/3 RED**, identical HttpApiSchema HTTP 504      |
+| HTML + public worker (fixed) | 3               | 14.03, 17.93, 13.76 s  | **3/3 GREEN**, all nine tests; no stale-module 504 |
+
+An initial isolated cold probe also failed on the same 504 in 2.92 seconds,
+and passed with the worker scan. This reproduces the recorded mechanism rather
+than manufacturing a missing route or changing the deadline.
+
+The Intel log also showed the single installed live smoke crossing its
+30-second individual cap. Its Overview and sync-reload exercises are now
+independent fresh installed fixtures under the same 30-second cap, not one
+cumulative case. Each retains dependency-free tarball installation, bin/native
+checks, synthetic WAL source safety and shutdown/embedded-Bun cleanup. Live
+and inactive Overview still exercise every width/asset gate; sync reload still
+asserts Tokens **15→30**, generation retention and a higher revision.
+
+The partitioned public suite passes **ten tests**. A verbose local profile
+recorded cold source 3.574 s, live Overview 4.267 s, inactive Overview 2.918 s,
+sync reload 2.817 s, and the real final-hold idle shutdown 10.933 s. A separate
+worker-orchestration comparison favored the existing default: 20.19 s elapsed
+versus 57.75 s with one worker/serial files. **No worker policy changes** ship.
+
+These local measurements establish the cold-load mechanism and preserve all
+work/assertions, but are not actual Intel hosted proof. The parent must push the
+combined tree and validate cold source, both packed WAL forms, independent sync
+reload and the unchanged full workflow clock. #35's separate native/property
+five-second failures remain owned by its implementer; no stats-store runtime
+or test file is edited here.
+
 Exact replacement required-check names:
 
 ```text
