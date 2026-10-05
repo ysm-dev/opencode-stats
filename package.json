@@ -24,6 +24,7 @@
     "shape": "bun run scripts/shape.ts",
     "contracts": "bun run scripts/time-budget.ts scripts/contracts.ts",
     "dev": "bun run native:prepare && bun run scripts/dev.ts",
+    "dev:plugin": "bun run native:prepare && bun run scripts/dev-plugin.ts",
     "generate": "bun run scripts/generate.ts",
     "release": "bun run scripts/release.ts",
     "bundle:check": "bun run scripts/bundle-check.ts",

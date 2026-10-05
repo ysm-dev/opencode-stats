@@ -22,6 +22,13 @@ export const fixture = async (body: string) => {
     script,
     folder,
     db,
+    env: {
+      HOME: folder,
+      XDG_STATE_HOME: folder,
+      XDG_CACHE_HOME: folder,
+      XDG_DATA_HOME: folder,
+      OPENCODE_CONFIG_DIR: folder,
+    },
     port: await temporaryPort(),
     clean: () => rm(folder, { recursive: true, force: true }),
   };

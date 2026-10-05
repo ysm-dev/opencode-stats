@@ -25,11 +25,11 @@ it("prints the running terminal server's actual identity and exits without spawn
   try {
     expect(await run(["--no-open", "--db", record.database], options)).toBe(0);
     expect(output).toHaveBeenCalledExactlyOnceWith(
-      `opencode-stats 0.1.0 · ${record.address} · already running, started in a terminal\nDatabase: /synthetic/a.db\n`,
+      `opencode-stats 0.1.0 · ${record.address} · already running, started in a terminal\nDatabase: /synthetic/a.db (from \`--db\`)\n`,
     );
     expect(await run(["--no-open", "--db", "/synthetic/b.db"], options)).toBe(1);
     expect(error).toHaveBeenCalledExactlyOnceWith(
-      `A dashboard server for \`/synthetic/a.db\` is already running (opencode-stats 0.1.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
+      `A dashboard server for \`/synthetic/a.db\` (from the running dashboard server's record) is already running (opencode-stats 0.1.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
     );
     error.mockClear();
     output.mockClear();
@@ -39,7 +39,7 @@ it("prints the running terminal server's actual identity and exits without spawn
       await run(["--db", record.database], { ...options, env: { ...options.env, PATH: folder } }),
     ).toBe(0);
     expect(output).toHaveBeenCalledExactlyOnceWith(
-      `opencode-stats 99.0.0 · ${record.address} · already running, started by OpenCode\nDatabase: /synthetic/a.db\n`,
+      `opencode-stats 99.0.0 · ${record.address} · already running, started by OpenCode\nDatabase: /synthetic/a.db (from \`--db\`)\n`,
     );
     expect(error).toHaveBeenCalledExactlyOnceWith(
       `Couldn't open the browser. Open ${record.address} instead.\n`,
@@ -96,11 +96,21 @@ it.each([false, true])(
         }),
       ).toBe(conflict ? 1 : 0);
       expect(output).toHaveBeenCalledWith("waiting\n");
+      expect(output.mock.calls).toEqual(
+        conflict
+          ? [["waiting\n"]]
+          : [
+              ["waiting\n"],
+              [
+                `opencode-stats 1.3.0 · ${record.address} · already running, started in a terminal\nDatabase: ${record.database} (from \`--db\`)\n`,
+              ],
+            ],
+      );
       expect(error.mock.calls).toEqual(
         conflict
           ? [
               [
-                `A dashboard server for \`${record.database}\` is already running (opencode-stats 1.3.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
+                `A dashboard server for \`${record.database}\` (from the running dashboard server's record) is already running (opencode-stats 1.3.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
               ],
             ]
           : [],
@@ -122,6 +132,7 @@ it("a native failure at the environment/discovery boundary cannot print library 
     expect(
       await run(["--no-open"], {
         env: {
+          HOME: "/synthetic/private-home",
           get XDG_STATE_HOME(): string {
             throw new Error("PRIVATE_NATIVE_ENVIRONMENT_TITLE");
           },

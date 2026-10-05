@@ -9,7 +9,7 @@ export default defineConfig({
     projects: ["packages/!(e2e)"],
     coverage: {
       provider: "v8",
-      include: ["packages/*/src/**/*.{ts,tsx}"],
+      include: ["packages/*/src/**/*.{ts,tsx}", "packages/opencode-stats/server.ts"],
       exclude: [
         "**/*.test.{ts,tsx}",
         "**/testing/**",

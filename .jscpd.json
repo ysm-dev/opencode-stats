@@ -5,7 +5,7 @@
   "reporters": ["console"],
   "absolute": true,
   "gitignore": true,
-  "pattern": "{packages/*/{src,tests,testing},scripts}/**/*.{ts,tsx}",
+  "pattern": "{{packages/*/{src,tests,testing},scripts}/**/*,packages/opencode-stats/server}.{ts,tsx}",
   "ignore": [
     "**/node_modules/**",
     "**/coverage/**",

@@ -12,6 +12,32 @@ export default {
   },
   overrides: [
     {
+      files: ["packages/opencode-stats/**/*.{ts,tsx}"],
+      rules: {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            paths: [
+              {
+                name: "@opencode/plugin",
+                allowTypeImports: true,
+                message: "OpenCode plugin imports must be types only.",
+              },
+            ],
+            patterns: [
+              "@opencode-stats/*/testing",
+              "@opencode-stats/*/testing/*",
+              {
+                group: ["@opencode/plugin/*"],
+                allowTypeImports: true,
+                message: "OpenCode plugin imports must be types only.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ["**/*.test.{ts,tsx}", "**/testing/**"],
       rules: { "eslint/no-restricted-imports": "off" },
     },

@@ -3,12 +3,12 @@ import { help, parseArguments } from "./arguments.ts";
 import { version } from "./paths.ts";
 import { foreground } from "./foreground.ts";
 import { joinRunning } from "./join.ts";
-import { databasePath, joinMessage, displayPath } from "@opencode-stats/launcher";
+import { selectDatabase, joinMessage, displayPath } from "@opencode-stats/launcher";
 import { stat } from "node:fs/promises";
 
 export const run = async (
   args: string[],
-  options: Parameters<typeof foreground>[2] = {},
+  options: Omit<Parameters<typeof foreground>[2], "database"> & { db?: string | undefined } = {},
 ): Promise<number> => {
   const problem = runtimeProblem();
   if (problem) {
@@ -30,8 +30,15 @@ export const run = async (
     process.stdout.write(`opencode-stats ${version}\n`);
     return 0;
   }
-  const db = databasePath({ db: flags.db ?? options.db, env: options.env ?? process.env });
-  const settings = { ...options, db };
+  let database;
+  try {
+    database = selectDatabase({ db: flags.db ?? options.db, env: options.env ?? process.env });
+  } catch (error) {
+    process.stderr.write(`${joinMessage(error)}\n`);
+    return 1;
+  }
+  const db = database.path;
+  const settings = { ...options, database };
   let interrupted = false;
   const stop = (): void => {
     interrupted = true;
@@ -48,7 +55,7 @@ export const run = async (
     const file = await stat(db).catch(() => undefined);
     if (!file?.isFile()) {
       process.stderr.write(
-        `Can't find the OpenCode database: ${displayPath(db)}\nRun OpenCode once, or pass \`--db <path>\`\n`,
+        `Can't find the OpenCode database: ${displayPath(db)} ${database.source}\nRun OpenCode once, or pass \`--db <path>\`\n`,
       );
       return 1;
     }

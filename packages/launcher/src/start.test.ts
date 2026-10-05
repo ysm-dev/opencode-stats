@@ -1,6 +1,6 @@
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { once } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { start } from "./start.ts";
@@ -100,7 +100,7 @@ describe("launcher start command", () => {
           "--port",
           "22439",
           "--db",
-          resolve("synthetic.db"),
+          join(folder, "opencode/synthetic.db"),
         ],
         env: { ...needed, BUN_BE_BUN: "1" },
       });
