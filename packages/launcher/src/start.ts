@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
-import { homedir } from "node:os";
+import { dirname } from "node:path";
+import { databasePath } from "./database.ts";
 import { emptyConfig } from "./paths.ts";
 
 export type StartOptions = {
@@ -52,17 +52,3 @@ export function start(options: StartOptions): ChildProcess {
     },
   );
 }
-
-export const databasePath = (options: {
-  db?: string | undefined;
-  env: NodeJS.ProcessEnv;
-}): string =>
-  resolve(
-    options.db ??
-      (options.env["OPENCODE_DB"] ||
-        join(
-          options.env["XDG_DATA_HOME"] || join(options.env["HOME"] || homedir(), ".local", "share"),
-          "opencode",
-          "opencode.db",
-        )),
-  );

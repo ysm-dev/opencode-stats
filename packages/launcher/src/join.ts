@@ -13,7 +13,7 @@ export const joinMessage = (input: unknown): string =>
 export const starterLabel = (record: ServerRecord): string =>
   record.starter === "plugin" ? "by OpenCode" : "in a terminal";
 export const conflictMessage = (record: ServerRecord): string =>
-  `A dashboard server for \`${displayPath(record.database)}\` is already running (opencode-stats ${record.version}, started ${starterLabel(record)}, ${record.address}). opencode-stats serves one OpenCode database at a time.`;
+  `A dashboard server for \`${displayPath(record.database)}\` (from the running dashboard server's record) is already running (opencode-stats ${record.version}, started ${starterLabel(record)}, ${record.address}). opencode-stats serves one OpenCode database at a time.`;
 
 const serverRequest = (
   record: ServerRecord,

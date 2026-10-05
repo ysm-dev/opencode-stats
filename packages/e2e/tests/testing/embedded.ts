@@ -1,10 +1,12 @@
 import { spawn } from "node:child_process";
 import { capture } from "./process.ts";
 import { readFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { join } from "node:path";
 import { expect, vi } from "vitest";
 import { temporaryPort } from "@opencode-stats/launcher/testing";
 import { decode } from "@opencode-stats/browser-copy";
+import pin from "../../../../native/sqlite/test-runtime.json" with { type: "json" };
+import { opencodeExecutable } from "../../../../scripts/opencode-runtime.ts";
 
 export async function checkEmbedded(
   installed: string,
@@ -12,11 +14,7 @@ export async function checkEmbedded(
   home: string,
 ): Promise<void> {
   const architecture = process.env["OPENCODE_TEST_ARCH"] ?? process.arch;
-  const executable = resolve(
-    ".dev/opencode-test",
-    architecture,
-    `node_modules/@opencode/cli-darwin-${architecture}/bin/opencode`,
-  );
+  const executable = opencodeExecutable(pin.opencode, architecture);
   const port = await temporaryPort();
   const before = readFileSync(source);
   const child = spawn(

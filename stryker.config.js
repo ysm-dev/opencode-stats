@@ -2,7 +2,10 @@ import { globSync } from "node:fs";
 import exceptions from "./quality-exceptions.json" with { type: "json" };
 import { shard } from "./scripts/shard.ts";
 
-const sources = globSync("packages/*/src/**/*.{ts,tsx}").toSorted();
+const sources = globSync([
+  "packages/*/src/**/*.{ts,tsx}",
+  "packages/opencode-stats/server.ts",
+]).toSorted();
 const selected = new Set(shard(sources, process.env["MUTATION_SHARD"]));
 
 const excluded = exceptions
@@ -51,6 +54,7 @@ export default {
   ignorePatterns: ["**/dist/**", "**/.release/**", "**/.dev/**"],
   mutate: [
     "packages/*/src/**/*.{ts,tsx}",
+    "packages/opencode-stats/server.ts",
     "!**/*.test.{ts,tsx}",
     "!**/testing/**",
     "!**/dist/**",

@@ -29,7 +29,7 @@ it("prints the running terminal server's actual identity and exits without spawn
     );
     expect(await run(["--no-open", "--db", "/synthetic/b.db"], options)).toBe(1);
     expect(error).toHaveBeenCalledExactlyOnceWith(
-      `A dashboard server for \`/synthetic/a.db\` is already running (opencode-stats 0.1.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
+      `A dashboard server for \`/synthetic/a.db\` (from the running dashboard server's record) is already running (opencode-stats 0.1.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
     );
     error.mockClear();
     output.mockClear();
@@ -100,7 +100,7 @@ it.each([false, true])(
         conflict
           ? [
               [
-                `A dashboard server for \`${record.database}\` is already running (opencode-stats 1.3.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
+                `A dashboard server for \`${record.database}\` (from the running dashboard server's record) is already running (opencode-stats 1.3.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.\n`,
               ],
             ]
           : [],
@@ -122,6 +122,7 @@ it("a native failure at the environment/discovery boundary cannot print library 
     expect(
       await run(["--no-open"], {
         env: {
+          HOME: "/synthetic/private-home",
           get XDG_STATE_HOME(): string {
             throw new Error("PRIVATE_NATIVE_ENVIRONMENT_TITLE");
           },

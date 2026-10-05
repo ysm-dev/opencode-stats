@@ -40,7 +40,7 @@ Every gate reads `.ts` and `.tsx`; `dist/`, `.release/` and `.dev/` are artifact
 ### Rules that are easy to get wrong
 
 - **`any` is banned outright.** No exceptions.
-- **`unknown` is allowed only at a trust boundary** — a function taking untrusted input (CLI arguments, parsed JSON, environment variables) and narrowing it before anything downstream sees it. It is banned in every other declared parameter, return, or field type. See `packages/dashboard-server/src/arguments.ts` for the intended shape.
+- **`unknown` is allowed only at a trust boundary** — a function taking untrusted input (plugin options, CLI arguments, parsed JSON, environment variables) and narrowing it before anything downstream sees it. It is banned in every other declared parameter, return, or field type. See `packages/opencode-stats/src/options.ts` for the intended shape.
 - **Coverage is per file, not global.** A global average is trivially gamed by one large well-covered file.
 - **Untestable code goes in a thin edge file**, not behind a coverage ignore comment. `packages/opencode-stats/src/bin.ts` is the worked example: the edge passes `process.argv` to the tested program and sets its exit code.
 
