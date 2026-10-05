@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import process from "node:process";
 import { checks } from "./gate-checks.ts";
 import { freshnessChecks } from "./gate-freshness-checks.ts";
+import { shard } from "./shard.ts";
 
 export type Check = {
   readonly gate: string;
@@ -17,6 +18,7 @@ export type Check = {
 // Each canary runs the public command. Back up changed configs, never overwrite
 // a contributor's source, and restore even when the command or assertion fails.
 const verify = async (check: Check): Promise<void> => {
+  const started = performance.now();
   const originals = new Map<string, string | undefined>();
   for (const path of Object.keys(check.files)) {
     if (existsSync(path) && path.includes("gate-canary")) {
@@ -47,7 +49,9 @@ const verify = async (check: Check): Promise<void> => {
     if ((status === 0) !== (check.accepts === true) || !matches) {
       throw new Error(`${check.gate}: wrong result (exit ${status})\n${output}`);
     }
-    process.stdout.write(`  ${check.gate}\n`);
+    process.stdout.write(
+      `  ${check.gate} (${((performance.now() - started) / 1000).toFixed(1)}s)\n`,
+    );
   } finally {
     for (const [path, original] of originals) {
       if (original === undefined) rmSync(path, { force: true });
@@ -56,5 +60,5 @@ const verify = async (check: Check): Promise<void> => {
   }
 };
 
-for (const check of checks()) await verify(check);
+for (const check of shard([...checks()], process.env["VERIFICATION_SHARD"])) await verify(check);
 for await (const check of freshnessChecks()) await verify(check);

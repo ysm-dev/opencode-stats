@@ -1,4 +1,9 @@
+import { globSync } from "node:fs";
 import exceptions from "./quality-exceptions.json" with { type: "json" };
+import { shard } from "./scripts/shard.ts";
+
+const sources = globSync("packages/*/src/**/*.{ts,tsx}").toSorted();
+const selected = new Set(shard(sources, process.env["MUTATION_SHARD"]));
 
 const excluded = exceptions
   .filter((entry) => entry.gates.includes("mutation"))
@@ -48,6 +53,7 @@ export default {
     "!**/.release/**",
     "!**/.dev/**",
     ...excluded,
+    ...sources.filter((file) => !selected.has(file)).map((file) => `!${file}`),
   ],
   thresholds: { high: 100, low: 100, break: 100 },
   reporters: ["progress", "clear-text"],

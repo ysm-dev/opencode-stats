@@ -29,7 +29,14 @@ const lintCheck = (extension: string, gate: string, content: string, rule: strin
   expect: [rule],
 });
 
-export function* checks(): Generator<Check> {
+function* allChecks(): Generator<Check> {
+  yield {
+    gate: "CI shards are exhaustive and disjoint",
+    files: {},
+    command: ["scripts/testing/shards.ts"],
+    expect: ["Shards are exhaustive, disjoint and reject invalid input."],
+    accepts: true,
+  };
   yield* contractChecks();
   yield* hookChecks();
   yield* shapeChecks();
@@ -105,9 +112,33 @@ export function* checks(): Generator<Check> {
         [file]: mutation,
         [`${source}.test.${extension}`]: mutationTest(extension, "toBe(2)"),
       },
-      command: ["mutate", "--mutate", file],
+      command: ["mutate"],
       expect: ["100.00"],
       accepts: true,
+    };
+  }
+}
+
+export function* checks(): Generator<Check> {
+  for (const check of allChecks()) {
+    if (check.command[0] !== "mutate") {
+      yield check;
+      continue;
+    }
+    // A killed positive control prevents excluded/waived canaries passing with no mutants.
+    const control = `${source}-control`;
+    yield {
+      ...check,
+      files: {
+        ...check.files,
+        [`${control}.ts`]: mutation,
+        [`${control}.test.ts`]: mutationTest("ts", "toBe(2)").replace(
+          '"./gate-canary.ts"',
+          '"./gate-canary-control.ts"',
+        ),
+      },
+      command: ["mutate", "stryker.canary.config.js"],
+      expect: [...check.expect, "gate-canary-control.ts"],
     };
   }
 }

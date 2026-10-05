@@ -12,6 +12,8 @@
 /knip.json                @ysm-dev
 /**/vitest.config.*       @ysm-dev
 /stryker.config.*         @ysm-dev
+/stryker.canary.config.js @ysm-dev
+/scripts/shard.ts         @ysm-dev
 /**/tsconfig*.json        @ysm-dev
 /bunfig.toml              @ysm-dev
 /bun.lock                 @ysm-dev
