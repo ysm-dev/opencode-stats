@@ -93,6 +93,12 @@ export function syntheticDatabase(filename: string) {
     reset() {
       db.exec("BEGIN IMMEDIATE; DELETE FROM session_v2; DELETE FROM event_sequence; COMMIT");
     },
+    removeCounter(session: string) {
+      db.prepare("DELETE FROM event_sequence WHERE aggregate_id=?").run(session);
+    },
+    sequence(session: string, value: string | number) {
+      db.prepare("UPDATE event_sequence SET seq=? WHERE aggregate_id=?").run(value, session);
+    },
     deleteSession(session: string) {
       db.exec("BEGIN IMMEDIATE");
       try {

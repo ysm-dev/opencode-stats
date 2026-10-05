@@ -2,6 +2,9 @@ import { expect, it } from "vitest";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { nodeRuntime } from "./runtime.node.ts";
 import type { StoreCopy } from "./store.ts";
+import * as Effect from "effect/Effect";
+import { observedStore } from "./testing/store.ts";
+import { runWithClock } from "./testing/clock.ts";
 
 it("commits newest build units before an interruption and resumes without rereading unchanged units", async () => {
   const fixture = syntheticFixture();
@@ -41,3 +44,155 @@ it("commits newest build units before an interruption and resumes without reread
     fixture.dispose();
   }
 });
+
+it("keeps the next unread unit's boundary while known units and new subagents are interleaved", async () => {
+  const fixture = syntheticFixture();
+  const { writer, source, folder } = fixture;
+  writer.session("ses-known-a");
+  writer.session("ses-known-b");
+  writer.message({ id: "msg-a", session: "ses-known-a", seq: 0, start: 5000 });
+  writer.message({ id: "msg-b", session: "ses-known-b", seq: 0, start: 3000 });
+  try {
+    await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime);
+    writer.session("ses-newest");
+    writer.session("ses-new-child", "ses-known-a");
+    writer.session("ses-new-old");
+    writer.message({ id: "msg-newest", session: "ses-newest", seq: 0, start: 6000 });
+    writer.message({ id: "msg-child", session: "ses-new-child", seq: 0, start: 4000 });
+    writer.message({ id: "msg-old", session: "ses-new-old", seq: 0, start: 1000 });
+    writer.message({
+      id: "msg-b",
+      session: "ses-known-b",
+      seq: 0,
+      start: 3000,
+      tokens: { output: 1 },
+    });
+    const boundaries: number[] = [];
+    await readBuilt(
+      { source, cacheHome: folder },
+      (copy) => boundaries.push(copy.historyCompleteFrom),
+      nodeRuntime,
+    );
+    expect(boundaries).toEqual([3000, 5000, 1000, 1000, 1000]);
+  } finally {
+    fixture.dispose();
+  }
+});
+
+it("rereads only the changed member of an already built session-with-subagents unit", async () => {
+  const fixture = syntheticFixture();
+  const { writer, source, folder } = fixture;
+  writer.session("ses-parent");
+  writer.session("ses-child", "ses-parent");
+  writer.message({ id: "msg-parent", session: "ses-parent", seq: 0, start: 1000 });
+  writer.message({
+    id: "msg-child",
+    session: "ses-child",
+    seq: 0,
+    start: 2000,
+    tokens: { output: 1 },
+  });
+  try {
+    await runWithClock((time) =>
+      Effect.gen(function* () {
+        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime);
+        writer.rewriteWithoutCounter(
+          "msg-parent",
+          "SYNTHETIC INVALID JSON: unchanged parent must not be reread",
+        );
+        writer.message({
+          id: "msg-child",
+          session: "ses-child",
+          seq: 0,
+          start: 2000,
+          tokens: { output: 9 },
+        });
+        yield* time.tick;
+        expect(
+          (yield* store.read()).facts.map((fact) => [fact.id, fact.output, fact.revision]),
+        ).toEqual([
+          ["msg-child", 9, 2],
+          ["msg-parent", null, 1],
+        ]);
+      }),
+    );
+  } finally {
+    fixture.dispose();
+  }
+});
+
+it("orders negative instants newest first and advances the complete boundary after each of three units", async () => {
+  const fixture = syntheticFixture();
+  const { writer, source, folder } = fixture;
+  for (const [id, start] of [
+    ["a", -3000],
+    ["b", -2000],
+    ["c", -1000],
+  ] as const) {
+    writer.session(id);
+    writer.message({ id: `msg-${id}`, session: id, seq: 0, start });
+  }
+  const progress: Array<[number[], number]> = [];
+  try {
+    await readBuilt(
+      { source, cacheHome: folder },
+      (copy) => progress.push([copy.steps.map((step) => step.start), copy.historyCompleteFrom]),
+      nodeRuntime,
+    );
+    expect(progress).toEqual([
+      [[-1000], -2000],
+      [[-2000, -1000], -3000],
+      [[-3000, -2000, -1000], -3000],
+    ]);
+  } finally {
+    fixture.dispose();
+  }
+});
+
+it("announces the pending history boundary even when vanished sessions are removed before new units", async () => {
+  const fixture = syntheticFixture();
+  const { writer, source, folder } = fixture;
+  writer.session("old");
+  writer.message({ id: "msg-old", session: "old", seq: 0, start: 1000 });
+  try {
+    await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime);
+    writer.deleteSession("old");
+    writer.session("new");
+    writer.message({ id: "msg-new", session: "new", seq: 0, start: 3000 });
+    const progress: Array<[number, number]> = [];
+    await readBuilt(
+      { source, cacheHome: folder },
+      (copy) => progress.push([copy.steps.length, copy.historyCompleteFrom]),
+      nodeRuntime,
+    );
+    expect(progress).toEqual([
+      [1, 1000],
+      [0, 3000],
+      [1, 3000],
+    ]);
+  } finally {
+    fixture.dispose();
+  }
+});
+
+it.each(["count", "position"])(
+  "startup reconciles a missed %s change without waiting for the first poll",
+  async (change) => {
+    const fixture = syntheticFixture();
+    const { writer, source, folder } = fixture;
+    writer.session("ses-startup");
+    writer.message({ id: "msg-existing", session: "ses-startup", seq: 1, start: 1 });
+    try {
+      const first = await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime);
+      if (change === "count")
+        writer.message({ id: "msg-extra", session: "ses-startup", seq: 0, start: 0 }, false);
+      else writer.positionWithoutCounter("msg-existing", 3);
+      const current = await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime);
+      expect(current.generation).toBe(first.generation);
+      expect(current.revision).toBe(first.revision + 1);
+      expect(current.facts.map((fact) => fact.position)).toEqual(change === "count" ? [0, 1] : [3]);
+    } finally {
+      fixture.dispose();
+    }
+  },
+);

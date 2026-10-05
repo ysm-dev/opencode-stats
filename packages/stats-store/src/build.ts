@@ -11,19 +11,20 @@ import statements from "./statements.json" with { type: "json" };
 import { commitUnit } from "./write-facts.ts";
 
 function units(inventory: ReadonlyArray<SourceSession>) {
+  const byId = new Map(inventory.map((row) => [row.id, row]));
   const grouped = new Map<string, SourceSession[]>();
   for (const session of inventory) {
     let root = session;
     const visited = new Set<string>();
     while (root.parent && !visited.has(root.id)) {
       visited.add(root.id);
-      const parent = inventory.find((row) => row.id === root.parent);
+      const parent = byId.get(root.parent);
       if (!parent) break;
       root = parent;
     }
-    const group = grouped.get(root.id) ?? [];
-    group.push(session);
-    grouped.set(root.id, group);
+    const group = grouped.get(root.id);
+    if (group) group.push(session);
+    else grouped.set(root.id, [session]);
   }
   return [...grouped.values()]
     .map((group) => ({ sessions: group, latest: Math.max(...group.map((row) => row.latest ?? 0)) }))
@@ -82,16 +83,19 @@ export const reconcile = Effect.fnUntraced(
     inventory: ReadonlyArray<SourceSession>,
     now: number,
     announce: () => Effect.Effect<void, Error>,
+    checkBounds: boolean,
   ) {
     const db = yield* Database;
     const saved = yield* db.select().from(sessions);
+    const savedById = new Map(saved.map((row) => [row.id, row]));
     const pending = inventory.filter((session) => {
-      const old = saved.find((row) => row.id === session.id);
+      const old = savedById.get(session.id);
       return (
         !old ||
         old.counter !== session.counter ||
-        old.messageCount !== session.messageCount ||
-        old.highestPosition !== session.highestPosition
+        (checkBounds &&
+          (old.messageCount !== session.messageCount ||
+            old.highestPosition !== session.highestPosition))
       );
     });
     const removed = saved.filter((session) => !inventory.some((row) => row.id === session.id));
@@ -101,7 +105,7 @@ export const reconcile = Effect.fnUntraced(
     );
     if (removed.length || (!ordered.length && header.revision === 0)) {
       yield* commitUnit(
-        [],
+        undefined,
         removed.map((row) => row.id),
         now,
         ordered[0]?.latest ?? null,
@@ -109,17 +113,16 @@ export const reconcile = Effect.fnUntraced(
       yield* announce();
     }
     for (const [index, unit] of ordered.entries()) {
-      const snapshots: Array<Effect.Success<ReturnType<SourceReader["read"]>>> = [];
-      for (const session of unit.sessions.filter((row) =>
-        pending.some((changed) => changed.id === row.id),
-      ))
-        snapshots.push(yield* reader.read(session.id));
+      const snapshots = yield* Effect.forEach(
+        unit.sessions.filter((row) => pending.some((changed) => changed.id === row.id)),
+        (session) => reader.read(session.id),
+      );
       const next = ordered
         .slice(index + 1)
         .find((remaining) =>
           remaining.sessions.some((session) => !saved.some((row) => row.id === session.id)),
         );
-      yield* commitUnit(snapshots, [], now, next?.latest ?? null);
+      yield* commitUnit(snapshots, undefined, now, next?.latest ?? null);
       yield* announce();
     }
   },
@@ -127,11 +130,11 @@ export const reconcile = Effect.fnUntraced(
 );
 
 export const collectTombstones = Effect.fnUntraced(
-  function* (now: number) {
+  function* (now: number, announce: () => Effect.Effect<void, Error>) {
     const db = yield* Database;
     const cutoff = lte(tombstones.deletedAt, now - 30 * 86400000);
     const expired = yield* db.select().from(tombstones).where(cutoff);
-    if (!expired.length) return false;
+    if (!expired.length) return;
     yield* db.$client.withTransaction(
       Effect.gen(function* () {
         const header = (yield* db.select().from(metadata))[0]!;
@@ -148,7 +151,7 @@ export const collectTombstones = Effect.fnUntraced(
           .where(eq(metadata.id, 1));
       }),
     );
-    return true;
+    yield* announce();
   },
   Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "writeSteps"))),
 );

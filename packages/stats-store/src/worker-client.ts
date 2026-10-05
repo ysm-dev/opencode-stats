@@ -30,8 +30,9 @@ export const workerClient = (create: (clock: Clock.Clock) => WorkerHandle): Sync
     const ready = yield* Deferred.make<void, Error>();
     const stopped = yield* Deferred.make<void>();
     const messages = yield* Queue.unbounded<Effect.Effect<void, Error>>();
-    let failed = false;
     let cleanup = Effect.void;
+    let initialized = false;
+    let lateError: Error | undefined;
     const worker = yield* Effect.acquireRelease(
       Effect.try({
         try: () => create(clock),
@@ -39,19 +40,18 @@ export const workerClient = (create: (clock: Clock.Clock) => WorkerHandle): Sync
       }),
       (handle) =>
         Effect.gen(function* () {
-          if (!failed) {
-            // oxlint-disable-next-line unicorn/require-post-message-target-origin -- dedicated Worker IPC has no target origin
-            handle.postMessage("stop");
-            yield* Deferred.await(stopped).pipe(Effect.timeout("2 seconds"), Effect.ignore);
-          }
+          // oxlint-disable-next-line unicorn/require-post-message-target-origin -- dedicated Worker IPC has no target origin
+          handle.postMessage("stop");
+          yield* Deferred.await(stopped).pipe(Effect.timeout("2 seconds"), Effect.ignore);
           yield* Effect.promise(async () => {
             await handle.terminate();
           });
           yield* cleanup;
+          if (lateError) yield* Effect.die(lateError);
         }),
     );
     const fail = () => {
-      failed = true;
+      Deferred.doneUnsafe(stopped, Effect.void);
       Queue.offerUnsafe(messages, Effect.fail(new Error("Stats store build failed.")));
     };
     const receive = (event: MessageEvent) => {
@@ -61,18 +61,22 @@ export const workerClient = (create: (clock: Clock.Clock) => WorkerHandle): Sync
           Deferred.doneUnsafe(stopped, Effect.void);
           return;
         }
-        if (message !== true) failed = true;
-        Queue.offerUnsafe(
-          messages,
-          typeof message === "object"
-            ? Effect.fail(sqlFailure({ code: message.code }, message.statement))
-            : message
-              ? announce()
-              : Effect.fail(new Error("Stats store build failed.")),
-        );
+        if (typeof message === "object") {
+          Deferred.doneUnsafe(stopped, Effect.void);
+          Queue.offerUnsafe(
+            messages,
+            Effect.fail(sqlFailure({ code: message.code }, message.statement)),
+          );
+        } else if (message) Queue.offerUnsafe(messages, announce());
+        else {
+          Deferred.doneUnsafe(stopped, Effect.void);
+          Queue.offerUnsafe(messages, Effect.fail(new Error("Stats store build failed.")));
+        }
       } catch {
-        failed = true;
-        Queue.offerUnsafe(messages, Effect.fail(new Error("Invalid sync worker response.")));
+        Deferred.doneUnsafe(stopped, Effect.void);
+        const error = new Error("Invalid sync worker response.");
+        if (initialized) lateError = error;
+        else Queue.offerUnsafe(messages, Effect.fail(error));
       }
     };
     worker.addEventListener("message", receive);
@@ -97,4 +101,5 @@ export const workerClient = (create: (clock: Clock.Clock) => WorkerHandle): Sync
     // oxlint-disable-next-line unicorn/require-post-message-target-origin -- dedicated Worker IPC has no target origin
     worker.postMessage(paths);
     yield* Deferred.await(ready);
+    initialized = true;
   });

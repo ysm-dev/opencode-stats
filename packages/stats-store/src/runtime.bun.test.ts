@@ -4,7 +4,7 @@ import * as TestClock from "effect/testing/TestClock";
 import * as Queue from "effect/Queue";
 import * as Fiber from "effect/Fiber";
 import { expect, it, vi } from "vitest";
-import { bunDatabase, bunSource } from "./runtime.bun.ts";
+import { bunDatabase, bunSource, bunRuntime } from "./runtime.bun.ts";
 import * as Exit from "effect/Exit";
 import { attemptSourceWrite } from "./testing/store.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
@@ -12,6 +12,9 @@ import { busy, connections } from "./testing/bun-sqlite.ts";
 import { sync } from "./sync.ts";
 import { stayInSync } from "./store.ts";
 import type { StoreRuntime } from "./database.ts";
+import { runWithClock } from "./testing/clock.ts";
+import { observedStore } from "./testing/store.ts";
+import { InThreadWorker } from "./testing/worker.ts";
 
 vi.mock("bun:sqlite", async () => ({
   Database: (await import("./testing/bun-sqlite.ts")).NodeBunDatabase,
@@ -20,6 +23,25 @@ const runtime: StoreRuntime = {
   database: bunDatabase,
   worker: (paths, announce = () => Effect.void) => sync(paths, bunDatabase, bunSource, announce),
 };
+
+it("the public Bun runtime connects its real SQLite adapters to the in-thread worker", async () => {
+  const fixture = syntheticFixture();
+  vi.stubGlobal("Worker", function () {
+    return new InThreadWorker(bunDatabase, bunSource);
+  });
+  try {
+    const copy = await readBuilt(
+      { source: fixture.source, cacheHome: fixture.folder },
+      () => {},
+      bunRuntime,
+    );
+    expect(copy.steps).toEqual([]);
+    expect(copy.revision).toBe(1);
+  } finally {
+    vi.unstubAllGlobals();
+    fixture.dispose();
+  }
+});
 
 it("the Bun adapter uses one native readonly source, scalar synchronous session snapshots and released resources", async () => {
   const fixture = syntheticFixture();
@@ -58,6 +80,11 @@ it("the Bun adapter uses one native readonly source, scalar synchronous session 
     expect(source.inTransaction).toContain(true);
     expect(source.asyncTransactions.every((value) => !value)).toBe(true);
     expect(connections.every((connection) => connection.closed)).toBe(true);
+    const writers = connections.filter((connection) => !connection.readonly);
+    expect(writers).toHaveLength(2);
+    expect(
+      writers.every((connection) => connection.queries.includes("PRAGMA journal_mode = WAL;")),
+    ).toBe(true);
     expect(readFileSync(fixture.source)).toEqual(before);
     expect(readFileSync(`${fixture.source}-wal`)).toEqual(wal);
     expect(Exit.isFailure(await attemptSourceWrite(fixture.source, bunDatabase))).toBe(true);
@@ -126,6 +153,29 @@ it("busy session snapshots rollback before clock-driven retry waits", async () =
   } finally {
     busy.remaining = 0;
     busy.attempted = () => {};
+    fixture.dispose();
+  }
+});
+
+it("an unchanged native source poll only reads data_version on its persistent connection", async () => {
+  const fixture = syntheticFixture();
+  connections.length = 0;
+  try {
+    await runWithClock((time) =>
+      Effect.gen(function* () {
+        yield* observedStore({ source: fixture.source, cacheHome: fixture.folder }, runtime);
+        const source = connections.find(
+          (connection) => connection.filename === realpathSync(fixture.source),
+        )!;
+        const baseline = source.queries.length;
+        yield* time.tick;
+        expect(source.queries.slice(baseline)).toEqual(["PRAGMA main.data_version"]);
+        expect(
+          connections.filter((connection) => connection.filename === source.filename),
+        ).toHaveLength(1);
+      }),
+    );
+  } finally {
     fixture.dispose();
   }
 });

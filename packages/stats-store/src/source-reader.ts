@@ -45,15 +45,14 @@ const factsSql = `SELECT id, session_id AS session, seq AS position,
   json_extract(data,'$.tokens.reasoning') AS reasoning
   FROM session_message WHERE session_id=? AND type='assistant' ORDER BY seq`;
 
-const attempt = <A>(read: () => A) =>
-  Effect.try({ try: read, catch: (error) => sqlFailure(error, "readSource") });
+function attempt<A>(read: () => A) {
+  return Effect.try({ try: read, catch: (error) => sqlFailure(error, "readSource") });
+}
 export function sourceReader(db: NativeReader) {
+  db.exec("PRAGMA busy_timeout=20");
   return {
-    version: attempt(
-      () =>
-        Schema.decodeUnknownSync(Schema.Array(Schema.Struct({ data_version: instant })))(
-          db.all("PRAGMA main.data_version"),
-        )[0]!.data_version,
+    version: attempt(() =>
+      Schema.decodeUnknownSync(instant)(db.all("PRAGMA main.data_version")[0]!["data_version"]),
     ),
     inventory: attempt(() => Schema.decodeUnknownSync(Schema.Array(session))(db.all(inventorySql))),
     read: (id: string) =>

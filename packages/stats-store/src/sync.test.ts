@@ -7,6 +7,7 @@ import { nodeRuntime, nodeSource, nodeDatabase } from "./runtime.node.ts";
 import { sync } from "./sync.ts";
 import { readCopy, observedStore } from "./testing/store.ts";
 import { runWithClock } from "./testing/clock.ts";
+import { tokenKinds } from "@opencode-stats/browser-copy";
 import { syntheticFixture, streamingFixture, inThreadRuntime } from "./testing/index.ts";
 
 it.each([nodeRuntime, inThreadRuntime])(
@@ -186,6 +187,15 @@ it("keeps fact identities and last-change revisions, and tombstones reverted and
           const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime);
           yield* store.committed;
           const initial = yield* store.read();
+          expect(yield* store.read(initial)).toMatchObject({
+            kind: "changes",
+            fromRevision: initial.revision,
+            facts: [],
+            tombstones: [],
+          });
+          expect((yield* store.read({ ...initial, revision: initial.revision + 1 })).kind).toBe(
+            "whole",
+          );
           writer.message({
             id: "msg-next",
             session: "ses-live",
@@ -215,6 +225,7 @@ it("keeps fact identities and last-change revisions, and tombstones reverted and
           yield* store.committed;
           const empty = yield* store.read();
           expect(empty.steps).toEqual([]);
+          expect(empty.tombstones).toEqual([]);
           expect((yield* store.read(initial)).tombstones).toEqual([
             { id: "msg-first", revision: 4 },
             { id: "msg-next", revision: 3 },
@@ -244,6 +255,49 @@ it("announces the tombstone expiry commit while the worker remains running", asy
         yield* time.tick;
         expect(announced).toEqual([1, 2, 3]);
         expect((yield* store.read()).revision).toBe(3);
+      }),
+    );
+  } finally {
+    fixture.dispose();
+  }
+});
+
+it("updates each token kind and the start independently, including a previously missing session counter", async () => {
+  const fixture = streamingFixture();
+  const amounts = { input: 0, output: 1, reasoning: 0, cacheRead: 0, cacheWrite: 0 };
+  const recordUsage = (start: number) =>
+    fixture.writer.message({
+      id: "msg-live",
+      session: "ses-live",
+      seq: 0,
+      start,
+      tokens: {
+        input: amounts.input,
+        output: amounts.output,
+        reasoning: amounts.reasoning,
+        cache: { read: amounts.cacheRead, write: amounts.cacheWrite },
+      },
+    });
+  recordUsage(1000);
+  fixture.writer.removeCounter("ses-live");
+  try {
+    await runWithClock((time) =>
+      Effect.gen(function* () {
+        const store = yield* observedStore(
+          { source: fixture.source, cacheHome: fixture.folder },
+          nodeRuntime,
+        );
+        for (const [index, kind] of tokenKinds.entries()) {
+          amounts[kind] = 10 + index;
+          recordUsage(1000);
+          yield* time.tick;
+          const fact = (yield* store.read()).facts[0]!;
+          expect(fact[kind]).toBe(10 + index);
+          expect(fact.revision).toBe(index + 2);
+        }
+        recordUsage(2000);
+        yield* time.tick;
+        expect((yield* store.read()).facts[0]).toMatchObject({ start: 2000, revision: 7 });
       }),
     );
   } finally {

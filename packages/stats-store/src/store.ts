@@ -29,6 +29,7 @@ export const stayInSync = Effect.fnUntraced(function* (
   runtime: StoreRuntime,
   announce: (copy: StoreCopy) => void,
 ) {
+  const readonly = true;
   const paths = yield* Effect.try({
     try: () => storePaths(options),
     catch: () => new Error("OpenCode database must be an existing readable file."),
@@ -81,8 +82,8 @@ export const stayInSync = Effect.fnUntraced(function* (
       Effect.provide(
         runtime.database({
           filename: paths.store,
-          readonly: true,
-          disableWAL: true,
+          readonly,
+          disableWAL: readonly,
           busyTimeout: "20 millis",
         }),
       ),

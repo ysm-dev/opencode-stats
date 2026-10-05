@@ -18,7 +18,6 @@ export const bunSource: SourceAdapter = Effect.fnUntraced(function* (filename: s
     }),
     (connection) => Effect.sync(() => connection.close()),
   );
-  db.run("PRAGMA busy_timeout=20");
   return sourceReader({
     all: (statement, ...params) =>
       db

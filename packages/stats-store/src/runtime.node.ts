@@ -14,12 +14,11 @@ export const nodeSource: SourceAdapter = Effect.fnUntraced(function* (filename: 
       try: () => new DatabaseSync(filename, { readOnly: true }),
       catch: (error) => sqlFailure(error, "readSource"),
     }),
-    (connection) => Effect.sync(() => connection.close()),
+    (connection) => Effect.sync(connection.close.bind(connection)),
   );
-  db.exec("PRAGMA busy_timeout=20");
   return sourceReader({
     all: (statement, ...params) => db.prepare(statement).all(...params),
-    exec: (statement) => db.exec(statement),
+    exec: db.exec.bind(db),
   });
 });
 

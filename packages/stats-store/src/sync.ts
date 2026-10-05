@@ -25,7 +25,6 @@ export const sync = Effect.fnUntraced(function* (
     }),
   );
   const ready = yield* Deferred.make<void, Error>();
-  let started = false;
   const identity = Effect.try({
     try: () => {
       const stat = statSync(paths.source);
@@ -39,27 +38,33 @@ export const sync = Effect.fnUntraced(function* (
       const reader = yield* source(paths.source);
       let baseline = yield* reader.version;
       let reconciliation = yield* Clock.currentTimeMillis;
-      const pass = Effect.gen(function* () {
-        yield* reconcile(reader, yield* reader.inventory, yield* Clock.currentTimeMillis, announce);
+      const pass = Effect.fnUntraced(function* (checkBounds: boolean) {
+        yield* reconcile(
+          reader,
+          yield* reader.inventory,
+          yield* Clock.currentTimeMillis,
+          announce,
+          checkBounds,
+        );
       });
       const collect = Effect.gen(function* () {
-        if (yield* collectTombstones(yield* Clock.currentTimeMillis)) yield* announce();
+        yield* collectTombstones(yield* Clock.currentTimeMillis, announce);
       });
-      yield* pass;
+      yield* pass(true);
       yield* collect;
-      started = true;
       yield* Deferred.succeed(ready, undefined);
       yield* Effect.forever(
         Effect.gen(function* () {
           yield* Effect.sleep("500 millis");
-          if ((yield* identity) !== file) yield* Effect.fail(sqlFailure({}, "readSource"));
+          if ((yield* identity) !== file) yield* Effect.fail(new Error());
           const version = yield* reader.version;
           const now = yield* Clock.currentTimeMillis;
-          if (version !== baseline || now - reconciliation >= 600000) {
+          const due = now - reconciliation >= 600000;
+          if (version !== baseline || due) {
             // Keep the pre-pass baseline: writes racing this pass remain dirty next poll.
-            yield* pass;
+            yield* pass(due);
             baseline = version;
-            reconciliation = now;
+            if (due) reconciliation = now;
           }
           yield* collect;
         }),
@@ -71,7 +76,7 @@ export const sync = Effect.fnUntraced(function* (
       connection.pipe(
         Effect.catch((error) =>
           Effect.gen(function* () {
-            if (!started) yield* Deferred.fail(ready, error);
+            yield* Deferred.fail(ready, error);
             yield* Effect.sleep("500 millis");
           }),
         ),

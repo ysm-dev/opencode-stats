@@ -6,8 +6,6 @@ import type { SourceFact, SourceReader } from "./source-reader.ts";
 
 type Snapshot = Effect.Success<ReturnType<SourceReader["read"]>>;
 const keys = [
-  "id",
-  "session",
   "position",
   "start",
   "input",
@@ -43,8 +41,8 @@ const replaceFacts = Effect.fnUntraced(function* (
 });
 
 export const commitUnit = Effect.fnUntraced(function* (
-  snapshots: ReadonlyArray<Snapshot>,
-  removed: ReadonlyArray<string>,
+  snapshots: ReadonlyArray<Snapshot> | undefined,
+  removed: ReadonlyArray<string> | undefined,
   now: number,
   unreadLatest: number | null,
 ) {
@@ -53,19 +51,21 @@ export const commitUnit = Effect.fnUntraced(function* (
     Effect.gen(function* () {
       const header = (yield* db.select().from(metadata))[0]!;
       const revision = header.revision + 1;
-      for (const snapshot of snapshots) {
-        if (!snapshot.session) continue;
-        const session = snapshot.session;
-        yield* replaceFacts(session.id, snapshot.facts, revision, now);
-        yield* db
-          .insert(sessions)
-          .values(session)
-          .onConflictDoUpdate({ target: sessions.id, set: session });
-      }
-      for (const id of removed) {
-        yield* replaceFacts(id, [], revision, now);
-        yield* db.delete(sessions).where(eq(sessions.id, id));
-      }
+      if (snapshots)
+        for (const snapshot of snapshots) {
+          if (!snapshot.session) continue;
+          const session = snapshot.session;
+          yield* replaceFacts(session.id, snapshot.facts, revision, now);
+          yield* db
+            .insert(sessions)
+            .values(session)
+            .onConflictDoUpdate({ target: sessions.id, set: session });
+        }
+      if (removed)
+        for (const id of removed) {
+          yield* replaceFacts(id, [], revision, now);
+          yield* db.delete(sessions).where(eq(sessions.id, id));
+        }
       const facts = yield* db.select({ start: steps.start }).from(steps);
       const earliest = facts.reduce(
         (value, row) => Math.min(value, row.start),
