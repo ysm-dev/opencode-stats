@@ -139,6 +139,105 @@ under-300-second result yet**. The final local aggregate runs all six mutation
 and sixteen verification shards sequentially under separate 300-second
 boundaries; local and hosted selectors/check names agree.
 
+## Combined hosted mutation predecessor: twelve shards
+
+On integration `11fafd5`, hosted run
+[37272872281](https://github.com/ysm-dev/opencode-stats/actions/runs/37272872281)
+exposed separate #39 behavioral defects. Its `5/6` mutation command processed
+524 valid mutants (525 instrumented, including one compile error) in **280 s**
+and correctly failed on a survivor. Other completed command durations were
+157 s (`1/6`), 220 s (`2/6`), 144 s (`3/6`) and 98 s (`6/6`). `4/6` failed its
+dry run; its short duration is **not** successful throughput evidence. These
+failures must remain visible and are owned by #39, not fixed by this scheduling
+change.
+
+Rank the completed six-shard inventory by per-file instrumented counts, using
+the unchanged tree's complete local mutation reports. All **1,737 instrumented
+mutants**, including compile-error sources, are represented. The largest files
+are launcher `record.ts` (155), launcher `join.ts` (151), browser-copy `binary.ts`
+(137), launcher `hold.ts` (111) and dashboard-server `server.ts` (92).
+
+Replay the existing sorted-source modulo selector, without changing any common
+exclusion or waiver:
+
+| Shards | Per-shard instrumented counts                                         | Largest |
+| ------ | --------------------------------------------------------------------- | ------: |
+| 6      | 194, 331, 506, 114, 525, 67                                           |     525 |
+| 8      | 247, 24, 375, 102, 224, 106, 379, 280                                 |     379 |
+| 10     | 81, 99, 665, 59, 122, 157, 76, 134, 281, 63                           |     665 |
+| **12** | **100, 126, 342, 112, 207, 2, 94, 205, 164, 2, 318, 65**              | **342** |
+| 16     | 156, 22, 184, 35, 82, 92, 106, 141, 91, 2, 191, 67, 142, 14, 273, 139 |     273 |
+
+Twelve is the smallest **tested** change with a substantial reduction and a
+simple retention proof: new shards `i/12` and `(i+6)/12` together equal old shard
+`i/6` exactly. The Stryker source enumeration, exclusions, error-source handling,
+coverage analysis, thresholds and all test/time limits remain unchanged. File
+counts are planning evidence, not a claim of uniform mutant execution cost.
+
+Bounded public-command probes on the available arm64 Mac used the same tree and
+uncached mutation execution, including each dry run:
+
+| Selector                   | Instrumented mutants | Full command elapsed | Local result                                              |
+| -------------------------- | -------------------: | -------------------: | --------------------------------------------------------- |
+| Old `MUTATION_SHARD=5/6`   |                  525 |             137.23 s | 100%, including three timeout kills and one compile error |
+| New `MUTATION_SHARD=11/12` |                  318 |              77.15 s | 100%, including three timeout kills and one compile error |
+| New `MUTATION_SHARD=3/12`  |                  342 |              58.71 s | 100%, all killed                                          |
+
+The nested half of the known slow predecessor is 44% faster locally. This is
+evidence for the scheduling change, **not** resolution of Linux-only survivors,
+the five-second HTTP-hold failure, or hosted under-five-minute proof. No #39
+runtime or test file is changed. No file with uncovered/error mutants is removed,
+no cache/worker policy is introduced, and no clock boundary moves.
+
+The final hosted/local plan is **twelve mutation shards and sixteen balanced
+verification shards**. Partition assertions check both matrices, their selector
+and check-name notation, complete disjoint source/canary sets, and each new
+mutation pair's equality with its old source set. Orchestration assertions still
+clear both inherited selectors, demand every shard, and stop on failure; a
+planted count regression rejects silently returning local mutation to six.
+Existing CODEOWNERS entries cover the modified workflow, scripts and this report.
+
+Final combined exhaustive validation is pending #39's real fixes, followed by
+the parent push and a fresh hosted attempt. That attempt must exercise all
+twelve mutation and sixteen verification checks plus the unchanged end-to-end
+Quality gates clock, including setup, preparation, inter-job/advisory waiting and
+verification-last ordering. No green full pipeline is claimed for the known
+failing hosted baseline.
+
+Local validation of this independent scheduling change: formatting, lint,
+types, budgets, orchestration/partition assertions, normal and production-strict
+dead-code analysis, duplication, exceptions, shape and freshness passed. Seven
+targeted controls ran through the public bounded `verify-gates` command and
+passed: source/canary partitions, exhaustive isolated orchestration, omitted-last
+shard rejection, mutation and verification count drift, command-family clustering
+rejection, and overdue-command/process cleanup. These targeted controls are not
+reported as a complete verification or mutation run.
+
+A single source-check attempt additionally stopped on an unchanged
+`packages/stats-store/src/types.test.ts` individual timeout (5.36 seconds against
+the existing five-second cap): 254 tests passed and one timed out. The test was
+not edited, its limit was not raised, and no rerun-until-green was performed.
+That validation blocker, alongside #39's hosted survivors/hold timeout, must be
+resolved or diagnosed before final combined proof is claimed.
+
+Replace required `Mutation (1/6)` through `(6/6)` with these exact names;
+verification's sixteen names below remain unchanged:
+
+```text
+Mutation (1/12)
+Mutation (2/12)
+Mutation (3/12)
+Mutation (4/12)
+Mutation (5/12)
+Mutation (6/12)
+Mutation (7/12)
+Mutation (8/12)
+Mutation (9/12)
+Mutation (10/12)
+Mutation (11/12)
+Mutation (12/12)
+```
+
 Exact replacement required-check names:
 
 ```text
