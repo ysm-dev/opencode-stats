@@ -85,9 +85,17 @@ it("the Bun adapter uses one native readonly source, scalar synchronous session 
     expect(
       writers.every((connection) => connection.queries.includes("PRAGMA journal_mode = WAL;")),
     ).toBe(true);
-    expect(readFileSync(fixture.source)).toEqual(before);
-    expect(readFileSync(`${fixture.source}-wal`)).toEqual(wal);
+    expect(readFileSync(fixture.source).equals(before)).toBe(true);
+    expect(readFileSync(`${fixture.source}-wal`).equals(wal)).toBe(true);
     expect(Exit.isFailure(await attemptSourceWrite(fixture.source, bunDatabase))).toBe(true);
+    fixture.writer.message({
+      id: "msg-native",
+      session: "ses-native",
+      seq: 0,
+      start: 123,
+      tokens: { input: 9 },
+    });
+    expect(readFileSync(`${fixture.source}-wal`).equals(wal)).toBe(false);
   } finally {
     fixture.dispose();
   }
