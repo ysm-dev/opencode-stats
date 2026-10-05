@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdtempSync, rmSync, unlinkSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
@@ -32,6 +32,30 @@ it("joins only an authenticated matching real answer and leaves a different data
     );
     answer = { ...record, pid: 456 };
     expect(await discover(folder, record.database, "2.0.0")).toBeUndefined();
+  } finally {
+    await closeServer(server);
+    rmSync(folder, { recursive: true });
+  }
+});
+
+it("joins an explicitly symlinked database as the same source without replacing or reporting a conflict", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "database-alias-"));
+  const database = join(realpathSync(folder), "actual.db");
+  const alias = join(folder, "alias.db");
+  writeFileSync(database, "synthetic source");
+  symlinkSync(database, alias, "file");
+  let record: ServerRecord;
+  const paths: string[] = [];
+  const server = createServer((request, response) => {
+    paths.push(String(request.url));
+    response.end(JSON.stringify(record));
+  });
+  record = serverRecord(await listen(server), { starter: "terminal", database });
+  publishRecord(folder, record);
+  try {
+    expect(realpathSync(alias)).not.toBe(alias);
+    expect(await discover(folder, alias, "2.0.0")).toEqual(record);
+    expect(paths).toEqual(["/api/server"]);
   } finally {
     await closeServer(server);
     rmSync(folder, { recursive: true });

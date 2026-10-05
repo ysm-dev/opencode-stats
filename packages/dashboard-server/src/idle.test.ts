@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Deferred from "effect/Deferred";
 import * as TestClock from "effect/testing/TestClock";
 import * as Schema from "effect/Schema";
-import { expect, it, vi } from "vitest";
+import { expect, it, onTestFinished, vi } from "vitest";
 import { answering, readRecord } from "@opencode-stats/launcher";
 import { temporaryPort } from "@opencode-stats/launcher/testing";
 import { syntheticFixture } from "@opencode-stats/stats-store/testing";
@@ -30,10 +31,21 @@ it.each(["plugin", "terminal"] as const)(
     const folder = join(fixture.folder, "opencode-stats");
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const { ready: built, output } = readySignal();
+    const controller = new AbortController();
+    onTestFinished(() => controller.abort());
+    let releaseWork!: () => void;
+    const work = new Promise<void>((done) => {
+      releaseWork = done;
+    });
+    const sleeping = Deferred.makeUnsafe<void>();
     const runtime = {
       ...nodeRuntime,
       worker: (paths: Parameters<typeof nodeRuntime.worker>[0]) =>
-        nodeRuntime.worker(paths).pipe(Effect.andThen(Effect.sleep("37 millis"))),
+        Effect.promise(() => work).pipe(
+          Effect.andThen(nodeRuntime.worker(paths)),
+          Effect.andThen(Deferred.succeed(sleeping, undefined)),
+          Effect.andThen(Effect.sleep("37 millis")),
+        ),
     };
     try {
       await Effect.runPromise(
@@ -50,6 +62,10 @@ it.each(["plugin", "terminal"] as const)(
             yield* Effect.promise(async () => {
               await vi.waitFor(async () => expect(await answering(folder)).toBeDefined());
             });
+            releaseWork();
+            // HTTP identity precedes asynchronous SQLite work. Advance only after that work
+            // reaches the virtual-clock boundary, not when server.json happens to appear.
+            yield* Deferred.await(sleeping);
             yield* TestClock.adjust("37 millis");
             yield* Effect.promise(() => built);
             const record = readRecord(folder)!;
@@ -57,6 +73,7 @@ it.each(["plugin", "terminal"] as const)(
               Authorization: `Bearer ${record.secret}`,
               Origin: record.address,
               "X-Opencode-Stats-Protocol": "1",
+              Connection: "close",
             };
             const status = async () => {
               const response = await fetch(`${record.address}/api/server`, { headers });
@@ -120,6 +137,7 @@ it.each(["plugin", "terminal"] as const)(
             });
           }).pipe(Effect.provide(TestClock.layer())),
         ),
+        { signal: controller.signal },
       );
       expect(vi.getTimerCount()).toBe(0);
     } finally {

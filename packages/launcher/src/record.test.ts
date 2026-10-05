@@ -7,6 +7,7 @@ import {
   realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
 } from "node:fs";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
@@ -108,6 +109,24 @@ it("only reads valid private records and abbreviates home without changing neigh
       "/home/synthetic-other/a.db",
     );
     expect(displayPath(realpathSync(root), root)).toBe("~");
+  } finally {
+    rmSync(root, { recursive: true });
+  }
+});
+
+it("abbreviates an explicitly symlinked home on platforms without implicit home aliases", () => {
+  const root = mkdtempSync(join(tmpdir(), "home-alias-"));
+  const home = join(realpathSync(root), "actual-home");
+  const alias = join(root, "home-alias");
+  mkdirSync(home);
+  symlinkSync(home, alias, "dir");
+  try {
+    expect(realpathSync(alias)).not.toBe(alias);
+    expect(displayPath(home, alias)).toBe("~");
+    expect(displayPath(join(home, "statistics.db"), alias)).toBe("~/statistics.db");
+    expect(displayPath(`${home}-neighbour/statistics.db`, alias)).toBe(
+      `${home}-neighbour/statistics.db`,
+    );
   } finally {
     rmSync(root, { recursive: true });
   }
