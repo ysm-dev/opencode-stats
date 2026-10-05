@@ -5,7 +5,7 @@ import type { DatabaseAdapter } from "./database.ts";
 import { bunWorker } from "./worker.bun.ts";
 import { syncWorkerFile } from "./paths.ts";
 import { storePaths } from "./location.ts";
-import { nodeDatabase } from "./runtime.node.ts";
+import { nodeDatabase, nodeSource } from "./runtime.node.ts";
 import { workerProgram } from "./worker-program.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { InThreadWorker } from "./testing/worker.ts";
@@ -33,6 +33,9 @@ it("builds through the Bun Worker adapter with an in-thread worker, and removes 
       true,
     );
     expect(workers[0]!.requests.size).toBe(0);
+    await Effect.runPromise(
+      Effect.scoped(bunWorker(storePaths({ source: fixture.source, cacheHome: fixture.folder }))),
+    );
   } finally {
     vi.unstubAllGlobals();
     fixture.dispose();
@@ -72,7 +75,7 @@ it.each([
         Effect.runPromise(
           Effect.scoped(
             bunWorker(storePaths({ source: fixture.source, cacheHome: fixture.folder })),
-          ),
+          ).pipe(Effect.scoped),
         ),
       ).rejects.toMatchObject({
         kind: "sqlite",
@@ -81,7 +84,7 @@ it.each([
         message: "Stats store build failed.",
       });
     } finally {
-      worker.terminate();
+      await worker.terminate();
       vi.unstubAllGlobals();
       fixture.dispose();
     }
@@ -117,7 +120,7 @@ it.each(["false", "invalid", "error", "throw"])(
       });
       expect(worker.terminated).toBe(kind !== "throw");
     } finally {
-      worker.terminate();
+      await worker.terminate();
       vi.unstubAllGlobals();
       fixture.dispose();
     }
@@ -143,7 +146,7 @@ it("cancels a pending worker request without retaining the message or error list
     expect(worker.terminated).toBe(true);
     expect([...worker.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
   } finally {
-    worker.terminate();
+    await worker.terminate();
     vi.unstubAllGlobals();
     fixture.dispose();
   }
@@ -151,6 +154,10 @@ it("cancels a pending worker request without retaining the message or error list
 
 it("rejects untrusted requests without opening either database", async () => {
   let receive!: (event: MessageEvent) => void;
+  let listening!: () => void;
+  const started = new Promise<void>((resolve) => {
+    listening = resolve;
+  });
   const postMessage = vi.fn<(value: boolean) => void>();
   const removeEventListener =
     vi.fn<(type: "message", listener: (event: MessageEvent) => void) => void>();
@@ -161,15 +168,18 @@ it("rejects untrusted requests without opening either database", async () => {
         postMessage,
         addEventListener: (_type, listener) => {
           receive = listener;
+          listening();
         },
         removeEventListener,
       },
       adapter,
-    ),
+      nodeSource,
+    ).pipe(Effect.scoped),
   );
+  await started;
   receive(new MessageEvent("message", { data: { source: 123, store: "SYNTHETIC" } }));
   await Effect.runPromise(Fiber.join(fiber));
-  expect(postMessage).toHaveBeenCalledExactlyOnceWith(false);
+  expect(postMessage.mock.calls).toEqual([[false], ["stopped"]]);
   expect(removeEventListener).toHaveBeenCalledWith("message", receive);
   expect(adapter).not.toHaveBeenCalled();
 });

@@ -8,8 +8,9 @@ export const connections: Array<{
   queries: string[];
   closed: boolean;
   inTransaction: boolean[];
+  asyncTransactions: boolean[];
 }> = [];
-export const busy = { remaining: 0 };
+export const busy = { remaining: 0, attempted: () => {} };
 
 // A native Node database behind Bun's synchronous surface, not a mock of counting logic.
 export class NodeBunDatabase {
@@ -21,7 +22,14 @@ export class NodeBunDatabase {
     options: { readonly: boolean; readwrite: boolean; create: boolean },
   ) {
     this.db = new DatabaseSync(filename, { readOnly: options.readonly });
-    this.record = { filename, ...options, queries: [], closed: false, inTransaction: [] };
+    this.record = {
+      filename,
+      ...options,
+      queries: [],
+      closed: false,
+      inTransaction: [],
+      asyncTransactions: [],
+    };
     connections.push(this.record);
   }
   get inTransaction() {
@@ -37,13 +45,17 @@ export class NodeBunDatabase {
   }
   query(sql: string) {
     this.record.queries.push(sql);
-    if (sql.includes('from "session_message"') && busy.remaining > 0) {
+    if (/from\s+"?session_message/iu.test(sql) && busy.remaining > 0) {
       busy.remaining -= 1;
+      busy.attempted();
       throw Object.assign(new Error("Synthetic lock"), { code: "SQLITE_BUSY", errno: 5 });
     }
     const statement = this.db.prepare(sql);
     const all = (...params: SQLInputValue[]) => {
       this.record.inTransaction.push(this.db.isTransaction);
+      queueMicrotask(() => {
+        this.record.asyncTransactions.push(!this.record.closed && this.db.isTransaction);
+      });
       if (!statement.columns().length) {
         statement.run(...params);
         return [];

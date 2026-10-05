@@ -1,71 +1,154 @@
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync, rmSync } from "node:fs";
+import { eq, lte } from "drizzle-orm";
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
 import { sqlFailure } from "./errors.ts";
 import { Database, type DatabaseAdapter, type StorePaths } from "./database.ts";
-import { readSource } from "./source.ts";
-import { metadata, steps } from "./schema.ts";
+import { metadata, sessions, tombstones } from "./schema.ts";
+import type { SourceReader, SourceSession } from "./source-reader.ts";
 import statements from "./statements.json" with { type: "json" };
+import { commitUnit } from "./write-facts.ts";
 
-export const statsStoreVersion = 1;
-export const build = Effect.fnUntraced(
-  function* (paths: StorePaths, adapter: DatabaseAdapter) {
-    const facts = yield* readSource.pipe(
-      Effect.provide(
-        adapter({
-          filename: paths.source,
-          readonly: true,
-          disableWAL: true,
-          busyTimeout: "20 millis",
-        }),
-      ),
-    );
-    const writeStore = Effect.gen(function* () {
-      const db = yield* Database;
-      for (const statement of statements)
-        yield* db.$client.unsafe(statement.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "));
-      yield* db.$client.unsafe("PRAGMA synchronous=NORMAL");
-      const write = Effect.gen(function* () {
-        const old = yield* db.select().from(metadata);
-        if (old[0] && old[0].version !== statsStoreVersion) yield* Effect.fail(new Error());
-        yield* db.delete(steps);
-        for (const row of facts) yield* db.insert(steps).values(row);
-        yield* db.delete(metadata);
-        yield* db.insert(metadata).values({
-          id: 1,
-          version: statsStoreVersion,
-          generation: old[0]?.generation ?? randomUUID(),
-          revision: (old[0]?.revision ?? 0) + 1,
-          historyCompleteFrom: facts.reduce(
-            (earliest, row) => Math.min(earliest, row.start),
-            facts[0]?.start ?? 0,
-          ),
-        });
+function units(inventory: ReadonlyArray<SourceSession>) {
+  const grouped = new Map<string, SourceSession[]>();
+  for (const session of inventory) {
+    let root = session;
+    const visited = new Set<string>();
+    while (root.parent && !visited.has(root.id)) {
+      visited.add(root.id);
+      const parent = inventory.find((row) => row.id === root.parent);
+      if (!parent) break;
+      root = parent;
+    }
+    const group = grouped.get(root.id) ?? [];
+    group.push(session);
+    grouped.set(root.id, group);
+  }
+  return [...grouped.values()]
+    .map((group) => ({ sessions: group, latest: Math.max(...group.map((row) => row.latest ?? 0)) }))
+    .toSorted((a, b) => b.latest - a.latest);
+}
+
+export const statsStoreVersion = 2;
+export const initializeStore = Effect.fnUntraced(function* (
+  paths: StorePaths,
+  adapter: DatabaseAdapter,
+) {
+  const initialize = Effect.gen(function* () {
+    const db = yield* Database;
+    for (const statement of statements)
+      yield* db.$client.unsafe(statement.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "));
+    yield* db.$client.unsafe("PRAGMA synchronous=NORMAL");
+    const old = (yield* db.select().from(metadata))[0];
+    if (old && old.version !== statsStoreVersion) yield* Effect.fail(new Error());
+    if (!old)
+      yield* db.insert(metadata).values({
+        id: 1,
+        version: statsStoreVersion,
+        generation: randomUUID(),
+        revision: 0,
+        historyCompleteFrom: 0,
+        expiredRevision: 0,
       });
-      yield* db.$client.withTransaction(write);
-    }).pipe(
-      Effect.provide(
-        adapter({
-          filename: paths.store,
-          readonly: false,
-          disableWAL: false,
-          busyTimeout: "20 millis",
-        }),
-      ),
+  }).pipe(
+    Effect.provide(
+      adapter({
+        filename: paths.store,
+        readonly: false,
+        disableWAL: false,
+        busyTimeout: "20 millis",
+      }),
+    ),
+  );
+  yield* initialize.pipe(
+    Effect.catchCause(() =>
+      Effect.gen(function* () {
+        yield* Effect.sync(() => {
+          for (const suffix of ["", "-wal", "-shm"])
+            rmSync(`${paths.store}${suffix}`, { force: true });
+          closeSync(openSync(paths.store, "a", 0o600));
+        });
+        yield* initialize;
+      }),
+    ),
+    Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "writeSteps"))),
+  );
+});
+
+export const reconcile = Effect.fnUntraced(
+  function* (
+    reader: SourceReader,
+    inventory: ReadonlyArray<SourceSession>,
+    now: number,
+    announce: () => Effect.Effect<void, Error>,
+  ) {
+    const db = yield* Database;
+    const saved = yield* db.select().from(sessions);
+    const pending = inventory.filter((session) => {
+      const old = saved.find((row) => row.id === session.id);
+      return (
+        !old ||
+        old.counter !== session.counter ||
+        old.messageCount !== session.messageCount ||
+        old.highestPosition !== session.highestPosition
+      );
+    });
+    const removed = saved.filter((session) => !inventory.some((row) => row.id === session.id));
+    const header = (yield* db.select().from(metadata))[0]!;
+    const ordered = units(inventory).filter((unit) =>
+      unit.sessions.some((session) => pending.some((row) => row.id === session.id)),
     );
-    yield* writeStore.pipe(
-      Effect.catchCause(() =>
-        Effect.gen(function* () {
-          yield* Effect.sync(() => {
-            for (const suffix of ["", "-wal", "-shm"])
-              rmSync(`${paths.store}${suffix}`, { force: true });
-            closeSync(openSync(paths.store, "a", 0o600));
-          });
-          return yield* writeStore;
-        }),
-      ),
+    if (removed.length || (!ordered.length && header.revision === 0)) {
+      yield* commitUnit(
+        [],
+        removed.map((row) => row.id),
+        now,
+        ordered[0]?.latest ?? null,
+      );
+      yield* announce();
+    }
+    for (const [index, unit] of ordered.entries()) {
+      const snapshots: Array<Effect.Success<ReturnType<SourceReader["read"]>>> = [];
+      for (const session of unit.sessions.filter((row) =>
+        pending.some((changed) => changed.id === row.id),
+      ))
+        snapshots.push(yield* reader.read(session.id));
+      const next = ordered
+        .slice(index + 1)
+        .find((remaining) =>
+          remaining.sessions.some((session) => !saved.some((row) => row.id === session.id)),
+        );
+      yield* commitUnit(snapshots, [], now, next?.latest ?? null);
+      yield* announce();
+    }
+  },
+  Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "writeSteps"))),
+);
+
+export const collectTombstones = Effect.fnUntraced(
+  function* (now: number) {
+    const db = yield* Database;
+    const cutoff = lte(tombstones.deletedAt, now - 30 * 86400000);
+    const expired = yield* db.select().from(tombstones).where(cutoff);
+    if (!expired.length) return false;
+    yield* db.$client.withTransaction(
+      Effect.gen(function* () {
+        const header = (yield* db.select().from(metadata))[0]!;
+        yield* db.delete(tombstones).where(cutoff);
+        yield* db
+          .update(metadata)
+          .set({
+            revision: header.revision + 1,
+            expiredRevision: Math.max(
+              header.expiredRevision,
+              ...expired.map((row) => row.revision),
+            ),
+          })
+          .where(eq(metadata.id, 1));
+      }),
     );
+    return true;
   },
   Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "writeSteps"))),
 );

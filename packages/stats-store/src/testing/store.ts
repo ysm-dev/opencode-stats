@@ -4,6 +4,25 @@ import { inThreadRuntime } from "./worker.ts";
 import type { StoreOptions } from "../location.ts";
 import type { StoreRuntime } from "../database.ts";
 import { Database, type DatabaseAdapter } from "../database.ts";
+import * as Queue from "effect/Queue";
+
+export const observedStore = Effect.fnUntraced(function* (
+  options: StoreOptions,
+  runtime: StoreRuntime,
+  onCopy: (copy: StoreCopy) => void = () => {},
+) {
+  const commits = yield* Queue.unbounded<StoreCopy>();
+  const store = yield* stayInSync(options, runtime, (copy) => {
+    onCopy(copy);
+    Queue.offerUnsafe(commits, copy);
+  });
+  return { ...store, committed: Queue.take(commits) };
+});
+
+export const readCopy = Effect.fnUntraced(function* (options: StoreOptions, runtime: StoreRuntime) {
+  const store = yield* stayInSync(options, runtime, () => {});
+  return yield* store.read();
+});
 
 export const readBuilt = (
   options: StoreOptions,

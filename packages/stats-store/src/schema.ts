@@ -10,6 +10,7 @@ export const steps = sqliteTable("step", {
   cacheWrite: integer("cache_write"),
   output: integer(),
   reasoning: integer(),
+  revision: integer().notNull(),
 });
 
 export const metadata = sqliteTable("metadata", {
@@ -18,4 +19,18 @@ export const metadata = sqliteTable("metadata", {
   generation: text().notNull(),
   revision: integer().notNull(),
   historyCompleteFrom: integer("history_complete_from").notNull(),
+  expiredRevision: integer("expired_revision").notNull(),
+});
+
+export const sessions = sqliteTable("session_sync", {
+  id: text().primaryKey(),
+  counter: integer(),
+  messageCount: integer("message_count").notNull(),
+  highestPosition: integer("highest_position"),
+});
+
+export const tombstones = sqliteTable("tombstone", {
+  id: text().primaryKey(),
+  revision: integer().notNull(),
+  deletedAt: integer("deleted_at").notNull(),
 });
