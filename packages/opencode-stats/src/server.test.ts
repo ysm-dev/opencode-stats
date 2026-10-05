@@ -8,6 +8,11 @@ import { version, serverScript } from "./paths.ts";
 import { standIn, stopProcess, temporaryPort } from "@opencode-stats/launcher/testing";
 import { installOpener } from "../testing/server.ts";
 
+vi.mock("node:os", async (original) => ({
+  ...(await original<typeof import("node:os")>()),
+  homedir: () => "/synthetic/private-home",
+}));
+
 afterEach(() => vi.unstubAllGlobals());
 
 it("fails setup on OpenCode's Node build before starting a dashboard server", () => {
