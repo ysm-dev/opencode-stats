@@ -10,12 +10,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@opencode-stats/engine": "workspace:*",
     "@opencode/ui": "2.0.21",
     "@solidjs/meta": "0.29.4",
     "@tanstack/solid-router": "1.170.38",
     "solid-js": "1.9.15"
   },
   "devDependencies": {
+    "@opencode-stats/browser-copy": "workspace:*",
     "@solidjs/testing-library": "0.8.10",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/dom": "10.4.2",

@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import sqlite from "../../../native/sqlite/manifest.json" with { type: "json" };
 import { checkEmbedded } from "./testing/embedded.ts";
 import { capture } from "./testing/process.ts";
+import { checkOverview } from "./testing/dashboard.ts";
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const shell = process.platform === "win32";
@@ -77,7 +78,7 @@ describe("installed release", () => {
           (await readdir(join(installed, "dashboard/assets"))).filter((file) =>
             file.endsWith(".js"),
           ),
-        ).toHaveLength(1);
+        ).toHaveLength(2);
         for (const name of ["bin", "process", "sync-worker"]) {
           const code = await readFile(join(installed, `${name}.js`), "utf8");
           expect(code).toContain("// opencode-stats 0.2.0");
@@ -104,6 +105,15 @@ describe("installed release", () => {
         });
         expect(await once(node, "close")).toEqual([1, null]);
         expect(message).toBe("opencode-stats needs Bun: run `bunx opencode-stats`\n");
+        const missing = join(folder, "missing.db");
+        const refused = spawn(command, [...prefix, "--db", missing], { cwd: folder });
+        const rejected = capture(refused);
+        expect(await rejected.closed).toEqual([1, null]);
+        expect(rejected.transcript.output).toBe("");
+        expect(rejected.transcript.error).toBe(
+          `Can't find the OpenCode database: ${missing}\nRun OpenCode once, or pass \`--db <path>\`\n`,
+        );
+        expect(existsSync(missing)).toBe(false);
         const db = syntheticDatabase(join(folder, "synthetic.db"));
         writer = db;
         db.session("ses-installed");
@@ -160,17 +170,7 @@ describe("installed release", () => {
           expect(walAfter).toEqual(walBefore);
           const browser = await chromium.launch({ headless: true });
           try {
-            const page = await browser.newPage();
-            const failures: string[] = [];
-            page.on("pageerror", (failure) => {
-              failures.push(failure.message);
-            });
-            await page.goto(origin);
-            await page.getByRole("heading", { name: "Overview", exact: true }).waitFor();
-            expect(await page.title()).toBe("Overview · opencode-stats");
-            expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
-            expect(await page.getByRole("navigation").count()).toBe(1);
-            expect(failures).toEqual([]);
+            await checkOverview(browser, origin, "15");
           } finally {
             await browser.close();
           }
