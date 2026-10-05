@@ -3,6 +3,8 @@ import { metadata, steps } from "./schema.ts";
 import { Database, type StoreRuntime } from "./database.ts";
 import { storePaths, type StoreOptions } from "./location.ts";
 import type { Step } from "@opencode-stats/browser-copy";
+import * as Cause from "effect/Cause";
+import { sqlFailure } from "./errors.ts";
 
 export type StoreCopy = {
   readonly generation: string;
@@ -12,6 +14,7 @@ export type StoreCopy = {
 };
 export type { StoreRuntime } from "./database.ts";
 export { statsStoreVersion } from "./build.ts";
+export { sqlFailure, SqlFailure } from "./errors.ts";
 
 export const stayInSync = Effect.fnUntraced(function* (
   options: StoreOptions,
@@ -53,6 +56,7 @@ export const stayInSync = Effect.fnUntraced(function* (
         busyTimeout: "20 millis",
       }),
     ),
+    Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "readStore"))),
   );
   const copy = yield* read;
   yield* Effect.sync(() => announce(copy));

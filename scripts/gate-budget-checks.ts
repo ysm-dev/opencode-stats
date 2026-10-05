@@ -4,6 +4,24 @@ import type { Check } from "./verify-gates.ts";
 
 export function* budgetChecks(): Generator<Check> {
   yield {
+    gate: "local CI runs every shard with isolated selectors and fail-closed status",
+    files: {},
+    command: ["scripts/testing/ci-shards.ts"],
+    expect: ["Local CI shards are exhaustive, isolated and fail closed."],
+    accepts: true,
+  };
+  yield {
+    gate: "local CI cannot silently omit its final shard",
+    files: {
+      "scripts/ci-shards.ts": readFileSync("scripts/ci-shards.ts", "utf8").replace(
+        "index <= count",
+        "index < count",
+      ),
+    },
+    command: ["scripts/testing/ci-shards.ts"],
+    expect: ["Missing CI shards"],
+  };
+  yield {
     gate: "time budgets terminate overdue commands",
     files: {},
     command: ["scripts/testing/time-budgets.ts"],

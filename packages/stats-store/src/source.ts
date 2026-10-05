@@ -4,6 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { Database } from "./database.ts";
+import * as Cause from "effect/Cause";
+import { sqlFailure } from "./errors.ts";
 
 // Partial storage definitions, not OpenCode's bootstrap or a JSON message decoder.
 const messages = sqliteTable("session_message", {
@@ -47,6 +49,9 @@ export const readSource = Effect.gen(function* () {
     .from(messages)
     .where(eq(messages.type, "assistant"))
     .orderBy(messages.session, messages.position)
-    .pipe(Effect.retry({ schedule: Schedule.exponential("20 millis"), times: 3 }));
+    .pipe(
+      Effect.retry({ schedule: Schedule.exponential("20 millis"), times: 3 }),
+      Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "readSource"))),
+    );
   return decode(rows).filter((row) => !/^msg_.{26}_[0-9]+$/u.test(row.id));
 });

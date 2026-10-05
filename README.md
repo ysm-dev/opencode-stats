@@ -80,7 +80,7 @@ The public `test`, `mutate`, `contracts` and `e2e` commands have an external fiv
 
 Every Vitest configuration also installs a whole-run deadline for direct invocations, terminating blocked workers and their detached descendants before the coordinator. Unit tests and Bun contract tests retain five-second individual limits, e2e tests have 30 seconds, and Vitest hooks/teardown have ten seconds. Stryker's initial dry run has one minute. `bun run budgets` rejects missing/raised configuration limits, including those tighter individual caps; planted verification checks exercise watchdog expiry, process cleanup and configuration regressions with short fixtures.
 
-`bun run ci` is a local **sequential aggregate of separately bounded commands**, so its combined time can exceed five minutes. Hosted CI's parallel graph has the additional end-to-end limit. When a budget fails, optimize or shard the work while preserving coverage and mutation thresholds.
+`bun run ci` is a local **sequential aggregate of separately bounded commands**, so its combined time can exceed five minutes. It runs all six mutation shards and all four verification shards in order, clearing inherited shard selectors between gate families. Each public command retains its five-minute watchdog. Hosted CI's parallel graph is unchanged and has the additional end-to-end limit. When a budget fails, optimize or shard the work while preserving coverage and mutation thresholds.
 
 ## Design decisions worth knowing
 

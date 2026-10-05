@@ -39,6 +39,55 @@ it("builds through the Bun Worker adapter with an in-thread worker, and removes 
   }
 });
 
+it.each([
+  { statement: "readSource", actual: false, code: "SQLITE_FULL" },
+  { statement: "writeSteps", actual: false, code: "SQLITE_FULL" },
+  { statement: "readStore", actual: false, code: "SQLITE_FULL" },
+  { statement: "writeSteps", actual: true, code: "SQLITE_ERROR" },
+] as const)(
+  "normalizes worker statement $statement, with a genuine unwritable store: $actual",
+  async ({ statement, actual, code }) => {
+    const fixture = syntheticFixture();
+    const worker = new InThreadWorker((config) =>
+      nodeDatabase({ ...config, readonly: actual || config.readonly }),
+    );
+    if (!actual)
+      worker.postMessage = () =>
+        queueMicrotask(() => {
+          const payload = {
+            kind: "sqlite" as const,
+            code: "SQLITE_FULL",
+            statement,
+            message: "PRIVATE_TITLE",
+            cause: "PRIVATE_CAUSE",
+            stack: "PRIVATE_STACK",
+          };
+          worker.emit("message", payload);
+        });
+    vi.stubGlobal("Worker", function () {
+      return worker;
+    });
+    try {
+      await expect(
+        Effect.runPromise(
+          Effect.scoped(
+            bunWorker(storePaths({ source: fixture.source, cacheHome: fixture.folder })),
+          ),
+        ),
+      ).rejects.toMatchObject({
+        kind: "sqlite",
+        code,
+        statement,
+        message: "Stats store build failed.",
+      });
+    } finally {
+      worker.terminate();
+      vi.unstubAllGlobals();
+      fixture.dispose();
+    }
+  },
+);
+
 it.each(["false", "invalid", "error", "throw"])(
   "sanitizes %s worker failures and releases its handles",
   async (kind) => {

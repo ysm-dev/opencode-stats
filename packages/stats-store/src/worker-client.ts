@@ -2,13 +2,23 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { SyncWorker } from "./database.ts";
 import type { WorkerPort } from "./worker-program.ts";
+import { sqlFailure } from "./errors.ts";
 
 export type WorkerHandle = WorkerPort & {
   terminate(): void;
   addEventListener(type: "error", listener: () => void): void;
   removeEventListener(type: "error", listener: () => void): void;
 };
-const response = Schema.decodeUnknownSync(Schema.Boolean);
+const response = Schema.decodeUnknownSync(
+  Schema.Union([
+    Schema.Boolean,
+    Schema.Struct({
+      kind: Schema.Literal("sqlite"),
+      code: Schema.String,
+      statement: Schema.Literals(["readSource", "writeSteps", "readStore"]),
+    }),
+  ]),
+);
 
 export const workerClient = (create: () => WorkerHandle): SyncWorker =>
   Effect.fnUntraced(function* (paths) {
@@ -26,7 +36,11 @@ export const workerClient = (create: () => WorkerHandle): SyncWorker =>
             catch: () => new Error("Invalid sync worker response."),
           }).pipe(
             Effect.flatMap((ok) =>
-              ok ? Effect.void : Effect.fail(new Error("Stats store build failed.")),
+              typeof ok === "object"
+                ? Effect.fail(sqlFailure({ code: ok.code }, ok.statement))
+                : ok
+                  ? Effect.void
+                  : Effect.fail(new Error("Stats store build failed.")),
             ),
           ),
         );

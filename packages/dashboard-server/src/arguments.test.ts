@@ -12,6 +12,7 @@ describe("dashboard server arguments", () => {
       expect(parseArguments([...args, "--db", "synthetic.db"])).toEqual({
         port,
         db: "synthetic.db",
+        starter: "terminal",
       });
     }
   });
