@@ -9,7 +9,7 @@
     "native:build": "bun run scripts/native-build.ts",
     "native:prepare": "bun run scripts/native-prepare.ts",
     "opencode:prepare": "bun run scripts/opencode-prepare.ts",
-    "ci": "bun run ci:checks && bun run contracts && bun run mutate && bun run release && bun run e2e && bun run verify-gates",
+    "ci": "bun run ci:checks && bun run contracts && bun run scripts/ci-shards.ts mutate && bun run release && bun run e2e && bun run scripts/ci-shards.ts verify-gates",
     "ci:checks": "bun run native:prepare && bun run format:check && bun run lint && bun run typecheck && bun run budgets && bun run test && bun run knip && bun run dup && bun run exceptions && bun run shape && bun run outdated",
     "budgets": "bun run scripts/check-time-budgets.ts",
     "format": "oxfmt",
