@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import type { Browser } from "playwright";
+import type { Browser, BrowserContext, Page, Request } from "playwright";
 import type axe from "axe-core";
 import { expect, vi } from "vitest";
 
@@ -17,6 +17,55 @@ const blockedAssets = {
   font: /\/Inter[^/]*\.ttf$/u,
   style: /\/(?:assets\/style[^/]*\.css|src\/style\.css)$/u,
 };
+
+function observeLoad(context: BrowserContext, page: Page) {
+  const errors: string[] = [];
+  const events: string[] = [];
+  const pending = new Set<Request>();
+  const record = (event: string) => {
+    events.push(event);
+    if (events.length > 60) events.shift();
+  };
+  context.on("request", (request) => {
+    pending.add(request);
+    if (request.resourceType() !== "script")
+      record(`request ${request.resourceType()} ${request.url()}`);
+  });
+  context.on("requestfinished", (request) => {
+    pending.delete(request);
+  });
+  context.on("response", (response) => {
+    if (response.request().resourceType() !== "script" || response.status() >= 400)
+      record(`response ${response.status()} ${response.url()}`);
+  });
+  context.on("requestfailed", (request) => {
+    pending.delete(request);
+    record(`failed ${request.failure()?.errorText} ${request.url()}`);
+  });
+  page.on("framenavigated", (frame) => record(`navigation ${frame.url()}`));
+  page.on("worker", (worker) => record(`worker ${worker.url()}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") record(`console ${message.text()}`);
+  });
+  page.on("pageerror", (error) => {
+    errors.push(error.message);
+    record(`pageerror ${error.message}`);
+  });
+  return {
+    errors,
+    describe: (asset: string, width: number) =>
+      JSON.stringify({
+        asset,
+        width,
+        page: page.url(),
+        workers: page.workers().map((worker) => worker.url()),
+        pending: [...pending]
+          .slice(-20)
+          .map((request) => `${request.resourceType()} ${request.url()}`),
+        events,
+      }),
+  };
+}
 
 async function checkViewport(browser: Browser, origin: string, total: string, width: number) {
   const context = await browser.newContext({
@@ -48,10 +97,7 @@ async function checkViewport(browser: Browser, origin: string, total: string, wi
     requestAnimationFrame(observe);
   }, total);
   const page = await context.newPage();
-  const failures: string[] = [];
-  page.on("pageerror", (error) => {
-    failures.push(error.message);
-  });
+  const diagnostics = observeLoad(context, page);
   try {
     for (const asset of ["copy", "font", "style"] as const) {
       let blocked = false;
@@ -66,7 +112,13 @@ async function checkViewport(browser: Browser, origin: string, total: string, wi
       });
       try {
         await page.goto(origin, { waitUntil: "commit" });
-        await vi.waitFor(() => expect(blocked).toBe(true), { timeout: 10000 });
+        await vi.waitFor(
+          () => {
+            if (!blocked)
+              throw new Error(`Unobserved asset gate: ${diagnostics.describe(asset, width)}`);
+          },
+          { timeout: 10000 },
+        );
         const blank =
           asset === "style"
             ? await page.locator("#root").textContent()
@@ -116,7 +168,7 @@ async function checkViewport(browser: Browser, origin: string, total: string, wi
       const paint = await page.evaluate(() => window.overviewPaint);
       if (asset !== "style") expect(paint.blankFrames).toBeGreaterThan(0);
       expect(paint.partialFrames).toEqual([]);
-      expect(failures).toEqual([]);
+      expect(diagnostics.errors).toEqual([]);
       await context.unroute(blockedAssets[asset]);
     }
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
