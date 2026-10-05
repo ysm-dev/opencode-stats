@@ -24,6 +24,7 @@ export type SyntheticMessage = {
 
 export function syntheticDatabase(filename: string) {
   const db = new DatabaseSync(filename);
+  let closed = false;
   db.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL");
   for (const statement of schema.statements) db.exec(statement);
   db.exec("CREATE TABLE migration(id TEXT PRIMARY KEY, time_completed INTEGER NOT NULL)");
@@ -52,14 +53,14 @@ export function syntheticDatabase(filename: string) {
         ).run(id, parent);
       });
     },
-    message(message: SyntheticMessage) {
+    message(message: SyntheticMessage, advanceCounter = true) {
       const data = JSON.stringify({
         time: { created: message.start },
         tokens: message.tokens,
         content: [{ type: "text", text: message.content ?? "SYNTHETIC PRIVATE CONTENT" }],
         error: message.error,
       });
-      atomic(message.session, () => {
+      const write = () => {
         db.prepare(
           "INSERT INTO session_message VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET time_created=excluded.time_created,time_updated=excluded.time_updated,data=excluded.data",
         ).run(
@@ -71,10 +72,49 @@ export function syntheticDatabase(filename: string) {
           message.start,
           data,
         );
+      };
+      if (advanceCounter) atomic(message.session, write);
+      else write();
+    },
+    revert(session: string, boundary: number) {
+      atomic(session, () => {
+        db.prepare("DELETE FROM session_message WHERE session_id=? AND seq>=?").run(
+          session,
+          boundary,
+        );
       });
     },
+    rewriteWithoutCounter(id: string, data: string) {
+      db.prepare("UPDATE session_message SET data=? WHERE id=?").run(data, id);
+    },
+    positionWithoutCounter(id: string, position: number) {
+      db.prepare("UPDATE session_message SET seq=? WHERE id=?").run(position, id);
+    },
+    reset() {
+      db.exec("BEGIN IMMEDIATE; DELETE FROM session_v2; DELETE FROM event_sequence; COMMIT");
+    },
+    removeCounter(session: string) {
+      db.prepare("DELETE FROM event_sequence WHERE aggregate_id=?").run(session);
+    },
+    sequence(session: string, value: string | number) {
+      db.prepare("UPDATE event_sequence SET seq=? WHERE aggregate_id=?").run(value, session);
+    },
+    deleteSession(session: string) {
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        db.prepare("DELETE FROM session_v2 WHERE id=?").run(session);
+        db.prepare("DELETE FROM event_sequence WHERE aggregate_id=?").run(session);
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+    },
     close() {
-      db.close();
+      if (!closed) {
+        db.close();
+        closed = true;
+      }
     },
   };
 }
@@ -94,3 +134,16 @@ export function syntheticFixture() {
   };
 }
 export { failingTitle } from "./privacy.ts";
+
+export function streamingFixture() {
+  const fixture = syntheticFixture();
+  fixture.writer.session("ses-live");
+  fixture.writer.message({
+    id: "msg-live",
+    session: "ses-live",
+    seq: 0,
+    start: 1000,
+    tokens: { output: 1 },
+  });
+  return fixture;
+}

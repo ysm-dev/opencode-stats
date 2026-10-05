@@ -19,5 +19,8 @@ type DatabaseConfig = {
 export type DatabaseAdapter = (config: DatabaseConfig) => Layer.Layer<Database>;
 
 export type StorePaths = { readonly source: string; readonly store: string };
-export type SyncWorker = (paths: StorePaths) => Effect.Effect<void, Error, Scope.Scope>;
+export type SyncWorker = (
+  paths: StorePaths,
+  announce?: () => Effect.Effect<void, Error>,
+) => Effect.Effect<void, Error, Scope.Scope>;
 export type StoreRuntime = { readonly database: DatabaseAdapter; readonly worker: SyncWorker };
