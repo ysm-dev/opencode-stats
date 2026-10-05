@@ -1,5 +1,7 @@
-import { render } from "solid-js/web";
-import { Dashboard } from "./dashboard.tsx";
+import { createPageClient } from "@opencode-stats/engine";
+import { mountDashboard } from "./dashboard.tsx";
 
-await document.fonts.load("440 13px Inter");
-render(Dashboard, document.getElementById("root")!);
+const client = createPageClient(
+  new Worker(new URL("@opencode-stats/engine/worker", import.meta.url), { type: "module" }),
+);
+mountDashboard(document.getElementById("root")!, client, document.fonts.load("440 13px Inter"));
