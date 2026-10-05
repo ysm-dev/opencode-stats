@@ -91,7 +91,7 @@ it("installed bin races converge on one lifetime-lock winner; SIGKILL releases i
     )) {
       expect(await value.closed).toEqual([0, null]);
       expect(value.transcript.output).toContain(before.address);
-      expect(value.transcript.output).toContain("Database: ~/synthetic.db");
+      expect(value.transcript.output).toContain("Database: ~/synthetic.db (from `--db`)");
       expect(value.transcript.error).toBe("");
     }
     const conflict = fixture.start(await temporaryPort());

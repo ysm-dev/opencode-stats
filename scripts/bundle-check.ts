@@ -58,13 +58,24 @@ const check = (file: string): void => {
   if (!Object.keys(inputs).length || !Object.keys(outputs).length)
     throw new Error("Empty metafile");
   if (
-    file.endsWith("/bin.json") &&
+    /\/(?:bin|server)\.json$/u.test(file) &&
     Object.keys(inputs).some((path) =>
-      /(?:^|[/\\])(?:effect(?:@|[/\\])|@effect[/\\]|drizzle-orm(?:@|[/\\]))/u.test(path),
+      /(?:^|[/\\])(?:effect(?:@|[/\\])|@effect[/\\]|drizzle-orm(?:@|[/\\])|sqlite(?:[/\\]|\.))/u.test(
+        path,
+      ),
     )
   ) {
-    throw new Error("Bin bundle contains Effect or drizzle");
+    throw new Error("Host bundle contains Effect, SQLite or drizzle");
   }
+  if (
+    /\/(?:bin|server)\.json$/u.test(file) &&
+    Object.values(outputs).some((output) =>
+      imports(object(output)["imports"]).some((entry) =>
+        ["bun:sqlite", "node:sqlite"].includes(text(object(entry)["path"])),
+      ),
+    )
+  )
+    throw new Error("Host bundle contains Effect, SQLite or drizzle");
   const emitted = emittedInputs(inputs, outputs);
   for (const [name, input] of Object.entries(inputs)) {
     // Bun marks unused Drizzle barrel imports external; a zero-byte barrel
@@ -80,6 +91,7 @@ const folder = resolve(process.argv[2] ?? ".release/metafiles");
 const files = readdirSync(folder).filter((file) => file.endsWith(".json"));
 if (
   !files.includes("bin.json") ||
+  !files.includes("server.json") ||
   !files.includes("process.json") ||
   !files.includes("sync-worker.json")
 )

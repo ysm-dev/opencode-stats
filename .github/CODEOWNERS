@@ -58,6 +58,9 @@
 /scripts/native-outdated.ts @ysm-dev
 /scripts/gate-native-checks.ts @ysm-dev
 /scripts/opencode-prepare.ts @ysm-dev
+/scripts/opencode-runtime.ts @ysm-dev
+/scripts/private-opencode.ts @ysm-dev
+/packages/opencode-stats/server.ts @ysm-dev
 /packages/e2e/tests/native.test.ts @ysm-dev
 /scripts/testing/native-setup.ts @ysm-dev
 /docs/research/issue-34-ci-budget.md @ysm-dev

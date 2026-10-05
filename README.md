@@ -56,7 +56,7 @@ Coverage and mutation include unimported source and exclude tests, `testing/` co
 
 Whole-file waivers name their gates in the human-owned manifest; coverage requires mutation too. Edge files need exact CODEOWNERS entries, are at most 30 lines, and have no branches or nested functions. Single-line suppressions need reasons; only described `@ts-expect-error` directives are allowed. Blanket/block disables, coverage/duplication ignores, and suppressions of `any` or `no-unsafe-*` are rejected. `bun run exceptions` audits both packages and scripts and lists dependency holds.
 
-The bin argument reader, `packages/opencode-stats/src/bin.ts`, passes arguments to its Node-tested program and sets its exit code. Its maintainer-approved coverage/mutation waiver is limited to this runtime edge. `packages/dashboard-server/src/arguments.ts` demonstrates narrowing untrusted arguments to a valid TCP port.
+The bin argument reader, `packages/opencode-stats/src/bin.ts`, passes arguments to its Node-tested program and sets its exit code. Its maintainer-approved coverage/mutation waiver is limited to this runtime edge. `packages/opencode-stats/src/options.ts` demonstrates narrowing untrusted plugin options to a valid TCP port and database path.
 
 ## Source development
 
@@ -64,11 +64,28 @@ The bin argument reader, `packages/opencode-stats/src/bin.ts`, passes arguments 
 
 Overview shows all-history Tokens (input, cache read, cache write, output and reasoning), computed by the engine worker from the server's browser copy. The shell appears only after its complete state, fonts and styles are ready. A missing `--db` prints the selected path and the fix without opening a browser.
 
+`bun run dev:plugin` loads the workspace plugin in a private `opencode serve` using the installed OpenCode executable. `--opencode <version>` installs an exact per-platform release; `--packed` loads `.release/package/` after `bun run release`. Its HOME/config/data stay under `.dev/opencode/`, its dashboard port is **22440**, and state/cache and the synthetic database are shared with `bun run dev`. Vite serves the source dashboard at `http://127.0.0.1:5173`. No shared OpenCode service or real database is used.
+
+The workspace's conventional `server.ts` forwards to the tested source entry without bundling. See [V2 activation evidence](docs/research/issue-40-plugin-activation.md) for the host APIs and eligible runtime pins.
+
+## Plugin mode
+
+Add `"opencode-stats"` to `plugins` in OpenCode's global `opencode.json(c)`. The standard Bun build starts or joins one detached dashboard server without opening a browser. All plugin activations in one OpenCode process share a hold; the dashboard server stops about ten seconds after the last process releases it. Invalid options, a Node OpenCode build or a missing database fail plugin setup.
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [{ "package": "opencode-stats", "options": { "port": 22439 } }],
+}
+```
+
+The optional `db` is a nonempty file path and overrides automatic selection. The launcher and bin share OpenCode's `databasePath` rule: `OPENCODE_DB` is absolute or relative to `$XDG_DATA_HOME/opencode` (default `~/.local/share/opencode`); otherwise official channels use `opencode.db`, and custom channels use `opencode-<sanitized-channel>.db`. The `OPENCODE_DISABLE_CHANNEL_DB` values `1` and `true` select the official filename. The current environment is overlaid with `env` read from `service.json` in `$OPENCODE_CONFIG_DIR`, or `${XDG_CONFIG_HOME:-~/.config}/opencode`; nothing writes that config. Standalone assumes an official channel, so custom OpenCode builds need `--db`. Missing-file messages include the selected path's source.
+
 Only `bun run release` bundles: Bun emits unminified bin/server ES modules with linked maps, and Vite emits one minified dashboard bundle and its engine worker into `.release/package/`. It generates the dependency-free manifest and packs one `.release/opencode-stats-<version>.tgz`. Paths are swapped at bundle time, never redirected by runtime environment variables. Source server static-file tests use that release-owned layout; development continues to use Vite.
 
-For the installed standalone slice, run `bunx opencode-stats --no-open --db <path>` (Bun ≥ 1.4.2), or pass `--port <n>`. `--db` wins over `OPENCODE_DB`, otherwise the source is `$XDG_DATA_HOME/opencode/opencode.db` (default `~/.local/share/opencode/opencode.db`). The file must exist. Its step facts are built once, with five independently nullable token kinds, into a private XDG cache; no source connection can write. macOS uses the controlled upstream SQLite library included in this same package, for arm64 and x64, with no compiler, extra installation, native-library setting or runtime download. See [stats-store](packages/stats-store/README.md) for provenance and source safety. The bin opens a browser by default and keeps the server as its foreground child until Ctrl+C. Update standalone mode with `bunx opencode-stats@latest`. Following writes, diagnostics and plugin activation arrive in later spec tickets.
+For standalone mode, run `bunx opencode-stats --no-open --db <path>` (Bun ≥ 1.4.2), or pass `--port <n>`. `--db` wins over the automatic selection above. The file must exist. Its step facts are built once, with five independently nullable token kinds, into a private XDG cache; no source connection can write. macOS uses the controlled upstream SQLite library included in this same package, for arm64 and x64, with no compiler, extra installation, native-library setting or runtime download. See [stats-store](packages/stats-store/README.md) for provenance and source safety. The bin opens a browser by default and keeps the server as its foreground child until Ctrl+C. Update standalone mode with `bunx opencode-stats@latest`. Following writes and diagnostics arrive in later spec tickets.
 
-`bun run e2e` installs the existing tarball through npm with lifecycle scripts off into an otherwise empty temp folder, then checks the installed bin and Chromium. Install its browser once with `bun run --cwd packages/e2e playwright install chromium`. CI bundles and tests on Bun 1.4.2: Linux and macOS block, Windows reports. `bun run bundle:check` checks Bun metafiles, rejecting non-built-in external imports and any Effect/drizzle input in the bin.
+`bun run e2e` installs the existing tarball through npm with lifecycle scripts off into an otherwise empty temp folder, then checks the installed bin and Chromium. It also prepares the pinned minimum/newest-eligible OpenCode executables from `native/sqlite/test-runtime.json` and activates the tarball in isolated, password-protected `opencode serve` processes, never `--service`. Install its browser once with `bun run --cwd packages/e2e playwright install chromium`. CI bundles and tests on Bun 1.4.2: Linux and macOS block, Windows reports. `bun run bundle:check` checks Bun metafiles, rejecting non-built-in external imports and any Effect/SQLite/drizzle input in the bin and launcher.
 
 Hooks run lint/format before commits, types/coverage before pushes, and reject non-Conventional Commit messages. CI runs full mutation separately, then gate verification; the required **Quality gates** check succeeds only when every job succeeds.
 

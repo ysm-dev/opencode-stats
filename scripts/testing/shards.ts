@@ -48,7 +48,10 @@ for (const command of new Set(canaries.map((check) => check.command[0]))) {
     `Unbalanced verification command ${command}`,
   );
 }
-const sources = globSync("packages/*/src/**/*.{ts,tsx}").toSorted();
+const sources = globSync([
+  "packages/*/src/**/*.{ts,tsx}",
+  "packages/opencode-stats/server.ts",
+]).toSorted();
 verifyPartition(sources, 12);
 for (let index = 1; index <= 6; index += 1) {
   assert.deepEqual(

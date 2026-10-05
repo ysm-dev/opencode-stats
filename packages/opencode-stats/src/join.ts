@@ -1,5 +1,5 @@
 import {
-  databasePath,
+  type DatabaseSelection,
   discover,
   displayPath,
   stateFolder,
@@ -11,13 +11,13 @@ import { setTimeout } from "node:timers/promises";
 
 export async function joinRunning(
   open: boolean,
-  options: { env?: NodeJS.ProcessEnv; db?: string | undefined },
+  options: { env?: NodeJS.ProcessEnv; database: DatabaseSelection },
 ): Promise<0 | undefined> {
   const env = options.env ?? process.env;
-  const record = await discover(stateFolder(env), databasePath({ env, db: options.db }), version);
+  const record = await discover(stateFolder(env), options.database.path, version);
   if (!record) return undefined;
   process.stdout.write(
-    `opencode-stats ${record.version} · ${record.address} · already running, started ${starterLabel(record)}\nDatabase: ${displayPath(record.database)}\n`,
+    `opencode-stats ${record.version} · ${record.address} · already running, started ${starterLabel(record)}\nDatabase: ${displayPath(record.database)} ${options.database.source}\n`,
   );
   if (open)
     await openBrowser(record.address, process.platform, env).catch(() => {
