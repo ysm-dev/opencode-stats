@@ -14,17 +14,36 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
   let title!: HTMLHeadingElement;
   let sheet!: HTMLDivElement;
   let nested = false;
+  let keyboardFocus: HTMLElement | "navigation" | undefined;
+  const pointer = () => {
+    keyboardFocus = undefined;
+  };
+  const opened = (open: boolean) => {
+    nested = open;
+  };
+  // The published select defers its initial autofocus. It must not undo a key
+  // that has already moved focus; genuine pointer input releases that target.
+  const highlighted = () => {
+    const target = document.activeElement;
+    if (keyboardFocus === "navigation" && target instanceof HTMLElement) {
+      keyboardFocus = target;
+    } else
+      queueMicrotask(() => {
+        if (keyboardFocus instanceof HTMLElement) keyboardFocus.focus();
+      });
+  };
   const schemes: ColorScheme[] = ["system", "light", "dark"];
   const keydown = (event: KeyboardEvent) => {
-    if (nested) return;
+    if (nested) {
+      keyboardFocus = "navigation";
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       props.close();
     }
     if (event.key !== "Tab") return;
-    const stops = [...sheet.querySelectorAll<HTMLElement>('button, [role="button"], input')].filter(
-      (element) => !element.hasAttribute("disabled"),
-    );
+    const stops = [...sheet.querySelectorAll<HTMLElement>('button, [role="button"], input')];
     const first = stops[0]!;
     const last = stops[stops.length - 1]!;
     if (event.shiftKey && (document.activeElement === first || document.activeElement === title)) {
@@ -39,12 +58,16 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
     const shell = document.querySelector(".shell")!;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    shell.setAttribute("inert", "");
+    shell.toggleAttribute("inert", true);
     shell.setAttribute("aria-hidden", "true");
     title.focus();
-    document.addEventListener("keydown", keydown, true);
+    const controller = new AbortController();
+    const options = { capture: true, signal: controller.signal };
+    document.addEventListener("keydown", keydown, options);
+    document.addEventListener("pointerdown", pointer, options);
+    document.addEventListener("pointermove", pointer, options);
     onCleanup(() => {
-      document.removeEventListener("keydown", keydown, true);
+      controller.abort();
       document.body.style.overflow = overflow;
       shell.removeAttribute("inert");
       shell.removeAttribute("aria-hidden");
@@ -92,9 +115,8 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
               onSelect={(value) => {
                 if (value) theme.setColorScheme(value);
               }}
-              onOpenChange={(open) => {
-                nested = open;
-              }}
+              onOpenChange={opened}
+              onHighlight={highlighted}
               contentClass="settings-options"
             />
           </div>
@@ -106,13 +128,11 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
               label={theme.name}
               aria-labelledby="theme-label"
               fitViewport
-              disabled={!preferences.ready()}
               onSelect={(value) => {
                 if (value) theme.setTheme(value);
               }}
-              onOpenChange={(open) => {
-                nested = open;
-              }}
+              onOpenChange={opened}
+              onHighlight={highlighted}
               contentClass="settings-options"
             />
           </div>

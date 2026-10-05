@@ -52,11 +52,12 @@ afterEach(() => {
   document.getElementById("oc-theme-preload")?.remove();
   vi.unstubAllGlobals();
 });
+const runStartup = async (mode: string, data: PrepaintData = prepaintThemes()) => {
+  if (mode === "classic") window.eval(await classicPreload(data));
+  else startup(data);
+};
 describe.each(["classic", "direct"])("the actual synchronous preference preload (%s)", (mode) => {
-  const run = async (data: PrepaintData = prepaintThemes()) => {
-    if (mode === "classic") window.eval(await classicPreload(data));
-    else startup(data);
-  };
+  const run = runStartup.bind(null, mode);
   it("normalizes unknown preferences before the published provider can read them", async () => {
     native.setItem("opencode-theme-id", "<unknown>");
     native.setItem("opencode-color-scheme", "sepia");
@@ -67,6 +68,9 @@ describe.each(["classic", "direct"])("the actual synchronous preference preload 
     expect(localStorage.getItem("opencode-stats-single-key-shortcuts")).toBe("on");
     expect(document.documentElement.dataset["colorScheme"]).toBe("light");
     expect(document.documentElement.style.backgroundColor).toBe("rgb(250, 250, 250)");
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute("content")).toBe(
+      "#fafafaff",
+    );
     expect(document.documentElement.style.getPropertyValue("--dashboard-background")).toBe(
       "#fafafaff",
     );
@@ -102,6 +106,9 @@ describe.each(["classic", "direct"])("the actual synchronous preference preload 
     await run();
     expect(document.documentElement.dataset["theme"]).toBe("matrix");
     expect(document.getElementById("oc-theme-preload")!.textContent).toContain(css);
+    expect(document.getElementById("oc-theme-preload")!.textContent).toContain(
+      "--text-mix-blend-mode:multiply;",
+    );
     expect(document.documentElement.style.backgroundColor).not.toBe("rgb(242, 242, 242)");
   });
   it.each(["light", "dark", "system"])(
@@ -121,9 +128,7 @@ describe.each(["classic", "direct"])("the actual synchronous preference preload 
       expect(document.documentElement.style.colorScheme).toBe(
         scheme === "light" ? "light" : "dark",
       );
-      expect(document.getElementById("oc-theme-preload")!.textContent).toContain(
-        scheme === "light" ? "multiply" : "plus-lighter",
-      );
+      expect(document.getElementById("oc-theme-preload")).toBeNull();
       expect(document.documentElement.dataset["preferencesStorage"]).toBe("persistent");
     },
   );
@@ -156,7 +161,7 @@ describe.each(["classic", "direct"])("the actual synchronous preference preload 
     expect(localStorage.getItem("opencode-theme-css-dark")).toBeNull();
     expect(localStorage.getItem("opencode-theme-id")).toBe("matrix");
     expect(document.documentElement.style.backgroundColor).toBe("rgb(235, 240, 232)");
-    expect(document.getElementById("oc-theme-preload")!.textContent).not.toContain(css);
+    expect(document.getElementById("oc-theme-preload")).toBeNull();
   });
   it.each([
     "--v2-grey-100: #ffffff; body{background:red}",
@@ -182,7 +187,7 @@ describe.each(["classic", "direct"])("the actual synchronous preference preload 
     native.setItem("opencode-theme-css-light", css);
     await run(collision);
     expect(localStorage.getItem("opencode-theme-css-light")).toBeNull();
-    expect(document.getElementById("oc-theme-preload")!.textContent).not.toContain(css);
+    expect(document.getElementById("oc-theme-preload")).toBeNull();
     expect(document.documentElement.dataset["theme"]).toBe("matrix");
   });
   it.each([
@@ -259,6 +264,19 @@ describe.each(["classic", "direct"])("the actual synchronous preference preload 
     expect(localStorage.getItem("opencode-theme-css-light")).toBe(light);
     expect(localStorage.getItem("opencode-theme-css-dark")).toBe(dark);
     expect(document.getElementById("oc-theme-preload")!.textContent).toContain(dark);
+    expect(document.getElementById("oc-theme-preload")!.textContent).toContain("plus-lighter");
+  });
+  it("updates an existing browser theme-colour tag instead of adding another", async () => {
+    document.head
+      .querySelectorAll('meta[name="theme-color"]')
+      .forEach((element) => element.remove());
+    const meta = document.createElement("meta");
+    meta.name = "theme-color";
+    meta.content = "wrong";
+    document.head.append(meta);
+    await run();
+    expect(document.head.querySelectorAll('meta[name="theme-color"]').length).toBe(1);
+    expect(meta.content).toBe("#fafafaff");
   });
   it("detects a full store even when normalization merely rewrites unchanged values", async () => {
     native.setItem("opencode-theme-id", "matrix");

@@ -23,7 +23,18 @@ export default defineConfig({
         handler: async () => {
           const loaded = await runnerImport<typeof import("./src/preload.ts")>(
             decodeURIComponent(new URL("./src/preload.ts", import.meta.url).pathname),
-            { configFile: false, ssr: { noExternal: ["@opencode/ui"] } },
+            {
+              configFile: false,
+              ssr: { noExternal: ["@opencode/ui"] },
+              server: {
+                fs: {
+                  allow: [
+                    searchForWorkspaceRoot(process.cwd()),
+                    dirname(require.resolve("@opencode/ui/package.json")),
+                  ],
+                },
+              },
+            },
           );
           return [
             {

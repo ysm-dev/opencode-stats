@@ -191,13 +191,20 @@ export const startup = (data: PrepaintData, tools = startupTools) => {
   root.style.colorScheme = mode;
   root.style.backgroundColor = themes[id]![mode].background;
   root.style.setProperty("--dashboard-background", themes[id]![mode].background);
-  const style = document.createElement("style");
-  style.id = "oc-theme-preload";
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
+    document.head.append(meta);
+  }
+  meta.setAttribute("content", themes[id]![mode].background);
   const css = read(`opencode-theme-css-${mode}`);
-  style.textContent = `:root{color-scheme:${mode};--text-mix-blend-mode:${mode === "dark" ? "plus-lighter" : "multiply"};`;
-  if (css) style.textContent += css;
-  style.textContent += "}";
-  document.head.append(style);
+  if (css) {
+    const style = document.createElement("style");
+    style.id = "oc-theme-preload";
+    style.textContent = `:root{color-scheme:${mode};--text-mix-blend-mode:${mode === "dark" ? "plus-lighter" : "multiply"};${css}}`;
+    document.head.append(style);
+  }
   // Capture before the provider. Normalize external writes/removal/clear at this
   // same trust boundary and forward only valid values to its published listener.
   let forwarding = false;

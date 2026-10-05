@@ -92,7 +92,17 @@ a private window, a port change or cleared site data starts shortcuts On again. 
 written to an opencode-stats preference file or cookie. If storage is refused, the page uses
 memory and Settings says so; that memory does not survive a reload.
 
-Implementation and remaining verification work for #37 are recorded in `docs/preferences.md`.
+Implementation and automated verification are recorded in `docs/preferences.md`.
+
+### Accessibility
+
+The dashboard targets WCAG 2.2 AA in every offered theme. Its own colour uses take the
+nearest passing theme-ramp colours rather than inheriting inaccessible faint text or edges.
+All 72 palettes are checked with unrounded contrast calculations; axe rejects violations
+and incomplete results. Keyboard/focus tests and packed Chromium/WebKit checks cover Settings,
+light/dark and the harder Matrix/Everforest light palettes, including narrow and short windows.
+Native browser zoom and VoiceOver with Safari/Chrome remain human release checks, not claimed
+automated screen-reader verification. Report accessibility problems as ordinary GitHub bugs.
 
 - **bun installs and runs scripts; Node runs tests.** Vitest treats bun as a package manager only, and the v8 coverage provider does not work on the bun runtime.
 - **No package exports compiled output; only a release bundles.** Workspace entries remain in each package's own `src/`; ADR 0012 permits one root release bundle into `.release/`. Nothing imports a release bundle from source.

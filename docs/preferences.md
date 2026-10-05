@@ -1,7 +1,7 @@
 # Browser preferences — #37 implementation notes
 
-**Work in progress; not release-ready.** The exhaustive mutation gate and Chromium's
-long-select keyboard/focus checks still need to pass. No accessibility exception is proposed.
+Implemented against integration `5ee4e9168eefe025e5a0623d2a131efcc91d8ccf` using the
+published `@opencode/ui` 2.0.21 provider, resolvers and controls. No accessibility exception.
 
 ## Storage and first paint
 
@@ -28,7 +28,9 @@ long-select keyboard/focus checks still need to pass. No accessibility exception
 Dashboard aliases cover base/deep/three raised surfaces, text, muted text, warning, edges,
 selection, focus, inverse text/background, empty days, four graph levels and chart colours.
 Numbered origins choose nearest passing numbered steps, with stronger contrast breaking ties.
-Generated origins use squared Oklab distance within the same ramp. The two documented fallback
+Generated origins use squared Oklab distance within the same ramp, compositing unrounded sRGB
+before the published normalized-RGB conversion. Static alpha tokens come from the published CSS.
+The two documented fallback
 cases remain inverse-background darkening and base text for unrepairable raised muted text.
 
 The coordinated series/readout order is blue, orange, purple, green, pink, yellow, cyan, grey
@@ -42,11 +44,18 @@ The Node check uses real published resolution, independent unrounded WCAG calcul
 Sharma-checked CIEDE2000 plus full-severity Machado screening for neighbouring categories.
 It also has negative/boundary fixtures through the same public palette seam.
 
-## Remaining verification
+## Focus and verification
 
-- Kill all surviving/uncovered preference, palette and startup mutants, without suppressions.
-- Resolve Chromium long-select keyboard focus/scrolling in short viewports; WebKit checks pass.
-- Complete all twelve mutation and sixteen gate-verification partitions and the full `ci` aggregate.
+- The published select's deferred initial autofocus can overwrite an early keyboard reading.
+  Its public highlight callback preserves that reading; genuine pointer input releases it.
+  Native input listeners use an AbortController scoped to the covering sheet.
+- The complete foreground `bun run ci` aggregate passes: 541 tests with 100% per-file coverage,
+  all twelve exhaustive mutation partitions at 100%, all sixteen gate-verification partitions,
+  runtime contracts, release and installed-tarball checks. No new whole-file exception.
+- Chromium and WebKit pass first stored-theme paint, denied storage, other-tab synchronization,
+  system scheme changes, whole-paint/no-request/data-identity checks and Settings accessibility.
+  The packed suite has 21 passing tests; it covers OpenCode Light/Dark, Matrix Light and
+  Everforest Light at 320–1280 widths, short windows and zoom-equivalent viewport/density.
 - Native browser zoom and VoiceOver remain human checks; automated reflow uses equivalent
   viewport/density conditions, not a claimed Safari/Chrome toolbar-zoom or screen-reader walkthrough.
 

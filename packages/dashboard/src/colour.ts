@@ -1,4 +1,10 @@
-import { hexToOklch } from "@opencode/ui/theme/color";
+import { rgbToOklch } from "@opencode/ui/theme/color";
+import defaults from "../node_modules/@opencode/ui/src/styles/tokens/colors.css?raw";
+
+const staticTokens = () =>
+  Object.fromEntries(
+    [...defaults.matchAll(/--([\w-]+): (#[\da-f]+);/gi)].map((match) => [match[1]!, match[2]!]),
+  );
 
 export const channels = (colour: string) => {
   if (colour.startsWith("rgba")) return colour.match(/[\d.]+/g)!.map(Number);
@@ -10,9 +16,7 @@ export const channels = (colour: string) => {
 const composite = (foreground: string, background: string) => {
   const front = channels(foreground);
   const back = channels(background);
-  return front
-    .slice(0, 3)
-    .map((value, index) => value * front[3]! + back[index]! * (1 - front[3]!));
+  return [0, 1, 2].map((index) => front[index]! * front[3]! + back[index]! * (1 - front[3]!));
 };
 export const luminance = (rgb: number[]) => {
   const linear = rgb.map((value) => {
@@ -23,33 +27,19 @@ export const luminance = (rgb: number[]) => {
 };
 export const contrast = (foreground: string, background: string) => {
   const a = luminance(composite(foreground, background));
-  const b = luminance(channels(background).slice(0, 3));
+  const b = luminance(channels(background));
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 };
-export const colourDistance = (a: string, b: string) => {
-  const first = hexToOklch(`#${a.slice(1)}`);
-  const second = hexToOklch(`#${b.slice(1)}`);
+export const colourRank = (candidate: string, original: string, background: string) => {
+  const a = composite(candidate, background);
+  const b = composite(original, background);
+  const first = rgbToOklch(a[0]! / 255, a[1]! / 255, a[2]! / 255);
+  const second = rgbToOklch(b[0]! / 255, b[1]! / 255, b[2]! / 255);
   const angle = ((first.h - second.h) * Math.PI) / 180;
-  return (
-    (first.l - second.l) ** 2 +
-    first.c ** 2 +
-    second.c ** 2 -
-    2 * first.c * second.c * Math.cos(angle)
-  );
+  return (first.l - second.l) ** 2 + first.c ** 2 - 2 * first.c * second.c * Math.cos(angle);
 };
 
-export const opaque = (foreground: string, background: string) =>
-  `#${composite(foreground, background)
-    .map((value) => Math.round(value).toString(16).padStart(2, "0"))
-    .join("")}`;
-
 export const tokenColour = (tokens: Record<string, string>, name: string): string => {
-  const alpha = /^v2-alpha-(dark|light)-(\d+)$/.exec(name);
-  if (alpha) {
-    const channel = alpha[1] === "dark" ? 0 : 255;
-    return `rgba(${channel}, ${channel}, ${channel}, ${Number(alpha[2]) / 100})`;
-  }
-  const value = tokens[name]!;
-  const reference = /^var\(--([\w-]+)\)$/.exec(value);
-  return reference ? tokenColour(tokens, reference[1]!) : value;
+  const value = tokens[name] ?? staticTokens()[name]!;
+  return value.startsWith("var(--") ? tokenColour(tokens, value.slice(6, -1)) : value;
 };

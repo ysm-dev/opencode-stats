@@ -8,32 +8,31 @@ import source from "./startup.ts?raw";
 import { transformWithOxc } from "vite";
 import { crc32 } from "node:zlib";
 
-const properties = new Set<string>();
-const references = new Set<string>();
-const themes = Object.fromEntries(
-  Object.entries(DEFAULT_THEMES).map(([id, theme]) => {
-    const variantFor = (mode: "light" | "dark") => {
-      const dark = mode === "dark";
-      const variant = dark ? theme.dark : theme.light;
-      const tokens = resolveThemeVariantV2(variant, dark);
-      const legacy = resolveThemeVariant(variant, dark);
-      const css = `${themeToCss(legacy)}\n  ${themeV2ToCss(tokens)}`;
-      for (const name of [...Object.keys(legacy), ...Object.keys(tokens)]) properties.add(name);
-      for (const reference of css.matchAll(/var\(--([a-z][a-z0-9-]*)\)/gi))
-        references.add(reference[1]!);
-      return {
-        background: tokenColour(tokens, "v2-background-bg-deep"),
-        fingerprint: String(crc32(css)),
+export const prepaintThemes = (): PrepaintData => {
+  const properties = new Set<string>();
+  const references = new Set<string>();
+  const themes = Object.fromEntries(
+    Object.entries(DEFAULT_THEMES).map(([id, theme]) => {
+      const variantFor = (dark: boolean) => {
+        const variant = dark ? theme.dark : theme.light;
+        const tokens = resolveThemeVariantV2(variant, dark);
+        const legacy = resolveThemeVariant(variant, dark);
+        const css = `${themeToCss(legacy)}\n  ${themeV2ToCss(tokens)}`;
+        for (const name of [...Object.keys(legacy), ...Object.keys(tokens)]) properties.add(name);
+        for (const reference of css.matchAll(/var\(--([a-z][a-z0-9-]*)\)/gi))
+          references.add(reference[1]!);
+        return {
+          background: tokenColour(tokens, "v2-background-bg-deep"),
+          fingerprint: String(crc32(css)),
+        };
       };
-    };
-    return [id, { light: variantFor("light"), dark: variantFor("dark") }];
-  }),
-);
-const data: PrepaintData = { themes, properties: [...properties], references: [...references] };
-export const prepaintThemes = () => data;
+      return [id, { light: variantFor(false), dark: variantFor(true) }];
+    }),
+  );
+  return { themes, properties: [...properties], references: [...references] };
+};
 
-const classic = transformWithOxc(source, "startup.ts", { lang: "ts" }).then((compiled) =>
-  compiled.code.replace(/^export /gm, ""),
-);
-export const classicPreload = async (trusted: PrepaintData = data) =>
-  `(()=>{${await classic}\nstartup(${JSON.stringify(trusted)});})();`;
+export const classicPreload = async (trusted: PrepaintData = prepaintThemes()) => {
+  const compiled = await transformWithOxc(source, "startup.ts");
+  return `(()=>{${compiled.code.replaceAll("export ", "")}\nstartup(${JSON.stringify(trusted)});})();`;
+};

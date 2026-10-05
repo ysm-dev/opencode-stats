@@ -83,6 +83,86 @@ describe("dashboard colours on the real published surfaces", () => {
     expect(palette["muted-base"]).toBe("#5c5c5cff");
     expect(palette["text-base"]).toBe("#161616ff");
   });
+  it("preserves the exact sRGB transfer breakpoint and an original at the AA threshold", () => {
+    const atBreakpoint = dashboardPalette(
+      {
+        ...oc2Theme,
+        light: {
+          ...oc2Theme.light,
+          v2Overrides: {
+            ...oc2Theme.light.v2Overrides,
+            "v2-background-bg-base":
+              "rgba(120.37622508966662,120.37622508966662,120.37622508966662,1)",
+            "v2-state-fg-warning": "rgba(10.31475,10.31475,10.31475,1)",
+          },
+        },
+      },
+      false,
+    );
+    expect(atBreakpoint["warning-base"]).toBe("rgba(10.31475,10.31475,10.31475,1)");
+    const atThreshold = dashboardPalette(
+      {
+        ...oc2Theme,
+        light: {
+          ...oc2Theme.light,
+          v2Overrides: {
+            ...oc2Theme.light.v2Overrides,
+            "v2-background-bg-base": "#757575",
+            "v2-state-fg-warning": "rgba(0,0,0,0.9819255929730968)",
+          },
+        },
+      },
+      false,
+    );
+    expect(atThreshold["warning-base"]).toBe("rgba(0,0,0,0.9819255929730968)");
+  });
+  it("chooses a perceptually near passing grey-ramp colour in a tinted palette, not an unrelated hue", () => {
+    const greys: Record<string, V2ColorValue> = Object.fromEntries(
+      Array.from({ length: 12 }, (_, index) => [`v2-grey-${(index + 1) * 100}`, "#000000"]),
+    );
+    const palette = dashboardPalette(
+      {
+        ...oc2Theme,
+        light: {
+          ...oc2Theme.light,
+          v2Overrides: {
+            ...oc2Theme.light.v2Overrides,
+            ...greys,
+            "v2-text-text-muted": "#c0b0e0",
+            "v2-grey-700": "#776699",
+            "v2-grey-800": "#807060",
+          },
+        },
+      },
+      false,
+    );
+    expect(palette["muted-base"]).toBe("#776699");
+  });
+  it.each([
+    { original: "#b7f4d7", candidates: ["#661b3e", "#462c45"], expected: "#661b3e" },
+    { original: "#cacd99", candidates: ["#304742", "#7a1163"], expected: "#304742" },
+    { original: "#e8a2a4", candidates: ["#480ba1", "#565991"], expected: "#565991" },
+  ])(
+    "takes the nearest passing tone to $original, accounting for hue, chroma and lightness",
+    ({ original, candidates, expected }) => {
+      const greys: Record<string, V2ColorValue> = Object.fromEntries(
+        Array.from({ length: 12 }, (_, index) => [`v2-grey-${(index + 1) * 100}`, "#000000"]),
+      );
+      const overrides: Record<string, V2ColorValue> = {
+        ...oc2Theme.light.v2Overrides,
+        ...greys,
+        "v2-text-text-muted": `#${original.slice(1)}`,
+        "v2-grey-700": `#${candidates[0]!.slice(1)}`,
+        "v2-grey-800": `#${candidates[1]!.slice(1)}`,
+      };
+      const palette = dashboardPalette(
+        { ...oc2Theme, light: { ...oc2Theme.light, v2Overrides: overrides } },
+        false,
+      );
+      expect(palette["muted-base"]).toBe(expected);
+      expect(ratio(expected, "#ffffff")).toBeGreaterThanOrEqual(4.5);
+    },
+  );
   it("requires graph marks to contrast with the chart surface as well as empty days", () => {
     const theme = {
       ...oc2Theme,

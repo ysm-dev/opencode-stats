@@ -1,7 +1,7 @@
 import { oc2Theme } from "@opencode/ui/theme/default-themes";
 import { resolveThemeVariantV2 } from "@opencode/ui/theme/v2/resolve";
 import type { DesktopTheme } from "@opencode/ui/theme";
-import { channels, colourDistance, contrast, luminance, opaque, tokenColour } from "./colour.ts";
+import { channels, colourRank, contrast, luminance, tokenColour } from "./colour.ts";
 
 const steps = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200];
 
@@ -14,16 +14,16 @@ const nearest = (
 ) => {
   const colour = tokenColour(tokens, original);
   if (contrast(colour, background) >= minimum) return colour;
-  const step = /^var\(--v2-\w+-(\d+)\)$/.exec(tokens[original]!);
-  const target = step ? Number(step[1]) : undefined;
+  const prefix = `var(--v2-${hue}-`;
+  const value = tokens[original]!;
+  const target = value.startsWith(prefix) ? Number(value.slice(prefix.length, -1)) : undefined;
   const candidates = steps
     .map((number) => ({ number, colour: tokens[`v2-${hue}-${number}`] }))
     .filter((candidate) => candidate.colour && contrast(candidate.colour, background) >= minimum);
   candidates.sort((a, b) => {
     const distance =
       target === undefined
-        ? colourDistance(a.colour!, opaque(colour, background)) -
-          colourDistance(b.colour!, opaque(colour, background))
+        ? colourRank(a.colour!, colour, background) - colourRank(b.colour!, colour, background)
         : Math.abs(a.number - target) - Math.abs(b.number - target);
     return distance || contrast(b.colour!, background) - contrast(a.colour!, background);
   });

@@ -220,8 +220,7 @@ it.each(browsers.flatMap((browser) => palettes.map((palette) => ({ ...browser, .
             document.querySelector('[role="option"][aria-selected="true"]') ===
             document.activeElement,
         );
-        await page.mouse.move(0, 0);
-        await page.keyboard.type("z");
+        await page.keyboard.press("End");
         const last = page.getByRole("option", { name: "Zenburn", exact: true });
         await page.evaluate(
           () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),

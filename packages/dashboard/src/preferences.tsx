@@ -4,17 +4,8 @@ import { ThemeProvider, useTheme } from "@opencode/ui/theme/context";
 import type { DesktopTheme } from "@opencode/ui/theme";
 import { dashboardPalette } from "./palette.ts";
 
-const palettes = new WeakMap<DesktopTheme, [Record<string, string>, Record<string, string>]>();
-const paletteFor = (theme: DesktopTheme, dark: boolean) => {
-  let variants = palettes.get(theme);
-  if (!variants) {
-    variants = [dashboardPalette(theme, false), dashboardPalette(theme, true)];
-    palettes.set(theme, variants);
-  }
-  return variants[dark ? 1 : 0];
-};
 const apply = (theme: DesktopTheme, mode: "light" | "dark") => {
-  const palette = paletteFor(theme, mode === "dark");
+  const palette = dashboardPalette(theme, mode === "dark");
   let style = document.getElementById("dashboard-theme");
   if (!style) {
     style = document.createElement("style");
@@ -33,7 +24,6 @@ const apply = (theme: DesktopTheme, mode: "light" | "dark") => {
 
 const preferenceState = () => {
   const theme = useTheme();
-  const [ready, setReady] = createSignal(false);
   const [singleKeyShortcuts, setSingleKeyShortcuts] = createSignal(
     localStorage.getItem("opencode-stats-single-key-shortcuts") !== "off",
   );
@@ -48,17 +38,13 @@ const preferenceState = () => {
   onMount(() => {
     window.addEventListener("storage", storage);
     window.addEventListener("preferences-storage", refused);
-    void theme.loadThemes().then((themes) => {
-      for (const value of Object.values(themes)) paletteFor(value, false);
-      return setReady(true);
-    });
+    void theme.loadThemes();
   });
   onCleanup(() => {
     window.removeEventListener("storage", storage);
     window.removeEventListener("preferences-storage", refused);
   });
   return {
-    ready,
     singleKeyShortcuts,
     keepsPreferences,
     setSingleKeyShortcuts: (enabled: boolean) => {
