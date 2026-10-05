@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { start } from "@opencode-stats/launcher";
+import { start, type DatabaseSelection } from "@opencode-stats/launcher";
 import { serverScript, version } from "./paths.ts";
 import { openBrowser } from "./browser.ts";
 import { joinWinner } from "./join.ts";
@@ -14,7 +14,7 @@ export const foreground = (
     env?: NodeJS.ProcessEnv;
     startupTimeout?: number;
     retries?: number;
-    db?: string | undefined;
+    database: DatabaseSelection;
   },
 ) =>
   new Promise<number>((resolve) => {
@@ -23,7 +23,7 @@ export const foreground = (
       script: options.script ?? serverScript,
       port,
       env: options.env ?? process.env,
-      db: options.db,
+      db: options.database.path,
     });
     const lines = createInterface({ input: child.stdout });
     const errors = createInterface({ input: child.stderr });

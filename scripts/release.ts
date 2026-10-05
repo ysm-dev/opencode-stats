@@ -35,6 +35,7 @@ const paths = {
 
 for (const [name, entry] of [
   ["bin", "packages/opencode-stats/src/bin.ts"],
+  ["server", "packages/opencode-stats/src/server.ts"],
   ["process", "packages/dashboard-server/src/process.ts"],
   ["sync-worker", "packages/stats-store/src/sync-worker.ts"],
 ]) {
@@ -108,7 +109,7 @@ await writeFile(
       description: "A local, read-only dashboard of OpenCode usage",
       license: "MIT",
       type: "module",
-      exports: { "./bin": "./bin.js" },
+      exports: { "./bin": "./bin.js", "./server": "./server.js" },
       bin: { "opencode-stats": "./bin.js" },
       engines: { bun: ">=1.4.2" },
       files: [

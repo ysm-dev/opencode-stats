@@ -41,9 +41,13 @@ describe("standalone bin", () => {
     const db = `${server.folder}/missing.db`;
     const { output, error } = terminal();
     try {
-      expect(await run(["--db", db], { ...server, env: { PATH: server.folder } })).toBe(1);
+      expect(
+        await run(["--db", db], { ...server, env: { ...server.env, PATH: server.folder } }),
+      ).toBe(1);
       expect(error.mock.calls).toEqual([
-        [`Can't find the OpenCode database: ${db}\nRun OpenCode once, or pass \`--db <path>\`\n`],
+        [
+          `Can't find the OpenCode database: ${db} (from \`--db\`)\nRun OpenCode once, or pass \`--db <path>\`\n`,
+        ],
       ]);
       expect(output).not.toHaveBeenCalled();
       await expect(stat(db)).rejects.toThrow("ENOENT");
@@ -66,15 +70,15 @@ describe("standalone bin", () => {
         await run([], {
           ...server,
           db: undefined,
-          env: { OPENCODE_DB: `${server.folder}/missing.db` },
+          env: { ...server.env, OPENCODE_DB: `${server.folder}/missing.db` },
         }),
       ).toBe(1);
       expect(error.mock.calls).toEqual([
         [
-          `Can't find the OpenCode database: ${server.folder}\nRun OpenCode once, or pass \`--db <path>\`\n`,
+          `Can't find the OpenCode database: ${server.folder} (from \`--db\`)\nRun OpenCode once, or pass \`--db <path>\`\n`,
         ],
         [
-          `Can't find the OpenCode database: ${server.folder}/missing.db\nRun OpenCode once, or pass \`--db <path>\`\n`,
+          `Can't find the OpenCode database: ${server.folder}/missing.db (\`OPENCODE_DB\`)\nRun OpenCode once, or pass \`--db <path>\`\n`,
         ],
       ]);
       expect(output).not.toHaveBeenCalled();
@@ -160,7 +164,7 @@ describe("standalone bin", () => {
     const { output, error } = terminal();
     const result = run(["--no-open", "--port", String(server.port)], {
       ...server,
-      env: { PATH: server.folder },
+      env: { ...server.env, PATH: server.folder },
       startupTimeout: 2000,
     });
     try {
@@ -204,8 +208,13 @@ describe("standalone bin", () => {
     const record = await installOpener(server.folder);
     const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     const before = [process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")];
-    vi.stubEnv("PATH", server.folder);
-    const result = run(["--port", String(server.port)], server);
+    for (const [key, value] of Object.entries({ ...server.env, PATH: server.folder }))
+      vi.stubEnv(key, value);
+    const result = run(["--port", String(server.port)], {
+      executable: server.executable,
+      script: server.script,
+      db: server.db,
+    });
     try {
       await record.completed;
       expect(await readFile(record.record, "utf8")).toBe(`http://127.0.0.1:${server.port}\n`);
@@ -234,7 +243,7 @@ describe("standalone bin", () => {
     const { output, error } = terminal();
     const result = run(["--port", String(server.port)], {
       ...server,
-      env: { PATH: server.folder },
+      env: { ...server.env, PATH: server.folder },
     });
     try {
       await vi.waitFor(
@@ -384,7 +393,9 @@ describe("standalone bin", () => {
     let result: Promise<number> | undefined;
     try {
       const timers = process.getActiveResourcesInfo().filter((name) => name === "Timeout");
-      expect(await run(["--no-open"], { executable: "/does-not-exist", db: server.db })).toBe(1);
+      expect(
+        await run(["--no-open"], { executable: "/does-not-exist", db: server.db, env: server.env }),
+      ).toBe(1);
       expect(process.getActiveResourcesInfo().filter((name) => name === "Timeout")).toEqual(timers);
       expect(error).toHaveBeenCalledExactlyOnceWith("Can't start: dashboard server stopped.\n");
       result = run(["--port", "1"], server);
@@ -428,7 +439,11 @@ describe("standalone bin", () => {
       ["--no-open", "--port", String(fixtureFiles.port), "--db", database.source],
       {
         executable,
-        env: { ...process.env, HOME: database.folder, XDG_CACHE_HOME: database.folder },
+        env: {
+          HOME: database.folder,
+          XDG_STATE_HOME: database.folder,
+          XDG_CACHE_HOME: database.folder,
+        },
       },
     );
     try {
@@ -461,6 +476,15 @@ describe("standalone bin", () => {
     try {
       const database = syntheticFixture();
       vi.stubEnv("OPENCODE_DB", database.source);
+      for (const key of [
+        "HOME",
+        "XDG_STATE_HOME",
+        "XDG_CACHE_HOME",
+        "XDG_DATA_HOME",
+        "XDG_CONFIG_HOME",
+        "OPENCODE_CONFIG_DIR",
+      ])
+        vi.stubEnv(key, database.folder);
       expect(await run(["--no-open", "--port", "65535"])).toBe(1);
       database.dispose();
       expect(error.mock.calls[0]?.[0]?.toString()).toContain("--no-env-file");
