@@ -1,6 +1,26 @@
 import type { Check } from "./verify-gates.ts";
 
 export function* runtimeChecks(extension: string): Generator<Check> {
+  const pluginFile = `packages/opencode-stats/src/gate-canary.${extension}`;
+  yield {
+    gate: `OpenCode plugin runtime import forbidden (${extension})`,
+    files: {
+      [pluginFile]:
+        'import { Plugin } from "@opencode/plugin";\nexport const forbidden = Plugin.define;\n',
+    },
+    command: ["lint", pluginFile],
+    expect: ["no-restricted-imports", "types only"],
+  };
+  yield {
+    gate: `OpenCode plugin type import allowed (${extension})`,
+    files: {
+      [pluginFile]:
+        'import type { Plugin } from "@opencode/plugin";\nexport type Context = Plugin.Context;\n',
+    },
+    command: ["lint", pluginFile],
+    expect: [],
+    accepts: true,
+  };
   const artifacts = ["engine", "browser-copy"].flatMap((runtime) =>
     ["dist", ".release", ".dev"].flatMap((folder) =>
       ["src", "src/testing"].map(

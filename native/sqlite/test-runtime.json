@@ -1,5 +1,7 @@
 {
-  "opencode": "2.0.21",
-  "released": "2026-09-30T23:01:48.315Z",
-  "reason": "Newest eligible OpenCode executable at the 2026-10-04 verification; 2.0.22 was younger than three days. This pins embedded-Bun testing, not the source schema support list."
+  "opencode": "2.0.22",
+  "released": "2026-10-02T04:21:16.089Z",
+  "minimum": "2.0.0",
+  "newestKnown": "2.0.23",
+  "reason": "2.0.22 is the newest three-day-eligible release on 2026-10-05. 2.0.23 was published today and is ineligible. Plugin integration tests install the minimum 2.0.0 and this eligible newest release; this is not the source schema support list."
 }

@@ -28,7 +28,7 @@ it("joins only an authenticated matching real answer and leaves a different data
   try {
     expect(await discover(folder, record.database, "2.0.0")).toEqual(record);
     await expect(discover(folder, "/synthetic/b.db", "2.0.0")).rejects.toThrow(
-      `A dashboard server for \`/synthetic/a.db\` is already running (opencode-stats 1.3.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.`,
+      `A dashboard server for \`/synthetic/a.db\` (from the running dashboard server's record) is already running (opencode-stats 1.3.0, started in a terminal, ${record.address}). opencode-stats serves one OpenCode database at a time.`,
     );
     answer = { ...record, pid: 456 };
     expect(await discover(folder, record.database, "2.0.0")).toBeUndefined();

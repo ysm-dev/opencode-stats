@@ -80,7 +80,7 @@ describe("installed release", () => {
             file.endsWith(".js"),
           ),
         ).toHaveLength(2);
-        for (const name of ["bin", "process", "sync-worker"]) {
+        for (const name of ["bin", "server", "process", "sync-worker"]) {
           const code = await readFile(join(installed, `${name}.js`), "utf8");
           expect(code).toContain("// opencode-stats 0.2.0");
           expect(code).toContain(`//# sourceMappingURL=${name}.js.map`);
@@ -107,12 +107,22 @@ describe("installed release", () => {
         expect(await once(node, "close")).toEqual([1, null]);
         expect(message).toBe("opencode-stats needs Bun: run `bunx opencode-stats`\n");
         const missing = join(folder, "missing.db");
-        const refused = spawn(command, [...prefix, "--db", missing], { cwd: folder });
+        const refused = spawn(command, [...prefix, "--db", missing], {
+          cwd: folder,
+          env: {
+            ...process.env,
+            HOME: folder,
+            XDG_STATE_HOME: folder,
+            XDG_CACHE_HOME: folder,
+            XDG_DATA_HOME: folder,
+            OPENCODE_CONFIG_DIR: folder,
+          },
+        });
         const rejected = capture(refused);
         expect(await rejected.closed).toEqual([1, null]);
         expect(rejected.transcript.output).toBe("");
         expect(rejected.transcript.error).toBe(
-          `Can't find the OpenCode database: ${missing}\nRun OpenCode once, or pass \`--db <path>\`\n`,
+          `Can't find the OpenCode database: ${missing} (from \`--db\`)\nRun OpenCode once, or pass \`--db <path>\`\n`,
         );
         expect(existsSync(missing)).toBe(false);
         const db = syntheticDatabase(join(folder, "synthetic.db"));
@@ -216,6 +226,7 @@ describe("installed release", () => {
       });
     try {
       await writeFile(join(meta, "bin.json"), JSON.stringify(baseline));
+      await writeFile(join(meta, "server.json"), JSON.stringify(baseline));
       await writeFile(join(meta, "process.json"), JSON.stringify(baseline));
       await writeFile(join(meta, "sync-worker.json"), JSON.stringify(baseline));
       expect(check()).toBe("Bundle imports checked.\n");
@@ -247,32 +258,36 @@ describe("installed release", () => {
       );
       expect(check).toThrow("Forbidden external import: ./query-effect.js");
       await writeFile(join(meta, "sync-worker.json"), JSON.stringify(baseline));
+      const importing = (path: string) =>
+        JSON.stringify({
+          ...baseline,
+          outputs: {
+            "bundle.js": { ...baseline.outputs["bundle.js"], imports: [{ path, external: true }] },
+          },
+        });
       for (const path of ["unbundled-package", "bun:invented", "./leftover.js"]) {
-        await writeFile(
-          join(meta, "process.json"),
-          JSON.stringify({
-            ...baseline,
-            outputs: {
-              "bundle.js": {
-                ...baseline.outputs["bundle.js"],
-                imports: [{ path, external: true }],
-              },
-            },
-          }),
-        );
+        await writeFile(join(meta, "process.json"), importing(path));
         expect(check).toThrow(`Forbidden external import: ${path}`);
       }
       await writeFile(join(meta, "process.json"), JSON.stringify(baseline));
-      for (const path of [
-        "node_modules/effect/Effect.js",
-        "node_modules/@effect/platform/index.js",
-        "node_modules/drizzle-orm/index.js",
-      ]) {
-        await writeFile(
-          join(meta, "bin.json"),
-          JSON.stringify({ ...baseline, inputs: { [path]: { imports: [] } } }),
-        );
-        expect(check).toThrow("Bin bundle contains Effect or drizzle");
+      for (const entry of ["bin", "server"]) {
+        for (const path of [
+          "node_modules/effect/Effect.js",
+          "node_modules/@effect/platform/index.js",
+          "node_modules/drizzle-orm/index.js",
+          "node_modules/sqlite/index.js",
+        ]) {
+          await writeFile(
+            join(meta, `${entry}.json`),
+            JSON.stringify({ ...baseline, inputs: { [path]: { imports: [] } } }),
+          );
+          expect(check).toThrow("Host bundle contains Effect, SQLite or drizzle");
+        }
+        for (const path of ["bun:sqlite", "node:sqlite"]) {
+          await writeFile(join(meta, `${entry}.json`), importing(path));
+          expect(check).toThrow("Host bundle contains Effect, SQLite or drizzle");
+        }
+        await writeFile(join(meta, `${entry}.json`), JSON.stringify(baseline));
       }
     } finally {
       await rm(folder, { recursive: true, force: true });
