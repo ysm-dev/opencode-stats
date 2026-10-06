@@ -84,11 +84,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [windows-latest]
         include:
           - os: ubuntu-latest
             shard: 1/2
           - os: ubuntu-latest
+            shard: 2/2
+          - os: macos-latest
+            shard: 1/2
+          - os: macos-latest
             shard: 2/2
           - os: macos-15-intel
             shard: 1/4
@@ -142,6 +146,17 @@ jobs:
       # suite, with one file worker per runner and existing per-file concurrency.
       - run: bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers=1', matrix.shard) || '' }}
 
+  arm:
+    name: Packed tarball (macos-latest)
+    timeout-minutes: 5
+    needs: [packed]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "$PACKED" = success
+        env:
+          PACKED: ${{ needs.packed.result }}
+
   intel:
     name: Packed tarball (macos-15-intel)
     timeout-minutes: 5
@@ -192,7 +207,7 @@ jobs:
   gates:
     name: Quality gates
     timeout-minutes: 5
-    needs: [checks, contracts, verification, packed, intel, linux]
+    needs: [checks, contracts, verification, packed, arm, intel, linux]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -200,13 +215,14 @@ jobs:
       contents: read
     steps:
       # Keep the ruleset's existing required check meaningful even if a job skips.
-      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success && test "$INTEL" = success && test "$LINUX" = success
+      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success && test "$ARM" = success && test "$INTEL" = success && test "$LINUX" = success
         if: always()
         env:
           CHECKS: ${{ needs.checks.result }}
           CONTRACTS: ${{ needs.contracts.result }}
           VERIFICATION: ${{ needs.verification.result }}
           PACKED: ${{ needs.packed.result }}
+          ARM: ${{ needs.arm.result }}
           INTEL: ${{ needs.intel.result }}
           LINUX: ${{ needs.linux.result }}
       # Attempt-specific start time includes setup, queueing between jobs and all
