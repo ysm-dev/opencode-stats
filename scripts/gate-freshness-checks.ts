@@ -6,6 +6,11 @@ import holds from "../dependency-holds.json" with { type: "json" };
 import type { Check } from "./verify-gates.ts";
 import { object, readJson, text } from "./json.ts";
 
+const actionVersions: Readonly<Record<string, string>> = {
+  "setup-bun": "v2.2.0",
+  cache: "v6.1.0",
+};
+
 const installedVersions = (): Record<string, string> => {
   const versions: Record<string, string> = { bun: root.devEngines.packageManager.version };
   for (const path of globSync("{package.json,packages/*/package.json}")) {
@@ -44,7 +49,7 @@ export async function* freshnessChecks(): AsyncGenerator<Check> {
       response.end(
         JSON.stringify([
           {
-            tag_name: action ? "v99.0.0" : path.includes("setup-bun") ? "v2.2.0" : "v7.0.0",
+            tag_name: action ? "v99.0.0" : (actionVersions[path.split("/")[3] ?? ""] ?? "v7.0.0"),
             published_at: published,
             draft: false,
             prerelease: false,
