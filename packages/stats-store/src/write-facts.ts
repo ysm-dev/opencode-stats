@@ -71,7 +71,7 @@ export const commitUnit = Effect.fnUntraced(function* (
   removed: ReadonlyArray<string> | undefined,
   now: number,
   unreadLatest: number | null,
-  inventory: ReadonlyMap<string, SourceSession>,
+  inventory: Map<string, SourceSession>,
   projects: ReadonlyArray<SourceProject>,
   registry: Effect.Success<ReturnType<typeof makeDimensions>>,
   refreshDetails: boolean,
@@ -85,20 +85,19 @@ export const commitUnit = Effect.fnUntraced(function* (
       const vanished = new Set(
         snapshots?.filter((snapshot) => !snapshot.session).map((snapshot) => snapshot.id),
       );
-      const byId = vanished.size
-        ? new Map([...inventory].filter(([id]) => !vanished.has(id)))
-        : inventory;
+      // This inventory belongs to the pass; later units must retain discovered deletions.
+      for (const id of vanished) inventory.delete(id);
       if (refreshDetails || vanished.size > 0)
-        yield* saveDetails([...byId.values()], projects, code, revision, now);
+        yield* saveDetails([...inventory.values()], projects, code, revision, now);
       if (snapshots)
         for (const snapshot of snapshots) {
           if (!snapshot.session) {
-            yield* replaceFacts(snapshot.id, [], revision, now, byId, code);
+            yield* replaceFacts(snapshot.id, [], revision, now, inventory, code);
             yield* db.delete(sessions).where(eq(sessions.id, snapshot.id));
             continue;
           }
           const session = snapshot.session;
-          yield* replaceFacts(session.id, snapshot.facts, revision, now, byId, code);
+          yield* replaceFacts(session.id, snapshot.facts, revision, now, inventory, code);
           yield* db
             .insert(sessions)
             .values(session)
@@ -106,7 +105,7 @@ export const commitUnit = Effect.fnUntraced(function* (
         }
       if (removed)
         for (const id of removed) {
-          yield* replaceFacts(id, [], revision, now, byId, code);
+          yield* replaceFacts(id, [], revision, now, inventory, code);
           yield* db.delete(sessions).where(eq(sessions.id, id));
         }
       const facts = yield* db.select({ start: steps.start }).from(steps);
