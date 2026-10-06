@@ -25,6 +25,8 @@
 /scripts/gate-budget-checks.ts @ysm-dev
 /scripts/testing/time-budget-setup.ts @ysm-dev
 /scripts/testing/test-watchdog.ts @ysm-dev
+/scripts/testing/e2e-preparation.ts @ysm-dev
+/scripts/testing/privileged-cleanup.ts @ysm-dev
 /**/tsconfig*.json        @ysm-dev
 /bunfig.toml              @ysm-dev
 /bun.lock                 @ysm-dev

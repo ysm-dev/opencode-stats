@@ -74,4 +74,5 @@ assert.equal(
   0,
 );
 await verifyProcessCleanup();
+if (process.platform === "linux") await import("./privileged-cleanup.ts");
 process.stdout.write("Time budgets reject overdue runs and terminate test workers.\n");
