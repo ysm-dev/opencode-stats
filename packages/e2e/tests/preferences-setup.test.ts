@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync, writeFileSync } from "node:fs";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, chmod } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -9,6 +10,43 @@ import { parseRecord } from "@opencode-stats/launcher";
 import { killProcessTree } from "../../../scripts/process-tree.ts";
 import { capture } from "./testing/process.ts";
 import { preferencesServer } from "./testing/preferences-server.ts";
+
+it("keeps the browser controller responsive while an installer is running", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "preferences-install-pulse-"));
+  const ready = join(directory, "ready");
+  const pulse = join(directory, "pulse");
+  const installer = join(directory, "installer.cjs");
+  await writeFile(
+    installer,
+    `const fs = require("node:fs");
+fs.writeFileSync(${JSON.stringify(ready)}, "ready");
+setInterval(() => { if (fs.existsSync(${JSON.stringify(pulse)})) process.exit(42); }, 10);
+setTimeout(() => process.exit(43), 1000);
+`,
+  );
+  const windows = process.platform === "win32";
+  const executable = join(directory, windows ? "npm.cmd" : "npm");
+  await writeFile(
+    executable,
+    windows
+      ? `@node "${installer}"\r\n`
+      : `#!/bin/sh\nexec node '${installer.replaceAll("'", "'\\''")}'\n`,
+    { mode: 0o755 },
+  );
+  vi.stubEnv("PATH", `${directory}${windows ? ";" : ":"}${process.env["PATH"]}`);
+  const heartbeat = setInterval(() => {
+    if (existsSync(ready)) writeFileSync(pulse, "responsive");
+  }, 10);
+  try {
+    await expect(preferencesServer()).rejects.toSatisfy(
+      (error: { code?: number; status?: number }) => (error.code ?? error.status) === 42,
+    );
+  } finally {
+    clearInterval(heartbeat);
+    vi.unstubAllEnvs();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 it.each(["browser", "install"])(
   "cleans owned preference fixture resources after a public %s setup failure",
