@@ -5,29 +5,29 @@ import { shard } from "./shard.ts";
 
 type Browser = "chromium" | "webkit";
 type Work = readonly [seconds: number, browsers: readonly Browser[], opencode?: true];
-// Rounded file durations from hosted run 37528952961, using the slowest
-// required platform. Unknown files still get conservative preparation.
+// Rounded passing-file durations from hosted run 37546332444, using the
+// slowest required platform. Unknown files still get conservative preparation.
 const work: Readonly<Record<string, Work>> = {
-  "preferences-webkit.test.ts": [38, ["webkit"]],
-  "plugin.test.ts": [36, [], true],
-  "smoke.test.ts": [38, ["chromium"], true],
-  "preferences.test.ts": [27, ["chromium", "webkit"]],
+  "preferences-webkit.test.ts": [53, ["webkit"]],
+  "plugin.test.ts": [46, [], true],
+  "smoke.test.ts": [25, ["chromium"], true],
+  "preferences.test.ts": [39, ["chromium", "webkit"]],
   // Its first full hosted sample is pending; keep the conservative file cost.
   "ranges.test.ts": [30, ["chromium", "webkit"]],
-  "filters.test.ts": [30, ["chromium", "webkit"]],
+  "filters.test.ts": [23, ["chromium", "webkit"]],
   // Synthetic whole-paint tours retain the native per-test/job budgets. Split
   // engines at the existing file/shard seam; refine these estimates on hosted CI.
   "whole-paint-chromium.test.ts": [35, ["chromium"]],
   "whole-paint-webkit.test.ts": [35, ["webkit"]],
-  "whole-paint-canaries.test.ts": [20, ["chromium", "webkit"]],
+  "whole-paint-canaries.test.ts": [14, ["chromium", "webkit"]],
   "preference-evidence.test.ts": [8, ["chromium"]],
-  "preferences-chromium.test.ts": [37, ["chromium"]],
-  "source.test.ts": [16, ["chromium"]],
-  "lifecycle.test.ts": [17, []],
-  "preferences-setup.test.ts": [8, []],
+  "preferences-chromium.test.ts": [17, ["chromium"]],
+  "source.test.ts": [19, ["chromium"]],
+  "lifecycle.test.ts": [16, []],
+  "preferences-setup.test.ts": [13, []],
   "live.test.ts": [7, ["chromium"]],
-  "recovery.test.ts": [18, ["chromium"]],
-  "versions.test.ts": [6, ["chromium"]],
+  "recovery.test.ts": [14, ["chromium"]],
+  "versions.test.ts": [7, ["chromium"]],
   "native.test.ts": [1, []],
   "notices.test.ts": [1, []],
 };
