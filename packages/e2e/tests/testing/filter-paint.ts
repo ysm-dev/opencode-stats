@@ -26,9 +26,10 @@ export const observeFilters = async (page: Page) =>
         numbers: [...document.querySelectorAll(".headline-number")].map((node) => node.textContent),
         address: location.search,
       });
-    window.filterFrames = [];
+    const frames: string[] = [];
+    window.filterFrames = frames;
     const sample = () => {
-      window.filterFrames.push(window.filterSnapshot());
+      frames.push(window.filterSnapshot());
       requestAnimationFrame(sample);
     };
     requestAnimationFrame(sample);

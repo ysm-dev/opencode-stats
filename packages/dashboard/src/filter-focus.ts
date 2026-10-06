@@ -9,7 +9,7 @@ export function preserveFilterFocus(paint: () => void) {
   }
   const items = [...section.querySelectorAll<HTMLElement>('input[type="checkbox"], button')];
   const index = items.findIndex((item) => item === focused);
-  const neighbors = [...items.slice(index + 1), ...items.slice(0, index).reverse()];
+  const neighbors = [...items.slice(index + 1), ...items.slice(0, index).toReversed()];
   const heading = section.querySelector<HTMLElement>("h2, h3")!;
   paint();
   if (!focused.isConnected) (neighbors.find((item) => item.isConnected) ?? heading).focus();

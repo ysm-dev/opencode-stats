@@ -193,7 +193,7 @@ export function createFacts(clock: EngineClock) {
               ),
               proportion: maximum === 0 ? 0 : (amounts.get(name.code) ?? 0) / maximum,
             }))
-            .sort(
+            .toSorted(
               (a, b) =>
                 b.tokens - a.tokens || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
             );

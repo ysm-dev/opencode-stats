@@ -1,47 +1,38 @@
 import { createRequire } from "node:module";
 import { chromium, webkit } from "playwright";
 import { expect, it } from "vitest";
-import { preferencesBrowser } from "./testing/preferences-server.ts";
+import { filterBrowser } from "./testing/filter-fixture.ts";
 import { observeFilters, wholeFilter } from "./testing/filter-paint.ts";
 
 const require = createRequire(import.meta.url);
 it.each([chromium, webkit])(
   "paints packed filters whole, sends no requests, restores IDs and passes accessible checklists and chips in %s",
   async (browser) => {
-    const touch = browser === webkit;
-    await using f = await preferencesBrowser(browser, {
-      hasTouch: touch,
-      viewport: { width: touch ? 360 : 1280, height: 720 },
-      timezoneId: "UTC",
-    });
-    f.server.writer.reset();
-    const now = Date.now() - 60000;
-    for (let i = 0; i < 7; i++) {
-      const session = `ses-filter-${i}`;
-      f.server.writer.session(session, null, { title: `Synthetic ${i}` });
-      f.server.writer.message({
-        id: `msg-filter-${i}`,
-        session,
-        seq: 0,
-        start: now,
-        model: `filter-model-${i}`,
-        provider: `filter-provider-${i % 2}`,
-        variant: i % 2 ? "high" : "default",
-        agent: i % 2 ? "plan" : "build",
-        tokens: { input: (i + 1) * 100 },
-      });
-    }
-    const page = await f.context.newPage();
-    const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(`${f.server.origin}/?range=all`);
-    await page.waitForFunction(
-      () => document.querySelector(".headline-number")?.textContent === "2,800",
-    );
+    await using f = await filterBrowser(browser);
+    const { page, errors } = f;
     const models = page.getByRole("region", { name: "Model", exact: true });
     expect(await models.getByRole("checkbox").count()).toBe(5);
-    await models.getByRole("button", { name: "2 more" }).click();
-    expect(await models.getByRole("checkbox").count()).toBe(7);
+    await models.getByRole("button", { name: "3 more" }).click();
+    expect(await models.getByRole("checkbox").count()).toBe(8);
+    expect(
+      await models
+        .getByRole("checkbox")
+        .evaluateAll((inputs) => inputs.map((input) => input.getAttribute("aria-label"))),
+    ).toEqual([
+      "filter-provider-0/filter-model-6",
+      "filter-provider-1/filter-model-5",
+      "filter-provider-0/filter-model-4",
+      "filter-provider-1/filter-model-3",
+      "filter-provider-0/filter-model-2",
+      "filter-provider-1/filter-model-1",
+      "filter-provider-0/filter-model-0",
+      "synthetic-provider/synthetic-model",
+    ]);
+    expect(
+      await models
+        .getByRole("checkbox", { name: "synthetic-provider/synthetic-model", exact: true })
+        .evaluate((input) => input.closest("label")!.querySelector(".filter-amount")!.textContent),
+    ).toBe("0 tokens");
     const model6 = models.getByRole("checkbox", {
       name: "filter-provider-0/filter-model-6",
       exact: true,

@@ -92,6 +92,8 @@ export function connectEngine(
       } catch {
         range = undefined;
       }
+    } else if (action.kind === "preset") {
+      range = action.preset;
     } else if (
       action.kind === "filter" ||
       action.kind === "remove-filter" ||
@@ -106,7 +108,7 @@ export function connectEngine(
       filterChange = action;
     } else if (action.kind === "shift")
       range = shiftRange(range ?? "30d", action.direction, now, timeZone);
-    else range = action.kind === "all-time" ? "all" : action.preset;
+    else range = "all";
   };
   const paint = () => {
     if (!active || !live.visible()) return;

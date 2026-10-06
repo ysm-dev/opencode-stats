@@ -10,6 +10,7 @@ import { referenceTokens, referenceSessionPlacements } from "./reference.ts";
 type State = Extract<EngineState, { screen: "dashboard" }>;
 type Row = Step & Partial<StepDimensions>;
 type Selection = readonly { dimension: keyof StepDimensions; id: string }[];
+const checklistDimensions = ["project", "provider", "model", "variant", "agent"] as const;
 export function referenceFilters(
   rows: readonly Row[],
   names: readonly DimensionName[],
@@ -45,19 +46,19 @@ export function referenceFilters(
       total: placed.filter((session) => session.code === session.session).length,
       subagents: placed.filter((session) => session.code !== session.session).length,
     },
-    amounts: names
-      .filter((name) => name.dimension !== "session")
-      .map((name) => ({
-        dimension: name.dimension,
-        id: name.id,
-        tokens: referenceTokens(
-          rows.filter(
-            (row) =>
-              inRange(row.start) &&
-              matches(row, name.dimension) &&
-              row[name.dimension as keyof StepDimensions] === name.code,
-          ),
-        ).total,
-      })),
+    amounts: checklistDimensions.flatMap((dimension) =>
+      names
+        .filter((name) => name.dimension === dimension)
+        .map((name) => ({
+          dimension,
+          id: name.id,
+          tokens: referenceTokens(
+            rows.filter(
+              (row) =>
+                inRange(row.start) && matches(row, dimension) && row[dimension] === name.code,
+            ),
+          ).total,
+        })),
+    ),
   };
 }

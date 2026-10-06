@@ -22,6 +22,12 @@ const filtersDashboard = (deliverAnswer: (deliver: () => void) => void = queueMi
   return { ...f, number, models, announcement };
 };
 
+const checkboxInput = (element: HTMLElement) => {
+  if (!(element instanceof HTMLInputElement)) throw new Error("Expected a native checkbox input");
+  expect(element.type).toBe("checkbox");
+  return element;
+};
+
 it("renders native checklists below Pages, top five token amounts, proportional bars, search counts, and an accessible expanded list", async () => {
   const f = filtersDashboard();
   const search = await f.view.findByRole("searchbox", { name: "Search Model" });
@@ -88,12 +94,12 @@ it("renders native checklists below Pages, top five token amounts, proportional 
 
 it("ticks and unticks with the headlines and all other checklist amounts, preserves focused controls, and sends no requests", async () => {
   const f = filtersDashboard();
-  const model = await f.view.findByRole("checkbox", { name: "Model 6" });
+  const model = checkboxInput(await f.view.findByRole("checkbox", { name: "Model 6" }));
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
   const requests = f.server.requests;
   await f.user.click(model);
   await vi.waitFor(() => expect(f.number()).toBe("770"));
-  expect((model as HTMLInputElement).checked).toBe(true);
+  expect(model.checked).toBe(true);
   expect(document.activeElement).toBe(model);
   expect(f.models().getByText("660 tokens")).toBeTruthy();
   expect(
@@ -116,7 +122,7 @@ it("ticks and unticks with the headlines and all other checklist amounts, preser
   ).toBe(1);
   await f.user.click(model);
   await vi.waitFor(() => expect(f.number()).toBe("600"));
-  expect((model as HTMLInputElement).checked).toBe(false);
+  expect(model.checked).toBe(false);
   expect(document.activeElement).toBe(model);
   const clear = f.view.getByRole("button", { name: "Clear all" });
   await f.user.click(clear);
@@ -240,7 +246,7 @@ it.each([
       else queueMicrotask(answer);
     });
     const chip = await f.view.findByRole("button", { name: `Remove Model filter · ${removed}` });
-    const checkbox = f.view.getByRole("checkbox", { name: removed }) as HTMLInputElement;
+    const checkbox = checkboxInput(f.view.getByRole("checkbox", { name: removed }));
     const destination = kept
       ? f.view.getByRole("button", { name: `Remove Model filter · ${kept}` })
       : f.view.getByRole("heading", { name: "Active filters" });
@@ -294,7 +300,7 @@ it("holds native checkbox ticks, chips, amounts and the address at the prior com
     if (hold) deliveries.push(deliver);
     else queueMicrotask(deliver);
   });
-  const checkbox = (await f.view.findByRole("checkbox", { name: "Model 6" })) as HTMLInputElement;
+  const checkbox = checkboxInput(await f.view.findByRole("checkbox", { name: "Model 6" }));
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
   hold = true;
   const snapshot = () => ({

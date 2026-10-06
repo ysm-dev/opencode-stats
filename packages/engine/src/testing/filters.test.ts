@@ -286,14 +286,11 @@ it("equals the independent row reference for arbitrary multi-dimension combinati
           params.set("from", "2026-10-01");
           params.set("to", "2026-10-01");
         }
-        const filters = selected
-          .filter((name) =>
-            filterDimensions.includes(name.dimension as (typeof filterDimensions)[number]),
-          )
-          .map((name) => ({
-            dimension: name.dimension as (typeof filterDimensions)[number],
-            id: name.id,
-          }));
+        const filters = filterDimensions.flatMap((dimension) =>
+          selected
+            .filter((name) => name.dimension === dimension)
+            .map((name) => ({ dimension, id: name.id })),
+        );
         for (const filter of filters) params.append(`f.${filter.dimension}`, filter.id);
         const state = await f.request({ kind: "address", address: `/?${params}` });
         const reference = referenceFilters(
@@ -308,7 +305,7 @@ it("equals the independent row reference for arbitrary multi-dimension combinati
         for (const amount of reference.amounts) {
           const value = state.checklists
             .find((list) => list.dimension === amount.dimension)!
-            .values.find((value) => value.id === amount.id)!;
+            .values.find((candidate) => candidate.id === amount.id)!;
           expect(value.tokens).toBe(amount.tokens);
           expect(value.proportion).toBeGreaterThanOrEqual(0);
           expect(value.proportion).toBeLessThanOrEqual(1);
