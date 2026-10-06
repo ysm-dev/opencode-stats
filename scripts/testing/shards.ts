@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { YAML } from "bun";
-import { shard } from "../shard.ts";
-import { checks } from "../gate-checks.ts";
+import { shard, VERIFICATION_SHARDS } from "../shard.ts";
+import { checks, verificationShard } from "../gate-checks.ts";
 import { narrowJson, object } from "../json.ts";
 
 const verifyPartition = (items: readonly string[], count: number): void => {
@@ -29,7 +29,7 @@ const verifyMatrix = (name: string, label: string, variable: string, count: numb
   assert.ok(Array.isArray(steps));
   assert.ok(steps.some((step) => object(object(step)["env"] ?? {})[variable] === selector));
 };
-verifyMatrix("verification", "Gate verification", "VERIFICATION_SHARD", 16);
+verifyMatrix("verification", "Gate verification", "VERIFICATION_SHARD", VERIFICATION_SHARDS);
 
 const jobs = object(workflow["jobs"]);
 const packed = object(jobs["packed"]);
@@ -85,29 +85,39 @@ assert.ok(
 );
 
 const canaries = [...checks()];
-verifyPartition(
-  canaries.map((check) => check.gate),
-  16,
+const partitions = Array.from({ length: VERIFICATION_SHARDS }, (_, index) =>
+  verificationShard(`${index + 1}/${VERIFICATION_SHARDS}`),
 );
+assert.deepEqual(
+  partitions
+    .flat()
+    .map((check) => check.gate)
+    .toSorted(),
+  canaries.map((check) => check.gate).toSorted(),
+  "Missing or repeated verification canaries",
+);
+assert.deepEqual(verificationShard(undefined), canaries);
 for (const command of new Set(canaries.map((check) => check.command[0]))) {
-  const amounts = Array.from(
-    { length: 16 },
-    (_, index) =>
-      shard(canaries, `${index + 1}/16`).filter((check) => check.command[0] === command).length,
+  const amounts = partitions.map(
+    (partition) => partition.filter((check) => check.command[0] === command).length,
   );
   assert.ok(
     Math.max(...amounts) - Math.min(...amounts) <= 1,
     `Unbalanced verification command ${command}`,
   );
 }
-const completeRuns = Array.from(
-  { length: 16 },
-  (_, index) =>
-    shard(canaries, `${index + 1}/16`).filter(
-      (check) => check.command.length === 1 && check.command[0] === "test",
-    ).length,
+const completeRuns = partitions.map(
+  (partition) =>
+    partition.filter((check) => check.command.length === 1 && check.command[0] === "test").length,
 );
 assert.ok(Math.max(...completeRuns) <= 1, "Unbalanced verification command: full test suites");
+for (const partition of partitions) {
+  if (partition.some((check) => check.command[0] === "scripts/testing/time-budgets.ts"))
+    assert.ok(
+      !partition.some((check) => check.command.length === 1 && check.command[0] === "test"),
+      "Expensive cleanup controls must not share full coverage runs",
+    );
+}
 
 const items = Array.from({ length: 227 }, (_, index) => String(index));
 assert.deepEqual(shard(items, undefined), items);
@@ -125,6 +135,8 @@ for (const invalid of [
   "x/4",
   "1/1e2",
   "1/9007199254740992",
-])
+]) {
   assert.throws(() => shard(items, invalid), /Invalid shard/u);
+  assert.throws(() => verificationShard(invalid), /Invalid shard/u);
+}
 process.stdout.write("Shards are exhaustive, disjoint and reject invalid input.\n");

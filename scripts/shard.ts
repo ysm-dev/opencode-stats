@@ -1,4 +1,6 @@
 // Both CI matrices use one-based index/count notation; no argument means a full run.
+export const VERIFICATION_SHARDS = 16;
+
 export const shard = <T>(items: readonly T[], value: string | undefined): readonly T[] => {
   if (value === undefined) return items;
   if (!/^[1-9]\d*\/[1-9]\d*$/u.test(value)) throw new Error(`Invalid shard: ${value}`);

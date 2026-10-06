@@ -38,8 +38,8 @@ assert.deepEqual(
     2,
   ),
   [
-    ["preferences-webkit.test.ts", "preferences-chromium.test.ts", "smoke.test.ts"],
-    ["plugin.test.ts", "preferences.test.ts"],
+    ["preferences-webkit.test.ts", "preferences-chromium.test.ts"],
+    ["smoke.test.ts", "plugin.test.ts", "preferences.test.ts"],
   ],
 );
 assert.deepEqual(
@@ -53,6 +53,10 @@ assert.deepEqual(prepareE2e(["preferences-webkit.test.ts"]), {
   opencode: false,
 });
 assert.deepEqual(prepareE2e(["smoke.test.ts"]), { browsers: ["chromium"], opencode: true });
+assert.deepEqual(prepareE2e(["ranges.test.ts"]), {
+  browsers: ["chromium", "webkit"],
+  opencode: false,
+});
 assert.deepEqual(prepareE2e(["future.test.tsx"]), {
   browsers: ["chromium", "webkit"],
   opencode: true,

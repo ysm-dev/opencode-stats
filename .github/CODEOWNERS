@@ -26,6 +26,8 @@
 /scripts/check-time-budgets.ts @ysm-dev
 /scripts/ci-duration.ts   @ysm-dev
 /scripts/gate-budget-checks.ts @ysm-dev
+/scripts/gate-checks.ts @ysm-dev
+/scripts/testing/shards.ts @ysm-dev
 /scripts/testing/time-budget-setup.ts @ysm-dev
 /scripts/testing/test-watchdog.ts @ysm-dev
 /scripts/testing/e2e-preparation.ts @ysm-dev

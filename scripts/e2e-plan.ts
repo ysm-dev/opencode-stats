@@ -5,20 +5,23 @@ import { shard } from "./shard.ts";
 
 type Browser = "chromium" | "webkit";
 type Work = readonly [seconds: number, browsers: readonly Browser[], opencode?: true];
-// Relative costs from hosted runs. Unknown files get conservative preparation.
+// Rounded file durations from hosted run 37528952961, using the slowest
+// required platform. Unknown files still get conservative preparation.
 const work: Readonly<Record<string, Work>> = {
-  "preferences-webkit.test.ts": [48, ["webkit"]],
-  "plugin.test.ts": [38, [], true],
-  "smoke.test.ts": [22, ["chromium"], true],
-  "preferences.test.ts": [34, ["chromium", "webkit"]],
-  "preference-evidence.test.ts": [9, ["chromium"]],
-  "preferences-chromium.test.ts": [22, ["chromium"]],
-  "source.test.ts": [17, ["chromium"]],
-  "lifecycle.test.ts": [20, []],
-  "preferences-setup.test.ts": [12, []],
-  "live.test.ts": [4, ["chromium"]],
-  "recovery.test.ts": [15, ["chromium"]],
-  "versions.test.ts": [5, ["chromium"]],
+  "preferences-webkit.test.ts": [38, ["webkit"]],
+  "plugin.test.ts": [36, [], true],
+  "smoke.test.ts": [38, ["chromium"], true],
+  "preferences.test.ts": [27, ["chromium", "webkit"]],
+  // Its first full hosted sample is pending; keep the conservative file cost.
+  "ranges.test.ts": [30, ["chromium", "webkit"]],
+  "preference-evidence.test.ts": [8, ["chromium"]],
+  "preferences-chromium.test.ts": [37, ["chromium"]],
+  "source.test.ts": [16, ["chromium"]],
+  "lifecycle.test.ts": [17, []],
+  "preferences-setup.test.ts": [8, []],
+  "live.test.ts": [7, ["chromium"]],
+  "recovery.test.ts": [18, ["chromium"]],
+  "versions.test.ts": [6, ["chromium"]],
   "native.test.ts": [1, []],
   "notices.test.ts": [1, []],
 };

@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
 import { remainingBudget, runTimed } from "./time-budget.ts";
+import { VERIFICATION_SHARDS } from "./shard.ts";
 
 export async function verifyShards(): Promise<void> {
   const started = performance.now();
@@ -12,7 +13,7 @@ export async function verifyShards(): Promise<void> {
   const controller = new AbortController();
   let next = 1;
   const worker = async (): Promise<void> => {
-    while (next <= 16 && !controller.signal.aborted) {
+    while (next <= VERIFICATION_SHARDS && !controller.signal.aborted) {
       const index = next++;
       const cwd = join(folder, String(index));
       try {
@@ -43,11 +44,15 @@ export async function verifyShards(): Promise<void> {
         }
         const result = await runTimed(["bun", "run", "verify-gates"], remainingBudget(started), {
           ...options,
-          env: { ...process.env, VERIFICATION_SHARD: `${index}/16` },
+          env: { ...process.env, VERIFICATION_SHARD: `${index}/${VERIFICATION_SHARDS}` },
         });
         if (result.status !== 0)
-          throw new Error(`Verification shard ${index}/16 failed\n${result.output}`);
-        process.stdout.write(`Verification shard ${index}/16 passed\n${result.output}`);
+          throw new Error(
+            `Verification shard ${index}/${VERIFICATION_SHARDS} failed\n${result.output}`,
+          );
+        process.stdout.write(
+          `Verification shard ${index}/${VERIFICATION_SHARDS} passed\n${result.output}`,
+        );
       } catch (error) {
         controller.abort();
         throw error;

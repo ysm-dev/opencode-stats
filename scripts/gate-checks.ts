@@ -10,6 +10,7 @@ import { contractChecks } from "./gate-contract-checks.ts";
 import { countingChecks } from "./gate-counting-checks.ts";
 import { nativeChecks } from "./gate-native-checks.ts";
 import { budgetChecks } from "./gate-budget-checks.ts";
+import { shard } from "./shard.ts";
 
 const repeat = (count: number, make: (index: number) => string): string =>
   `${Array.from({ length: count }, (_, index) => make(index)).join("\n")}\n`;
@@ -100,11 +101,53 @@ function* allChecks(): Generator<Check> {
 }
 
 export function* checks(): Generator<Check> {
-  // Keep complete commands contiguous: targeted tests must not split the full
-  // coverage runs into clusters on the modulo shards.
+  // Stable command/name order makes equal-cost partition ties reproducible.
   yield* [...allChecks()].toSorted(
     (left, right) =>
       left.command.join(" ").localeCompare(right.command.join(" ")) ||
       left.gate.localeCompare(right.gate),
   );
+}
+
+// Hosted run 37528952961: full coverage canaries cost 36–49s; the real
+// process-cleanup control costs 17.4s. Keep those apart, without adding runners.
+const costs: Readonly<Record<string, number>> = {
+  "scripts/testing/time-budgets.ts": 18,
+  "scripts/testing/verification.ts": 3,
+  "scripts/testing/e2e-preparation.ts": 3,
+  "scripts/testing/ci.ts": 2,
+  typecheck: 5,
+  contracts: 3,
+  knip: 2,
+  "format:check": 1.5,
+  lint: 1,
+};
+const cost = (check: Check): number => {
+  if (check.command[0] === "test") return check.command.length === 1 ? 50 : 4;
+  return costs[check.command.join(" ")] ?? costs[check.command[0] ?? ""] ?? 0.1;
+};
+
+export function verificationShard(value: string | undefined): readonly Check[] {
+  const items = [...checks()];
+  shard([], value);
+  if (value === undefined) return items;
+  const [index = 0, count = 0] = value.split("/").map(Number);
+  const groups = Array.from(
+    { length: count },
+    (): { items: Check[]; seconds: number; commands: Map<string, number> } => ({
+      items: [],
+      seconds: 0,
+      commands: new Map(),
+    }),
+  );
+  for (const check of items.toSorted((left, right) => cost(right) - cost(left))) {
+    const command = check.command[0] ?? "";
+    const minimum = Math.min(...groups.map((group) => group.commands.get(command) ?? 0));
+    const candidates = groups.filter((group) => (group.commands.get(command) ?? 0) === minimum);
+    const group = candidates.reduce((least, next) => (next.seconds < least.seconds ? next : least));
+    group.items.push(check);
+    group.seconds += cost(check);
+    group.commands.set(command, minimum + 1);
+  }
+  return groups[index - 1]!.items;
 }

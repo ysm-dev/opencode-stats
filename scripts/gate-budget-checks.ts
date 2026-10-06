@@ -67,7 +67,7 @@ export function* budgetChecks(): Generator<Check> {
       "scripts/verification-shards.ts": readFileSync(
         "scripts/verification-shards.ts",
         "utf8",
-      ).replace("next <= 16", "next < 16"),
+      ).replace("next <= VERIFICATION_SHARDS", "next < VERIFICATION_SHARDS"),
     },
     command: ["scripts/testing/verification.ts"],
     expect: ["Missing verification shards"],
@@ -91,12 +91,23 @@ export function* budgetChecks(): Generator<Check> {
     gate: "verification command families cannot silently cluster",
     files: {
       "scripts/gate-checks.ts": readFileSync("scripts/gate-checks.ts", "utf8").replace(
-        'left.command.join(" ").localeCompare(right.command.join(" "))',
-        "0",
+        "group.commands.set(command, minimum + 1);",
+        "",
       ),
     },
     command: ["scripts/testing/shards.ts"],
     expect: ["Unbalanced verification command"],
+  };
+  yield {
+    gate: "verification costly controls cannot share full coverage runs",
+    files: {
+      "scripts/gate-checks.ts": readFileSync("scripts/gate-checks.ts", "utf8").replace(
+        "check.command.length === 1 ? 50 : 4",
+        "check.command.length === 1 ? 0 : 4",
+      ),
+    },
+    command: ["scripts/testing/shards.ts"],
+    expect: ["Expensive cleanup controls must not share full coverage runs"],
   };
   yield {
     gate: "time budgets terminate overdue commands",
