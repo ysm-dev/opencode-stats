@@ -273,6 +273,13 @@ it.each([
   malformedModel({ cost: { input: 1 } }),
   malformedModel({ cost: null }),
   malformedModel({ cost: { ...rate(), tiers: [{ ...rate(), tier: { type: "other", size: 1 } }] } }),
+  ...[false, true].map((reverse) => {
+    const tiers = [tier(500, 7), tier(500, 9)];
+    return malformedModel({ cost: { ...rate(), tiers: reverse ? tiers.toReversed() : tiers } });
+  }),
+  malformedModel({
+    experimental: { modes: { pro: { cost: { ...rate(), tiers: [tier(500, 7), tier(500, 9)] } } } },
+  }),
   malformedModel({ cost: { ...rate(), context_over_200k: { input: "1", output: 2 } } }),
   malformedModel({ experimental: { modes: { pro: { cost: [] } } } }),
   malformedModel({ cost: { ...rate(), cache_read: -1 } }),

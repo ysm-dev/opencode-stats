@@ -18,6 +18,11 @@ const tariff = Schema.Struct({
         ...rates,
         tier: Schema.Struct({ type: Schema.Literal("context"), size: rate.check(Schema.isInt()) }),
       }),
+    ).check(
+      Schema.makeFilter(
+        (tiers) => new Set(tiers.map((entry) => entry.tier.size)).size === tiers.length,
+        { message: "Duplicate context price tier" },
+      ),
     ),
   ),
   context_over_200k: Schema.optional(Schema.Struct(rates)),
