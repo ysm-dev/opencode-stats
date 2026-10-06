@@ -12,11 +12,43 @@ export const stepDimensions = [
 export type StepDimension = (typeof stepDimensions)[number];
 export const stepFields = ["start", ...tokenKinds, ...stepDimensions] as const;
 export const sessionFields = ["code", "parent", "session", "project", "fork"] as const;
-export function mapFields<Field extends string, Value>(
-  fields: readonly Field[],
-  read: (field: Field) => Value,
-): Record<Field, Value> {
-  return Object.fromEntries(fields.map((field) => [field, read(field)])) as Record<Field, Value>;
+export function mapTokenFields<Value>(read: (field: TokenKind) => Value): Record<TokenKind, Value> {
+  return {
+    input: read("input"),
+    cacheRead: read("cacheRead"),
+    cacheWrite: read("cacheWrite"),
+    output: read("output"),
+    reasoning: read("reasoning"),
+  };
+}
+export function mapStepDimensions<Value>(
+  read: (field: StepDimension) => Value,
+): Record<StepDimension, Value> {
+  return {
+    provider: read("provider"),
+    model: read("model"),
+    variant: read("variant"),
+    agent: read("agent"),
+    project: read("project"),
+    session: read("session"),
+    subagent: read("subagent"),
+  };
+}
+export function mapStepFields<Value>(
+  read: (field: (typeof stepFields)[number]) => Value,
+): Record<(typeof stepFields)[number], Value> {
+  return { start: read("start"), ...mapTokenFields(read), ...mapStepDimensions(read) };
+}
+export function mapSessionFields<Value>(
+  read: (field: (typeof sessionFields)[number]) => Value,
+): Record<(typeof sessionFields)[number], Value> {
+  return {
+    code: read("code"),
+    parent: read("parent"),
+    session: read("session"),
+    project: read("project"),
+    fork: read("fork"),
+  };
 }
 export type SessionFact = Readonly<Record<(typeof sessionFields)[number], number | null>> & {
   readonly code: number;

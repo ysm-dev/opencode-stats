@@ -3,7 +3,8 @@ import {
   stepDimensions,
   stepFields,
   sessionFields,
-  mapFields,
+  mapStepFields,
+  mapSessionFields,
   type BrowserCopy,
   type StepColumns,
 } from "./facts.ts";
@@ -60,11 +61,11 @@ export function decode(input: unknown): BrowserCopy {
     throw new Error("Invalid whole browser copy revision range");
   const column = (index: number): Float64Array =>
     new Float64Array(input, headerLength + index * rows * 8, rows);
-  const steps = mapFields(columns, (field) => column(columns.indexOf(field)));
+  const steps = mapStepFields((field) => column(columns.indexOf(field)));
   validateColumns(steps);
   const sessionColumn = (index: number) =>
     new Float64Array(input, stepEnd + index * sessionCount * 8, sessionCount);
-  const sessions = mapFields(sessionFields, (field) => sessionColumn(sessionFields.indexOf(field)));
+  const sessions = mapSessionFields((field) => sessionColumn(sessionFields.indexOf(field)));
   const projects = new Float64Array(input, sessionEnd, projectCount);
   const sessionTombstones = new Float64Array(input, sessionEnd + projectCount * 8, sessionDeleted);
   const projectTombstones = new Float64Array(

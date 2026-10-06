@@ -1,8 +1,8 @@
 import {
   tokenKinds,
-  stepFields,
   sessionFields,
-  mapFields,
+  mapStepFields,
+  mapSessionFields,
   type StepDimension,
   type BrowserCopy,
   type DimensionName,
@@ -25,7 +25,7 @@ const emptyAmounts = (): Amounts => ({
   reasoning: 0n,
 });
 const row = (copy: BrowserCopy, index: number): Fact =>
-  mapFields(stepFields, (field) => copy.steps[field][index]!);
+  mapStepFields((field) => copy.steps[field][index]!);
 const adjust = (amounts: Amounts, fact: Fact, direction: bigint) => {
   for (const kind of tokenKinds) {
     if (!Number.isNaN(fact[kind])) amounts[kind] += BigInt(fact[kind]) * direction;
@@ -71,11 +71,11 @@ async function applyDimensions(
     if (index < deletedEnd)
       next.sessions = HashMap.remove(next.sessions, copy.sessionTombstones[index]!);
     else if (index < sessionsEnd) {
-      const row = index - deletedEnd;
+      const position = index - deletedEnd;
       next.sessions = HashMap.set(
         next.sessions,
-        copy.sessions.code[row]!,
-        mapFields(sessionFields, (field) => copy.sessions[field][row]!),
+        copy.sessions.code[position]!,
+        mapSessionFields((field) => copy.sessions[field][position]!),
       );
     } else if (index < projectsStart)
       next.projects = HashMap.remove(next.projects, copy.projectTombstones[index - sessionsEnd]!);

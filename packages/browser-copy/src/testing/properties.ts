@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { randomBytes } from "node:crypto";
 import { syntheticCopy } from "./synthetic.ts";
-import { mapFields, sessionFields } from "../facts.ts";
+import { mapSessionFields } from "../facts.ts";
 
 const amount = fc.option(fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER }), { nil: null });
 const code = fc.integer({ min: 0, max: 0xfffffffe });
@@ -68,7 +68,7 @@ export const syntheticCopies = fc
         revision: fromRevision + increment,
         historyCompleteFrom,
         names,
-        sessions: mapFields(sessionFields, (field) =>
+        sessions: mapSessionFields((field) =>
           Float64Array.from(sessions, (session) => session[field] ?? NaN),
         ),
         projects: Float64Array.from(projects),

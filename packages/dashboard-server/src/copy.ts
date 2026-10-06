@@ -1,4 +1,4 @@
-import { encode, mapFields, stepFields, sessionFields } from "@opencode-stats/browser-copy";
+import { encode, mapStepFields, mapSessionFields } from "@opencode-stats/browser-copy";
 import type { StoreCopy } from "@opencode-stats/stats-store";
 
 export function encodeStore(copy: StoreCopy): Uint8Array {
@@ -12,15 +12,13 @@ export function encodeStore(copy: StoreCopy): Uint8Array {
       ids: copy.facts.map((fact) => fact.id),
       tombstones: copy.tombstones.map((fact) => fact.id),
       names: copy.names,
-      sessions: mapFields(sessionFields, (field) =>
+      sessions: mapSessionFields((field) =>
         Float64Array.from(copy.sessions, (row) => row[field] ?? NaN),
       ),
       projects: Float64Array.from(copy.projects),
       sessionTombstones: Float64Array.from(copy.sessionTombstones),
       projectTombstones: Float64Array.from(copy.projectTombstones),
-      steps: mapFields(stepFields, (field) =>
-        Float64Array.from(copy.steps, (row) => row[field] ?? NaN),
-      ),
+      steps: mapStepFields((field) => Float64Array.from(copy.steps, (row) => row[field] ?? NaN)),
     }),
   );
 }

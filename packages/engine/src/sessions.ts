@@ -1,6 +1,9 @@
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 
+const place = (map: Map<number, number>, code: number, start: number) =>
+  map.set(code, Math.min(map.get(code) ?? start, start));
+
 // A placement is the earliest step anywhere below that session. Empty sessions
 // have no placement; a stand-in is already identified by the counted facts.
 export async function placeSessions(
@@ -11,8 +14,6 @@ export async function placeSessions(
 ) {
   const roots = new Map<number, number>();
   const subagents = new Map<number, number>();
-  const place = (map: Map<number, number>, code: number, start: number) =>
-    map.set(code, Math.min(map.get(code) ?? start, start));
   for (const fact of facts) {
     if (signal.aborted) break;
     if (!Number.isNaN(fact.session)) place(roots, fact.session, fact.start);

@@ -1,4 +1,4 @@
-import { mapFields, sessionFields } from "../facts.ts";
+import { mapSessionFields } from "../facts.ts";
 import { syntheticCopy } from "./synthetic.ts";
 
 export const formatFixture = () =>
@@ -24,7 +24,7 @@ export const formatFixture = () =>
       fromRevision: 2,
       revision: 3,
       historyCompleteFrom: -100,
-      sessions: mapFields(sessionFields, (field) =>
+      sessions: mapSessionFields((field) =>
         Float64Array.from(
           [{ code: 5, parent: null, session: 5, project: 6, fork: 7 }],
           (row) => row[field] ?? NaN,

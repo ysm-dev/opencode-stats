@@ -6,13 +6,13 @@ import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 import * as Stream from "effect/Stream";
 import { BrowserCopyApi, createLiveFeed } from "../api.ts";
 import { encode, formatVersion } from "../binary.ts";
-import { mapFields, stepFields, type BrowserCopy } from "../facts.ts";
+import { mapStepFields, stepFields, type BrowserCopy } from "../facts.ts";
 import { syntheticCopy } from "./synthetic.ts";
 
 type Fetch = (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch>;
 
 const at = (copy: BrowserCopy, index: number) => ({
-  ...mapFields(stepFields, (field) =>
+  ...mapStepFields((field) =>
     Number.isNaN(copy.steps[field][index]) ? null : copy.steps[field][index]!,
   ),
   start: copy.steps.start[index]!,

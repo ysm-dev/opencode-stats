@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import * as fc from "fast-check";
-import { mapFields, sessionFields, type SessionFact } from "@opencode-stats/browser-copy";
+import { mapSessionFields, type SessionFact } from "@opencode-stats/browser-copy";
 import {
   syntheticCopy,
   inMemoryDashboardServer,
@@ -28,7 +28,7 @@ const step = (start: number, session: number, subagent: number | null) => ({
 const copyFor = (steps: Parameters<typeof syntheticCopy>[0], facts = sessions, revision = 1) =>
   syntheticCopy(steps, {
     revision,
-    sessions: mapFields(sessionFields, (field) =>
+    sessions: mapSessionFields((field) =>
       Float64Array.from(facts, (session) => session[field] ?? NaN),
     ),
     projects: new Float64Array([9]),

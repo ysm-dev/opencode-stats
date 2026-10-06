@@ -1,7 +1,6 @@
 import {
-  mapFields,
-  stepFields,
-  sessionFields,
+  mapStepFields,
+  mapSessionFields,
   type BrowserCopy,
   type Step,
   type StepDimensions,
@@ -20,11 +19,11 @@ export function syntheticCopy(
     ids: steps.map((_, index) => `step-${index}`),
     tombstones: [],
     names: [],
-    sessions: mapFields(sessionFields, () => new Float64Array()),
+    sessions: mapSessionFields(() => new Float64Array()),
     projects: new Float64Array(),
     sessionTombstones: new Float64Array(),
     projectTombstones: new Float64Array(),
     ...header,
-    steps: mapFields(stepFields, (field) => Float64Array.from(steps, (step) => step[field] ?? NaN)),
+    steps: mapStepFields((field) => Float64Array.from(steps, (step) => step[field] ?? NaN)),
   };
 }
