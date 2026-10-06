@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { preferencesBrowser } from "./testing/preferences-server.ts";
 
 it("keeps the packed tab's facts through a server stop/restart and pauses live work", async () => {
-  await using fixture = await preferencesBrowser(chromium);
+  await using fixture = await preferencesBrowser(chromium, { locale: "en-GB" });
   const page = await fixture.context.newPage();
   await page.goto(`${fixture.server.origin}/?range=all`);
   const number = page.getByRole("region", { name: "Tokens" }).locator(".headline-number");

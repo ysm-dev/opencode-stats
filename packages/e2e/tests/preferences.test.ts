@@ -92,7 +92,7 @@ it.each(browsers)(
         const second = await context.newPage();
         evidence.mark("second-page", "completed");
         evidence.mark("second-navigation", "started");
-        await second.goto(server.origin);
+        await second.goto(`${server.origin}/?range=all`);
         evidence.mark("second-navigation", "completed");
         await second.getByRole("heading", { name: "Overview" }).waitFor();
         await evidence.click(
