@@ -12,6 +12,7 @@ declare global {
 }
 
 const require = createRequire(import.meta.url);
+const unavailableRoot = () => null;
 const blockedAssets = {
   copy: /\/api\/browser-copy$/u,
   font: /\/Inter[^/]*\.ttf$/u,
@@ -174,7 +175,7 @@ async function checkViewport(
         const root = await page
           .locator("#root")
           .textContent({ timeout: 1000 })
-          .catch(() => null);
+          .catch(unavailableRoot);
         throw new Error(
           `[DEBUG-source-41] ${JSON.stringify({ root, errors: diagnostics.errors })} ${diagnostics.describe(asset, width)}`,
           { cause },
