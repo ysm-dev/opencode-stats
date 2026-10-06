@@ -97,6 +97,12 @@ export function* budgetChecks(): Generator<Check> {
   for (const [file, from, to, expect] of [
     [
       ".github/workflows/ci.yml",
+      '      - run: test "$CHECKS"',
+      '      - uses: actions/checkout@v7\n      - run: test "$CHECKS"',
+      "Quality gates must not have post-job actions after its deadline check",
+    ],
+    [
+      ".github/workflows/ci.yml",
       "scripts/ci-duration.ts",
       "scripts/not-a-duration-check.ts",
       "Quality gates must enforce the end-to-end time budget",

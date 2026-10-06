@@ -182,11 +182,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@v2.2.0
       # Keep the ruleset's existing required check meaningful even if a job skips.
       - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success && test "$INTEL" = success && test "$LINUX" = success
         if: always()
@@ -202,7 +199,12 @@ jobs:
       - name: Enforce five-minute end-to-end budget
         if: always()
         run: |
+          directory=$(mktemp -d "$RUNNER_TEMP/budget.XXXXXX")
+          mkdir "$directory/scripts"
+          for script in ci-duration time-budget process-tree; do
+            gh api "repos/$GITHUB_REPOSITORY/contents/scripts/$script.ts?ref=$GITHUB_SHA" --header "Accept: application/vnd.github.raw+json" > "$directory/scripts/$script.ts"
+          done
           started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" --jq .run_started_at)
-          bun run scripts/ci-duration.ts "$started"
+          node --experimental-strip-types "$directory/scripts/ci-duration.ts" "$started"
         env:
           GH_TOKEN: ${{ github.token }}

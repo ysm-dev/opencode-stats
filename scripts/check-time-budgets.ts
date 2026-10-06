@@ -41,6 +41,10 @@ for (const [name, job] of Object.entries(object(workflow["jobs"])))
 const steps = object(object(workflow["jobs"])["gates"])["steps"];
 assert.ok(Array.isArray(steps), "Quality gates must enforce the end-to-end time budget");
 assert.ok(
+  steps.every((step) => object(step)["uses"] === undefined),
+  "Quality gates must not have post-job actions after its deadline check",
+);
+assert.ok(
   steps.some((step) => {
     const command = object(step)["run"];
     return (
