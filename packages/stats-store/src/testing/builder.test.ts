@@ -38,6 +38,30 @@ it("projects sessions and message rewrites atomically with their aggregate count
   }
 });
 
+it("gives each fork's copied messages the exact OpenCode ID shape", () => {
+  const fixture = syntheticFixture();
+  const db = new DatabaseSync(fixture.source, { readOnly: true });
+  try {
+    fixture.writer.session("origin");
+    fixture.writer.message({
+      id: "msg_abcdefghijklmnopqrstuvwxyz",
+      session: "origin",
+      seq: 0,
+      start: 1,
+    });
+    fixture.writer.fork("origin", "fork");
+    fixture.writer.fork("fork", "nested-fork", 2);
+    expect(db.prepare("SELECT id FROM session_message ORDER BY id").all()).toEqual([
+      { id: "msg_abcdefghijklmnopqrstuvwxyz" },
+      { id: "msg_abcdefghijklmnopqrstuvwxyz_1" },
+      { id: "msg_abcdefghijklmnopqrstuvwxyz_2" },
+    ]);
+  } finally {
+    db.close();
+    fixture.dispose();
+  }
+});
+
 it("moves and renames through the project's counter while titles and archives leave the session counter alone", () => {
   const fixture = syntheticFixture();
   const db = new DatabaseSync(fixture.source, { readOnly: true });

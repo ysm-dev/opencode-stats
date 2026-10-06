@@ -3,7 +3,8 @@ import * as fc from "fast-check";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { propertyParameters } from "@opencode-stats/browser-copy/testing";
-import { syntheticFixture, readBuilt, inThreadRuntime } from "./testing/index.ts";
+import { syntheticFixture, readBuilt } from "./testing/index.ts";
+import { nodeRuntime } from "./runtime.node.ts";
 import { observedStore } from "./testing/store.ts";
 import { runWithClock } from "./testing/clock.ts";
 import { canonicalCopy } from "./testing/canonical.ts";
@@ -48,7 +49,7 @@ it("counts only each fork's own history, including rewritten copies, forks of fo
       tokens: { input: 100000 },
     });
     writer.message({ id: "own-import", session: "imported", seq: 1, start: 60 });
-    const copy = await readBuilt({ source, cacheHome: folder });
+    const copy = await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime);
     expect(copy.facts.map((row) => row.id)).toEqual(["own-fork", "own-again", "own-import"]);
     expect(copy.steps.map((row) => row.input)).toEqual([2, 3, null]);
     expect(canonicalCopy(copy).sessions.map((row) => [row.code, row.fork])).toEqual([
@@ -72,15 +73,11 @@ it("rolls nested steps into their session, then into their topmost surviving anc
   try {
     await runWithClock((time) =>
       Effect.gen(function* () {
-        const store = yield* observedStore(
-          { source, cacheHome: folder },
-          inThreadRuntime,
-          (copy) => {
-            const counted = canonicalCopy(copy);
-            for (const step of counted.steps)
-              expect(counted.sessions.some((session) => session.code === step.session)).toBe(true);
-          },
-        );
+        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime, (copy) => {
+          const counted = canonicalCopy(copy);
+          for (const step of counted.steps)
+            expect(counted.sessions.some((session) => session.code === step.session)).toBe(true);
+        });
         const first = yield* store.read();
         expect(canonicalCopy(first).steps[0]).toMatchObject({
           session: "root",
@@ -146,7 +143,7 @@ it("rereads details and projects without a session counter, moves all steps, car
   try {
     await runWithClock((time) =>
       Effect.gen(function* () {
-        const store = yield* observedStore({ source, cacheHome: folder }, inThreadRuntime);
+        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime);
         const initial = yield* store.read();
         const dimension = (copy: typeof initial, name: string, id: string) =>
           copy.names.find((row) => row.dimension === name && row.id === id)!;
@@ -244,13 +241,9 @@ it("removes the details of a session that disappears between build units even wh
   try {
     await runWithClock((time) =>
       Effect.gen(function* () {
-        const store = yield* observedStore(
-          { source, cacheHome: folder },
-          inThreadRuntime,
-          (copy) => {
-            if (copy.revision === 1) writer.deleteSession("doomed");
-          },
-        );
+        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime, (copy) => {
+          if (copy.revision === 1) writer.deleteSession("doomed");
+        });
         yield* time.tick;
         expect(canonicalCopy(yield* store.read()).sessions.map((row) => row.code)).toEqual(["new"]);
         expect((yield* store.read()).facts.map((row) => row.id)).toEqual(["new-step"]);
@@ -278,16 +271,12 @@ it("keeps earlier deletions excluded when several build units disappear in one p
   try {
     await runWithClock(() =>
       Effect.gen(function* () {
-        const store = yield* observedStore(
-          { source, cacheHome: folder },
-          inThreadRuntime,
-          (copy) => {
-            if (copy.revision === 1) {
-              writer.deleteSession("root");
-              writer.deleteSession("other");
-            } else copies.push(canonicalCopy(copy));
-          },
-        );
+        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime, (copy) => {
+          if (copy.revision === 1) {
+            writer.deleteSession("root");
+            writer.deleteSession("other");
+          } else copies.push(canonicalCopy(copy));
+        });
         expect(
           copies.map((copy) => copy.steps.find((step) => step.id === "child-step")?.session),
         ).toEqual(["child", "child"]);
@@ -319,11 +308,11 @@ it("removes unread session details when an interrupted build resumes after that 
     tokens: { output: -1 },
   });
   try {
-    await expect(readBuilt({ source, cacheHome: folder })).rejects.toThrow(
+    await expect(readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime)).rejects.toThrow(
       "Stats store build failed.",
     );
     writer.deleteSession("unread");
-    const resumed = await readBuilt({ source, cacheHome: folder });
+    const resumed = await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime);
     expect(canonicalCopy(resumed).sessions.map((row) => row.code)).toEqual(["read"]);
     expect(resumed.facts.map((row) => row.id)).toEqual(["read-step"]);
     expect(resumed.historyCompleteFrom).toBe(2);
@@ -346,7 +335,7 @@ it("keeps missing migrated dimensions missing, defaults only the variant, and fo
   try {
     await runWithClock((time) =>
       Effect.gen(function* () {
-        const store = yield* observedStore({ source, cacheHome: folder }, inThreadRuntime);
+        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime);
         const initial = yield* store.read();
         expect(canonicalCopy(initial).steps).toMatchObject([
           { provider: null, model: null, agent: null, variant: "default" },
@@ -387,7 +376,7 @@ it("updates each dimension from the rewritten step rather than from a session's 
   try {
     await runWithClock((time) =>
       Effect.gen(function* () {
-        const store = yield* observedStore({ source, cacheHome: folder }, inThreadRuntime);
+        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime);
         for (const key of ["provider", "model", "variant", "agent"] as const) {
           dimensions[key] = `new-${key}`;
           record();
@@ -428,7 +417,7 @@ it.each([0, 1, 2, 3, 4, 5])(
             let rootPresent = true;
             await runWithClock((time) =>
               Effect.gen(function* () {
-                const store = yield* observedStore({ source, cacheHome: folder }, inThreadRuntime);
+                const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime);
                 for (const [index, action] of actions.entries()) {
                   if (action === 0) writer.move("deep", index % 2 ? "other" : "synthetic-project");
                   if (action === 1) writer.project("other", "/other", `Renamed ${index}`);
@@ -452,7 +441,7 @@ it.each([0, 1, 2, 3, 4, 5])(
                 const incremental = yield* store.read();
                 const fresh = yield* observedStore(
                   { source, cacheHome: join(folder, "fresh") },
-                  inThreadRuntime,
+                  nodeRuntime,
                 );
                 expect(canonicalCopy(yield* fresh.read())).toEqual(canonicalCopy(incremental));
               }),

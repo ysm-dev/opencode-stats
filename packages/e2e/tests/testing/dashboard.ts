@@ -165,10 +165,21 @@ async function checkViewport(
       } finally {
         release();
       }
-      await page
-        .getByRole("region", { name: "Tokens" })
-        .getByText(total, { exact: true })
-        .waitFor({ timeout: 10000 });
+      try {
+        await page
+          .getByRole("region", { name: "Tokens" })
+          .getByText(total, { exact: true })
+          .waitFor({ timeout: 10000 });
+      } catch (cause) {
+        const root = await page
+          .locator("#root")
+          .textContent({ timeout: 1000 })
+          .catch(() => null);
+        throw new Error(
+          `[DEBUG-source-41] ${JSON.stringify({ root, errors: diagnostics.errors })} ${diagnostics.describe(asset, width)}`,
+          { cause },
+        );
+      }
       phase(`${width} ${asset} loaded`);
       await page.evaluate(
         () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
