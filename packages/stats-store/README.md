@@ -1,14 +1,22 @@
 # Stats store
 
 `stayInSync(options, runtime, announce)` builds once at startup, announces the
-committed copy, and returns `read()`. Reads contain UTC step starts and five
-independently nullable token kinds, not totals or message content. Following
-source writes belongs to #35.
+committed copy, and returns `read()` or `read(cursor)`. Reads contain UTC step
+starts, five independently nullable token kinds, step dimensions, sessions,
+subagent sessions, projects and names, not totals or message content.
+
+Stats-store version 3 rebuilds statistics to add these facts and dimensions.
+Codes are allocated monotonically, retained after deletion and never reused.
+Fork-copy IDs (`msg_` + 26 characters + `_` + digits) never count, even after
+rewrites or deletion of their origin. Nested steps roll into their owning session
+or topmost surviving ancestor. Every pass reads all session details and projects;
+project moves and renames need no session-counter change. Already-read steps are
+reattributed in the same commit as their session details. Archives keep counting.
 
 - The server and its worker select `./bun`; Node tests select `./node` or
   `./testing`'s `inThreadRuntime`. The package root loads no Bun built-ins.
 - Source connections use native readonly, disableWAL and a 20 ms busy timeout.
-  A fully consumed scalar SELECT has no explicit read transaction. Busy reads
+  Session snapshots finish their synchronous read transaction before async work. Busy reads
   back off for 20, 40 and 80 ms before stopping this startup build.
   ADR 0017 selects the controlled universal macOS SQLite library before any
   native client opens, including `node:sqlite` and the sync worker. The library
@@ -39,6 +47,8 @@ installed dependencies shared by other worktrees.
 
 `./testing` creates actual temporary databases, projects synthetic sessions and
 messages atomically with `event_sequence`, and supplies the in-thread worker.
+It also supplies copy-shaped forks, nested subagents, separate deepest-first
+session deletions, and project moves/renames using the project's counter.
 `bun run dev` provisions `.dev/synthetic-opencode-v1.db` with this builder. Pass
 `--db <path>` to develop against an explicitly chosen existing file, readonly.
 

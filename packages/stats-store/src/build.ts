@@ -5,8 +5,9 @@ import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
 import { sqlFailure } from "./errors.ts";
 import { Database, type DatabaseAdapter, type StorePaths } from "./database.ts";
-import { metadata, sessions, tombstones } from "./schema.ts";
-import type { SourceReader, SourceSession } from "./source-reader.ts";
+import { metadata, sessions, sessionFacts, projectFacts, tombstones } from "./schema.ts";
+import type { SourceReader, SourceSession, SourceProject } from "./source-reader.ts";
+import { owningSession, sessionDetails, detailKeys, makeDimensions } from "./dimensions.ts";
 import statements from "./statements.json" with { type: "json" };
 import { commitUnit } from "./write-facts.ts";
 
@@ -14,24 +15,17 @@ function units(inventory: ReadonlyArray<SourceSession>) {
   const byId = new Map(inventory.map((row) => [row.id, row]));
   const grouped = new Map<string, SourceSession[]>();
   for (const session of inventory) {
-    let root = session;
-    const visited = new Set<string>();
-    while (root.parent && !visited.has(root.id)) {
-      visited.add(root.id);
-      const parent = byId.get(root.parent);
-      if (!parent) break;
-      root = parent;
-    }
-    const group = grouped.get(root.id);
+    const owner = owningSession(session, byId);
+    const group = grouped.get(owner);
     if (group) group.push(session);
-    else grouped.set(root.id, [session]);
+    else grouped.set(owner, [session]);
   }
   return [...grouped.values()]
     .map((group) => ({ sessions: group, latest: Math.max(...group.map((row) => row.latest ?? 0)) }))
     .toSorted((a, b) => b.latest - a.latest);
 }
 
-export const statsStoreVersion = 2;
+export const statsStoreVersion = 3;
 export const initializeStore = Effect.fnUntraced(function* (
   paths: StorePaths,
   adapter: DatabaseAdapter,
@@ -81,6 +75,7 @@ export const reconcile = Effect.fnUntraced(
   function* (
     reader: SourceReader,
     inventory: ReadonlyArray<SourceSession>,
+    projects: ReadonlyArray<SourceProject>,
     now: number,
     announce: () => Effect.Effect<void, Error>,
     checkBounds: boolean,
@@ -88,10 +83,26 @@ export const reconcile = Effect.fnUntraced(
     const db = yield* Database;
     const saved = yield* db.select().from(sessions);
     const savedById = new Map(saved.map((row) => [row.id, row]));
+    const details = yield* db.select().from(sessionFacts);
+    const savedProjects = yield* db.select().from(projectFacts);
+    const detailsById = new Map(details.map((row) => [row.id, row]));
+    const byId = new Map(inventory.map((row) => [row.id, row]));
+    const registry = yield* makeDimensions();
+    const projectsChanged =
+      projects.length !== savedProjects.length ||
+      projects.some(
+        (row) =>
+          !savedProjects.some(
+            (old) => old.id === row.id && old.name === row.name && old.worktree === row.worktree,
+          ),
+      );
     const pending = inventory.filter((session) => {
       const old = savedById.get(session.id);
+      const detail = sessionDetails(session, byId);
+      const before = detailsById.get(session.id);
       return (
         !old ||
+        detailKeys.some((key) => before![key] !== detail[key]) ||
         old.counter !== session.counter ||
         (checkBounds &&
           (old.messageCount !== session.messageCount ||
@@ -103,12 +114,22 @@ export const reconcile = Effect.fnUntraced(
     const ordered = units(inventory).filter((unit) =>
       unit.sessions.some((session) => pending.some((row) => row.id === session.id)),
     );
-    if (removed.length || (!ordered.length && header.revision === 0)) {
+    const vanishedDetails = details.some(
+      (row) => !inventory.some((session) => session.id === row.id),
+    );
+    const initialCommit =
+      removed.length > 0 ||
+      (!ordered.length && (header.revision === 0 || projectsChanged || vanishedDetails));
+    if (initialCommit) {
       yield* commitUnit(
         undefined,
         removed.map((row) => row.id),
         now,
         ordered[0]?.latest ?? null,
+        byId,
+        projects,
+        registry,
+        true,
       );
       yield* announce();
     }
@@ -122,7 +143,16 @@ export const reconcile = Effect.fnUntraced(
         .find((remaining) =>
           remaining.sessions.some((session) => !saved.some((row) => row.id === session.id)),
         );
-      yield* commitUnit(snapshots, undefined, now, next?.latest ?? null);
+      yield* commitUnit(
+        snapshots,
+        undefined,
+        now,
+        next?.latest ?? null,
+        byId,
+        projects,
+        registry,
+        !initialCommit && index === 0,
+      );
       yield* announce();
     }
   },

@@ -1,15 +1,25 @@
-import { tokenKinds, type BrowserCopy, type StepColumns } from "./facts.ts";
+import {
+  tokenKinds,
+  stepDimensions,
+  stepFields,
+  sessionFields,
+  mapFields,
+  type BrowserCopy,
+  type StepColumns,
+} from "./facts.ts";
 import { checkedLength, decodeStrings, encodeStrings } from "./strings.ts";
 
-export const formatVersion = 2;
-const headerLength = 96;
-const columns = ["start", ...tokenKinds] as const;
+export const formatVersion = 3;
+const headerLength = 112;
+const columns = stepFields;
 const magic = 0x5354434f;
 
-// Format 2: little endian, 96-byte header, then six Float64 columns and strings.
+// Format 3: little endian, 112-byte header, then Float64 fact columns and strings.
 // Header: magic/u32, version/u32, generation/36 ASCII bytes, kind/u32,
 // fromRevision/f64, revision/f64, historyCompleteFrom/f64, rows/u32, bytes/u32.
 // Then strings bytes/u32, tombstone count/u32, name count/u32, reserved/u32.
+// At 96: session, project, session-tombstone and project-tombstone counts/u32.
+// Step columns precede session columns, project codes and the two tombstone columns.
 // Length-prefixed UTF-16LE strings carry row IDs, tombstones and dimension names.
 // Each column has exactly `rows` entries. NaN means an unrecorded token kind.
 // All column lengths are checked before any column view is constructed.
@@ -25,26 +35,20 @@ export function decode(input: unknown): BrowserCopy {
   const kind = header.getUint32(44, true);
   if (kind > 1 || header.getUint32(92) !== 0) throw new Error("Invalid reserved header");
   const rows = header.getUint32(72, true);
-  const stringOffset = headerLength + rows * columns.length * Float64Array.BYTES_PER_ELEMENT;
+  const sessionCount = header.getUint32(96, true);
+  const projectCount = header.getUint32(100, true);
+  const sessionDeleted = header.getUint32(104, true);
+  const projectDeleted = header.getUint32(108, true);
+  const stepEnd = headerLength + rows * columns.length * 8;
+  const sessionEnd = stepEnd + sessionCount * sessionFields.length * 8;
+  const stringOffset = sessionEnd + (projectCount + sessionDeleted + projectDeleted) * 8;
   const length = stringOffset + header.getUint32(80, true);
   if (length !== input.byteLength || header.getUint32(76, true) !== length) {
     throw new Error("Invalid browser copy lengths");
   }
   const generation = String.fromCharCode(...new Uint8Array(input, 8, 36));
   validateGeneration(generation);
-  const fromRevision = header.getFloat64(48, true);
-  const revision = header.getFloat64(56, true);
-  if (
-    !Number.isSafeInteger(fromRevision) ||
-    fromRevision < 0 ||
-    !Number.isSafeInteger(revision) ||
-    revision < fromRevision
-  ) {
-    throw new Error("Invalid browser copy revision range");
-  }
-  const historyCompleteFrom = header.getFloat64(64, true);
-  if (!Number.isSafeInteger(historyCompleteFrom))
-    throw new Error("Invalid history-complete instant");
+  const { fromRevision, revision, historyCompleteFrom } = readRevisions(header);
   const strings = decodeStrings(
     input,
     stringOffset,
@@ -56,15 +60,24 @@ export function decode(input: unknown): BrowserCopy {
     throw new Error("Invalid whole browser copy revision range");
   const column = (index: number): Float64Array =>
     new Float64Array(input, headerLength + index * rows * 8, rows);
-  const steps: StepColumns = {
-    start: column(0),
-    input: column(1),
-    cacheRead: column(2),
-    cacheWrite: column(3),
-    output: column(4),
-    reasoning: column(5),
-  };
+  const steps = mapFields(columns, (field) => column(columns.indexOf(field)));
   validateColumns(steps);
+  const sessionColumn = (index: number) =>
+    new Float64Array(input, stepEnd + index * sessionCount * 8, sessionCount);
+  const sessions = mapFields(sessionFields, (field) => sessionColumn(sessionFields.indexOf(field)));
+  const projects = new Float64Array(input, sessionEnd, projectCount);
+  const sessionTombstones = new Float64Array(input, sessionEnd + projectCount * 8, sessionDeleted);
+  const projectTombstones = new Float64Array(
+    input,
+    sessionEnd + (projectCount + sessionDeleted) * 8,
+    projectDeleted,
+  );
+  for (const values of Object.values(sessions)) validateCodes(values);
+  validateIdentities(sessions.code, sessionTombstones);
+  validateIdentities(projects, projectTombstones);
+  for (const values of [sessions.session, sessions.project]) validateRequiredCodes(values);
+  if (kind === 0 && (sessionDeleted || projectDeleted))
+    throw new Error("Invalid whole browser copy revision range");
   return {
     kind: kind === 0 ? "whole" : "changes",
     generation,
@@ -72,8 +85,28 @@ export function decode(input: unknown): BrowserCopy {
     revision,
     historyCompleteFrom,
     steps,
+    sessions,
+    projects,
+    sessionTombstones,
+    projectTombstones,
     ...strings,
   };
+}
+
+function readRevisions(header: DataView) {
+  const fromRevision = header.getFloat64(48, true);
+  const revision = header.getFloat64(56, true);
+  if (
+    !Number.isSafeInteger(fromRevision) ||
+    fromRevision < 0 ||
+    !Number.isSafeInteger(revision) ||
+    revision < fromRevision
+  )
+    throw new Error("Invalid browser copy revision range");
+  const historyCompleteFrom = header.getFloat64(64, true);
+  if (!Number.isSafeInteger(historyCompleteFrom))
+    throw new Error("Invalid history-complete instant");
+  return { fromRevision, revision, historyCompleteFrom };
 }
 
 function validateGeneration(generation: string): void {
@@ -93,11 +126,42 @@ function validateColumns(steps: StepColumns): void {
       }
     }
   }
+  for (const dimension of stepDimensions) validateCodes(steps[dimension]);
+}
+
+function validateCodes(values: Float64Array): void {
+  for (const code of values) {
+    if (!Number.isNaN(code) && (!Number.isSafeInteger(code) || code < 0 || code > 0xffffffff))
+      throw new Error("Invalid browser copy dimension code");
+  }
+}
+
+function validateRequiredCodes(values: Float64Array): void {
+  validateCodes(values);
+  if (values.some(Number.isNaN)) throw new Error("Invalid browser copy required code");
+}
+
+function validateIdentities(current: Float64Array, deleted: Float64Array): void {
+  validateRequiredCodes(current);
+  validateRequiredCodes(deleted);
+  const identities = [...current, ...deleted];
+  if (new Set(identities).size !== identities.length)
+    throw new Error("Duplicate browser copy fact code");
 }
 
 export function encode(copy: BrowserCopy): ArrayBuffer {
   const rows = copy.steps.start.length;
-  const stringOffset = checkedLength(headerLength + rows * columns.length * 8);
+  const sessionCount = copy.sessions.code.length;
+  const values = [
+    ...columns.map((field) => copy.steps[field]),
+    ...sessionFields.map((field) => copy.sessions[field]),
+    copy.projects,
+    copy.sessionTombstones,
+    copy.projectTombstones,
+  ];
+  const stringOffset = checkedLength(
+    headerLength + values.reduce((size, column) => size + column.length * 8, 0),
+  );
   if (copy.ids.length !== rows) throw new Error("Inconsistent browser copy ID columns");
   const strings = encodeStrings(copy);
   const length = checkedLength(stringOffset + strings.length);
@@ -117,11 +181,24 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
   header.setUint32(80, strings.length, true);
   header.setUint32(84, copy.tombstones.length, true);
   header.setUint32(88, copy.names.length, true);
-  for (const [index, name] of columns.entries()) {
-    const values = copy.steps[name];
-    if (values.length !== rows) throw new Error("Inconsistent browser copy columns");
-    for (const [row, value] of values.entries())
-      header.setFloat64(headerLength + (index * rows + row) * 8, value, true);
+  header.setUint32(96, sessionCount, true);
+  header.setUint32(100, copy.projects.length, true);
+  header.setUint32(104, copy.sessionTombstones.length, true);
+  header.setUint32(108, copy.projectTombstones.length, true);
+  let offset = headerLength;
+  for (const [index, column] of values.entries()) {
+    if (index < columns.length && column.length !== rows)
+      throw new Error("Inconsistent browser copy columns");
+    if (
+      index >= columns.length &&
+      index < columns.length + sessionFields.length &&
+      column.length !== sessionCount
+    )
+      throw new Error("Inconsistent browser copy session columns");
+    for (const value of column) {
+      header.setFloat64(offset, value, true);
+      offset += 8;
+    }
   }
   new Uint8Array(buffer, stringOffset).set(strings);
   decode(buffer);

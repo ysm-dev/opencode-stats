@@ -18,6 +18,10 @@ export type SyntheticMessage = {
   };
   readonly content?: string;
   readonly error?: string;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly variant?: string;
+  readonly agent?: string;
 };
 
 export function syntheticDatabase(filename: string) {
@@ -44,11 +48,21 @@ export function syntheticDatabase(filename: string) {
     }
   };
   return {
-    session(id: string, parent: string | null = null) {
+    session(
+      id: string,
+      parent: string | null = null,
+      details: { project?: string; title?: string; fork?: string } = {},
+    ) {
       atomic(id, () => {
         db.prepare(
-          "INSERT INTO session_v2(id,project_id,parent_id,slug,directory,version,time_created,time_updated) VALUES (?,'synthetic-project',?,'synthetic','/made-up','2.0.22',0,0)",
-        ).run(id, parent);
+          "INSERT INTO session_v2(id,project_id,parent_id,title,fork_session_id,slug,directory,version,time_created,time_updated) VALUES (?,?,?,?,?,'synthetic','/made-up','2.0.22',0,0)",
+        ).run(
+          id,
+          details.project ?? "synthetic-project",
+          parent,
+          details.title ?? null,
+          details.fork ?? null,
+        );
       });
     },
     message(message: SyntheticMessage, advanceCounter = true) {
@@ -57,6 +71,10 @@ export function syntheticDatabase(filename: string) {
         tokens: message.tokens,
         content: [{ type: "text", text: message.content ?? "SYNTHETIC PRIVATE CONTENT" }],
         error: message.error,
+        providerID: message.provider ?? "synthetic-provider",
+        modelID: message.model ?? "synthetic-model",
+        variant: message.variant,
+        agent: message.agent ?? "build",
       });
       const write = () => {
         db.prepare(
@@ -106,6 +124,53 @@ export function syntheticDatabase(filename: string) {
       } catch (error) {
         db.exec("ROLLBACK");
         throw error;
+      }
+    },
+    fork(origin: string, id: string, suffix = 1) {
+      atomic(id, () => {
+        db.prepare(
+          "INSERT INTO session_v2(id,project_id,fork_session_id,slug,directory,version,time_created,time_updated) SELECT ?,project_id,id,slug,directory,version,time_created,time_updated FROM session_v2 WHERE id=?",
+        ).run(id, origin);
+        db.prepare(
+          "INSERT INTO session_message SELECT CASE WHEN substr(id,1,4)='msg_' AND length(id)>=30 THEN substr(id,1,30) ELSE 'msg_' || substr(id || '00000000000000000000000000',1,26) END || '_' || ?, ?, type,seq,time_created,time_updated,data FROM session_message WHERE session_id=?",
+        ).run(suffix, id, origin);
+      });
+    },
+    project(id: string, worktree: string, name: string | null = null) {
+      atomic(id, () => {
+        db.prepare(
+          "INSERT INTO project(id,worktree,name,time_created,time_updated,sandboxes) VALUES (?,?,?,0,0,'[]') ON CONFLICT(id) DO UPDATE SET name=excluded.name,worktree=excluded.worktree",
+        ).run(id, worktree, name);
+      });
+    },
+    move(session: string, project: string) {
+      atomic(project, () => {
+        db.prepare("UPDATE session_v2 SET project_id=? WHERE id=?").run(project, session);
+      });
+    },
+    deleteProject(id: string) {
+      atomic(id, () => {
+        db.prepare("DELETE FROM project WHERE id=?").run(id);
+      });
+    },
+    title(session: string, title: string | null) {
+      db.prepare("UPDATE session_v2 SET title=? WHERE id=?").run(title, session);
+    },
+    archive(session: string) {
+      db.prepare("UPDATE session_v2 SET time_archived=1 WHERE id=?").run(session);
+    },
+    removeTree(session: string, afterDelete: (id: string) => void = () => {}) {
+      const ids = db
+        .prepare(
+          "WITH RECURSIVE tree(id,depth) AS (SELECT id,0 FROM session_v2 WHERE id=? UNION ALL SELECT s.id,tree.depth+1 FROM session_v2 s JOIN tree ON s.parent_id=tree.id) SELECT id FROM tree ORDER BY depth DESC",
+        )
+        .all(session);
+      for (const row of ids) {
+        const id = String(row["id"]);
+        atomic(id, () => {
+          db.prepare("DELETE FROM session_v2 WHERE id=?").run(id);
+        });
+        afterDelete(id);
       }
     },
     close() {

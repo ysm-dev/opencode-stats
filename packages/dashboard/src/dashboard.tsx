@@ -43,6 +43,15 @@ const Overview = () => {
         <h2 id="tokens">Tokens</h2>
         <p class="headline-number">{state().tokens.total.toLocaleString("en-US")}</p>
       </section>
+      <section
+        aria-labelledby="sessions"
+        data-generation={state().generation}
+        data-revision={state().revision}
+      >
+        <h2 id="sessions">Sessions</h2>
+        <p class="headline-number">{state().sessions.total.toLocaleString("en-US")}</p>
+        <p>+ {state().sessions.subagents.toLocaleString("en-US")} subagent sessions</p>
+      </section>
     </>
   );
 };

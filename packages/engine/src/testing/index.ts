@@ -2,7 +2,7 @@ import { createPageClient } from "../index.ts";
 import { connectEngine } from "../worker-channel.ts";
 import type { ChannelPort } from "../protocol.ts";
 import { systemClock, type EngineClock } from "../clock.ts";
-export { referenceTokens } from "./reference.ts";
+export { referenceTokens, referenceSessions } from "./reference.ts";
 export { manualClock } from "./manual-clock.ts";
 export { blockedSlices } from "./blocked-slices.ts";
 

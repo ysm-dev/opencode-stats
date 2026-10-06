@@ -37,3 +37,31 @@ it("projects sessions and message rewrites atomically with their aggregate count
     fixture.dispose();
   }
 });
+
+it("moves and renames through the project's counter while titles and archives leave the session counter alone", () => {
+  const fixture = syntheticFixture();
+  const db = new DatabaseSync(fixture.source, { readOnly: true });
+  try {
+    fixture.writer.session("moving");
+    fixture.writer.project("destination", "/destination");
+    fixture.writer.move("moving", "destination");
+    fixture.writer.project("destination", "/destination", "Renamed");
+    fixture.writer.title("moving", "A current title");
+    fixture.writer.archive("moving");
+    expect(
+      db.prepare("SELECT aggregate_id,seq FROM event_sequence ORDER BY aggregate_id").all(),
+    ).toEqual([
+      { aggregate_id: "destination", seq: 2 },
+      { aggregate_id: "moving", seq: 0 },
+    ]);
+    expect(
+      db.prepare("SELECT project_id,title,time_archived FROM session_v2 WHERE id='moving'").get(),
+    ).toMatchObject({ project_id: "destination", title: "A current title", time_archived: 1 });
+    expect(db.prepare("SELECT name FROM project WHERE id='destination'").get()).toMatchObject({
+      name: "Renamed",
+    });
+  } finally {
+    db.close();
+    fixture.dispose();
+  }
+});

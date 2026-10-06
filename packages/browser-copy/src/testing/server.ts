@@ -6,23 +6,17 @@ import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 import * as Stream from "effect/Stream";
 import { BrowserCopyApi, createLiveFeed } from "../api.ts";
 import { encode, formatVersion } from "../binary.ts";
-import { tokenKinds, type BrowserCopy, type Step } from "../facts.ts";
+import { mapFields, stepFields, type BrowserCopy } from "../facts.ts";
 import { syntheticCopy } from "./synthetic.ts";
 
 type Fetch = (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch>;
 
-const at = (copy: BrowserCopy, index: number): Step => {
-  const amount = (kind: (typeof tokenKinds)[number]) =>
-    Number.isNaN(copy.steps[kind][index]) ? null : copy.steps[kind][index]!;
-  return {
-    start: copy.steps.start[index]!,
-    input: amount("input"),
-    cacheRead: amount("cacheRead"),
-    cacheWrite: amount("cacheWrite"),
-    output: amount("output"),
-    reasoning: amount("reasoning"),
-  };
-};
+const at = (copy: BrowserCopy, index: number) => ({
+  ...mapFields(stepFields, (field) =>
+    Number.isNaN(copy.steps[field][index]) ? null : copy.steps[field][index]!,
+  ),
+  start: copy.steps.start[index]!,
+});
 
 function difference(before: BrowserCopy, after: BrowserCopy): BrowserCopy {
   const previous = new Map(before.ids.map((id, index) => [id, index]));
@@ -30,9 +24,7 @@ function difference(before: BrowserCopy, after: BrowserCopy): BrowserCopy {
   const indices = after.ids.flatMap((id, index) => {
     const old = previous.get(id);
     return old === undefined ||
-      (["start", ...tokenKinds] as const).some(
-        (column) => !Object.is(before.steps[column][old], after.steps[column][index]),
-      )
+      stepFields.some((column) => !Object.is(before.steps[column][old], after.steps[column][index]))
       ? [index]
       : [];
   });
@@ -56,6 +48,10 @@ function difference(before: BrowserCopy, after: BrowserCopy): BrowserCopy {
               old.name === name.name,
           ),
       ),
+      sessions: after.sessions,
+      projects: after.projects,
+      sessionTombstones: before.sessions.code.filter((code) => !after.sessions.code.includes(code)),
+      projectTombstones: before.projects.filter((code) => !after.projects.includes(code)),
     },
   );
 }

@@ -39,9 +39,11 @@ export const sync = Effect.fnUntraced(function* (
       let baseline = yield* reader.version;
       let reconciliation = yield* Clock.currentTimeMillis;
       const pass = Effect.fnUntraced(function* (checkBounds: boolean) {
+        const inventory = yield* reader.inventory;
         yield* reconcile(
           reader,
-          yield* reader.inventory,
+          inventory.sessions,
+          inventory.projects,
           yield* Clock.currentTimeMillis,
           announce,
           checkBounds,

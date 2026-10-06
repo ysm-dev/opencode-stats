@@ -1,9 +1,15 @@
 import * as Effect from "effect/Effect";
 import { metadata, steps, tombstones } from "./schema.ts";
+import { countedSteps, readDimensions } from "./read-dimensions.ts";
 import { gt } from "drizzle-orm";
 import { Database, type StoreRuntime } from "./database.ts";
 import { storePaths, type StoreOptions } from "./location.ts";
-import type { Step } from "@opencode-stats/browser-copy";
+import type {
+  Step,
+  StepDimensions,
+  SessionFact,
+  DimensionName,
+} from "@opencode-stats/browser-copy";
 import * as Cause from "effect/Cause";
 import { sqlFailure } from "./errors.ts";
 
@@ -13,11 +19,23 @@ export type StoreCopy = {
   readonly generation: string;
   readonly revision: number;
   readonly historyCompleteFrom: number;
-  readonly steps: ReadonlyArray<Step>;
+  readonly steps: ReadonlyArray<Step & StepDimensions>;
   readonly facts: ReadonlyArray<
-    Step & { id: string; session: string; position: number; revision: number }
+    Step &
+      Omit<StepDimensions, "session"> & {
+        id: string;
+        session: string;
+        sessionCode: number;
+        position: number;
+        revision: number;
+      }
   >;
   readonly tombstones: ReadonlyArray<{ id: string; revision: number }>;
+  readonly names: ReadonlyArray<DimensionName>;
+  readonly sessions: ReadonlyArray<SessionFact>;
+  readonly projects: ReadonlyArray<number>;
+  readonly sessionTombstones: ReadonlyArray<number>;
+  readonly projectTombstones: ReadonlyArray<number>;
 };
 export type StoreCursor = { readonly generation: string; readonly revision: number };
 export type { StoreRuntime } from "./database.ts";
@@ -58,23 +76,19 @@ export const stayInSync = Effect.fnUntraced(function* (
                 .where(gt(tombstones.revision, since.revision))
                 .orderBy(tombstones.id)
             : [];
-          const counted = facts.map((row) => ({
-            start: row.start,
-            input: row.input,
-            cacheRead: row.cacheRead,
-            cacheWrite: row.cacheWrite,
-            output: row.output,
-            reasoning: row.reasoning,
-          }));
+          const dimensions = yield* readDimensions(changes ? since.revision : undefined, deleted);
           return {
             kind: changes ? ("changes" as const) : ("whole" as const),
             fromRevision: changes ? since.revision : 0,
             generation: header.generation,
             revision: header.revision,
             historyCompleteFrom: header.historyCompleteFrom,
-            steps: counted,
+            steps: countedSteps(facts),
             facts,
-            tombstones: deleted,
+            tombstones: deleted.filter(
+              (row) => !row.id.startsWith("session:") && !row.id.startsWith("project:"),
+            ),
+            ...dimensions,
           };
         }),
       );

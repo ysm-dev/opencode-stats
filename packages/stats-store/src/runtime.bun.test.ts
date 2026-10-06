@@ -15,6 +15,7 @@ import type { StoreRuntime } from "./database.ts";
 import { runWithClock } from "./testing/clock.ts";
 import { observedStore } from "./testing/store.ts";
 import { InThreadWorker } from "./testing/worker.ts";
+import { tokenFacts } from "./testing/canonical.ts";
 
 vi.mock("bun:sqlite", async () => ({
   Database: (await import("./testing/bun-sqlite.ts")).NodeBunDatabase,
@@ -62,7 +63,7 @@ it("the Bun adapter uses one native readonly source, scalar synchronous session 
       () => {},
       runtime,
     );
-    expect(copy.steps).toEqual([
+    expect(tokenFacts(copy.steps)).toEqual([
       { start: 123, input: 8, cacheRead: null, cacheWrite: null, output: null, reasoning: null },
     ]);
     const sources = connections.filter(

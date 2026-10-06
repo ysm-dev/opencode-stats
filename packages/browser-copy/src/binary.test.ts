@@ -3,6 +3,7 @@ import * as fc from "fast-check";
 import { createHash } from "node:crypto";
 import { decode, encode, formatVersion } from "./index.ts";
 import { propertyParameters, syntheticCopies, syntheticCopy } from "./testing/index.ts";
+import { formatFixture } from "./testing/format-fixture.ts";
 
 it("round-trips step facts with all five token kinds without copying columns", () => {
   const copy = syntheticCopy([
@@ -39,7 +40,7 @@ it("rejects every truncation and extra bytes before constructing a column", () =
 
 it.each([
   [0, 0, "magic"],
-  [4, 3, "format version"],
+  [4, 4, "format version"],
   [44, 2, "reserved"],
   [72, 0xffffffff, "lengths"],
   [76, 0, "lengths"],
@@ -47,6 +48,10 @@ it.each([
   [84, 1, "lengths"],
   [88, 1, "lengths"],
   [92, 1, "reserved"],
+  [96, 1, "lengths"],
+  [100, 1, "lengths"],
+  [104, 1, "lengths"],
+  [108, 1, "lengths"],
 ])("rejects malformed header at byte %i", (offset, value, message) => {
   const bytes = encode(syntheticCopy([]));
   new DataView(bytes).setUint32(offset, value, true);
@@ -58,19 +63,11 @@ it("rejects nonbinary input", () => {
 });
 
 it("pins the format version to a fixed synthetic encoding", () => {
-  const bytes = encode(
-    syntheticCopy(
-      [{ start: 123, input: 1, cacheRead: 2, cacheWrite: null, output: 4, reasoning: 5 }],
-      {
-        fromRevision: 2,
-        revision: 3,
-        historyCompleteFrom: -100,
-      },
-    ),
-  );
+  const bytes = encode(formatFixture());
   const fingerprints: Readonly<Record<number, string>> = {
     1: "df5cbbf9f8b1502a42950ad07c1b24e75ff8efd80041b1f789a8a6ad3240a025",
     2: "72f359659e1d6c1b6b75cceb3c247e8c8b6e56676519c9707b69bdb11185878e",
+    3: "88d2bb6ab7a87f4efb60978228b9b607c3958ac8eb3fdfea6ab6e274a26ae6d6",
   };
   expect(
     createHash("sha256").update(new Uint8Array(bytes)).digest("hex"),

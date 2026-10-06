@@ -33,4 +33,29 @@ export function fingerprintFixture(writer: ReturnType<typeof syntheticDatabase>)
     type: "user",
     tokens: { input: 1000 },
   });
+  writer.session("ses-child", "ses-fingerprint", { title: "Nested" });
+  writer.session("ses-grandchild", "ses-child");
+  writer.message({
+    id: "msg-nested",
+    session: "ses-grandchild",
+    seq: 0,
+    start: 6000,
+    provider: "other",
+    model: "model",
+    variant: "high",
+    agent: "explore",
+    tokens: { output: 1 },
+  });
+  writer.fork("ses-fingerprint", "ses-fork");
+  writer.fork("ses-fork", "ses-fork-again", 2);
+  writer.message({
+    id: "msg-fork-own",
+    session: "ses-fork-again",
+    seq: 10,
+    start: 7000,
+    variant: "max",
+  });
+  writer.project("global", "/", "Ignored");
+  writer.move("ses-fork-again", "global");
+  writer.title("ses-fingerprint", "A synthetic session");
 }

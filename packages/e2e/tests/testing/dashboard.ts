@@ -105,6 +105,12 @@ async function checkViewport(
       else if (
         document.querySelector("h1")?.textContent !== "Overview" ||
         document.querySelector(".headline-number")?.textContent !== expected ||
+        !document.querySelector('[aria-labelledby="sessions"] .headline-number') ||
+        new Set(
+          [...document.querySelectorAll("[data-revision]")].map((region) =>
+            region.getAttribute("data-revision"),
+          ),
+        ).size !== 1 ||
         !document.querySelector('nav[aria-label="Pages"]') ||
         !document.fonts.check("440 13px Inter") ||
         getComputedStyle(document.body).fontSize !== "13px" ||
@@ -172,6 +178,9 @@ async function checkViewport(
       expect(await page.getByRole("heading", { name: "Overview", level: 1 }).count()).toBe(1);
       expect(await page.getByRole("navigation", { name: "Pages" }).count()).toBe(1);
       expect(await page.getByRole("main").count()).toBe(1);
+      expect(await page.getByRole("region", { name: "Sessions" }).textContent()).toMatch(
+        /Sessions\s*\d[\d,]*\s*\+ \d[\d,]* subagent sessions/u,
+      );
       expect(
         await page
           .getByRole("main")

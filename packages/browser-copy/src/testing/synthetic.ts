@@ -1,11 +1,16 @@
-import { type BrowserCopy, type Step, type TokenKind } from "../facts.ts";
+import {
+  mapFields,
+  stepFields,
+  sessionFields,
+  type BrowserCopy,
+  type Step,
+  type StepDimensions,
+} from "../facts.ts";
 
 export function syntheticCopy(
-  steps: readonly Step[],
+  steps: readonly (Step & Partial<StepDimensions>)[],
   header: Partial<Omit<BrowserCopy, "steps">> = {},
 ): BrowserCopy {
-  const tokens = (kind: TokenKind): Float64Array =>
-    Float64Array.from(steps, (step) => step[kind] ?? NaN);
   return {
     kind: header.fromRevision ? "changes" : "whole",
     generation: "01234567-89ab-cdef-0123-456789abcdef",
@@ -15,14 +20,11 @@ export function syntheticCopy(
     ids: steps.map((_, index) => `step-${index}`),
     tombstones: [],
     names: [],
+    sessions: mapFields(sessionFields, () => new Float64Array()),
+    projects: new Float64Array(),
+    sessionTombstones: new Float64Array(),
+    projectTombstones: new Float64Array(),
     ...header,
-    steps: {
-      start: Float64Array.from(steps, (step) => step.start),
-      input: tokens("input"),
-      cacheRead: tokens("cacheRead"),
-      cacheWrite: tokens("cacheWrite"),
-      output: tokens("output"),
-      reasoning: tokens("reasoning"),
-    },
+    steps: mapFields(stepFields, (field) => Float64Array.from(steps, (step) => step[field] ?? NaN)),
   };
 }

@@ -9,6 +9,7 @@ import { nodeRuntime } from "./runtime.node.ts";
 import { syntheticFixture } from "./testing/index.ts";
 import { histories, historyWriter, historyPartitions } from "./testing/history.ts";
 import { runWithClock } from "./testing/clock.ts";
+import { tokenFacts, canonicalCopy } from "./testing/canonical.ts";
 
 it("the history partitions preserve every original seeded case exactly once with bounded work per test", () => {
   const plan = historyPartitions(20261004);
@@ -57,7 +58,7 @@ it.each(historyPartitions(baseSeed))(
               do {
                 copy = yield* Queue.take(commits);
               } while (!copy.steps.some((step) => step.start === -100000 && step.output === index));
-              expect((yield* store.read()).steps).toEqual(writer.expected());
+              expect(tokenFacts((yield* store.read()).steps)).toEqual(writer.expected());
             }
             const incremental = yield* store.read();
             const fresh = yield* stayInSync(
@@ -65,7 +66,7 @@ it.each(historyPartitions(baseSeed))(
               nodeRuntime,
               () => {},
             );
-            expect((yield* fresh.read()).steps).toEqual(incremental.steps);
+            expect(canonicalCopy(yield* fresh.read())).toEqual(canonicalCopy(incremental));
           }),
         );
       }),

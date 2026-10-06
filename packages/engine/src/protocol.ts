@@ -19,6 +19,7 @@ const State = Schema.Union([
     address: Schema.Literal("/?range=all"),
     rangeLabel: Schema.Literal("All time"),
     tokens: Tokens,
+    sessions: Schema.Struct({ total: Schema.Number, subagents: Schema.Number }),
     generation: Schema.String,
     revision: Schema.Int,
     liveLabel: Schema.String,

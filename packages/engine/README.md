@@ -8,7 +8,9 @@ dashboard server address; the page receives only state, never facts.
 `client.request({ kind: "address", address: "/?range=all" })` opens an address;
 `client.request({ kind: "all-time" })` selects All time. This tracer bullet
 supports Overview at `/` and answers with all-time Tokens, including each of
-the five kinds. Missing token amounts contribute nothing. Counts accumulate
+the five kinds, and Sessions with subagent sessions counted separately. A session
+is placed at its earliest step, including nested subagent activity; empty sessions
+never count. Missing token amounts contribute nothing. Token counts accumulate
 as integers before conversion to page numbers, avoiding summation-order
 rounding errors. Later tickets add
 pages, ranges and actions.

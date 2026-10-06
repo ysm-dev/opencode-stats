@@ -16,9 +16,12 @@ it("captures a controlled installed-page action failure without replacing its er
   );
   const trigger = page.getByRole("button", { name: /^Theme / });
   await trigger.evaluate((element) => element.setAttribute("aria-disabled", "true"));
-  await page.locator(".headline-number").evaluate((element) => {
-    element.textContent = "synthetic-private-headline-not-for-diagnostics";
-  });
+  await page
+    .getByRole("region", { name: "Tokens" })
+    .locator(".headline-number")
+    .evaluate((element) => {
+      element.textContent = "synthetic-private-headline-not-for-diagnostics";
+    });
   for (let index = 0; index < 70; index++) evidence.mark("bounded-probe", "observed");
   await page.evaluate(() => {
     for (let index = 0; index < 40; index++) document.dispatchEvent(new Event("visibilitychange"));

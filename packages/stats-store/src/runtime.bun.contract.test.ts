@@ -7,6 +7,7 @@ import * as Exit from "effect/Exit";
 import { bunDatabase, bunRuntime } from "./runtime.bun.ts";
 import { attemptSourceWrite } from "./testing/store.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
+import { tokenFacts } from "./testing/canonical.ts";
 
 test("native Bun SQLite is readonly for OpenCode, and the native worker alone builds the stats store", async () => {
   const fixture = syntheticFixture();
@@ -26,7 +27,7 @@ test("native Bun SQLite is readonly for OpenCode, and the native worker alone bu
       () => {},
       bunRuntime,
     );
-    expect(copy.steps).toEqual([
+    expect(tokenFacts(copy.steps)).toEqual([
       { start: 999, input: null, cacheRead: null, cacheWrite: null, output: 4, reasoning: 0 },
     ]);
     const failure = await attemptSourceWrite(fixture.source, bunDatabase);
@@ -64,7 +65,7 @@ test("public Bun runtime reads an inactive companion-free WAL source without cha
     const before = readFileSync(source);
     try {
       const copy = await readBuilt({ source, cacheHome: folder }, () => {}, bunRuntime);
-      expect(copy.steps).toEqual([
+      expect(tokenFacts(copy.steps)).toEqual([
         {
           start: 1234567890000,
           input: 7,

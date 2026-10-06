@@ -148,8 +148,18 @@ it.each(browsers)(
           undefined,
           { polling: 10 },
         );
-        expect(await page.locator(".headline-number").textContent()).toBe("987");
-        expect(await second.locator(".headline-number").textContent()).toBe("987");
+        expect(
+          await page
+            .getByRole("region", { name: "Tokens" })
+            .locator(".headline-number")
+            .textContent(),
+        ).toBe("987");
+        expect(
+          await second
+            .getByRole("region", { name: "Tokens" })
+            .locator(".headline-number")
+            .textContent(),
+        ).toBe("987");
         expect(await second.getByRole("button", { name: /^Theme / }).textContent()).toBe(
           "Everforest",
         );
@@ -206,6 +216,8 @@ it.each(browsers)(
     expect(await page.evaluate(() => localStorage.getItem("opencode-theme-id"))).toBe("matrix");
     expect(await page.locator("html").getAttribute("data-theme")).toBe("matrix");
     await page.getByRole("button", { name: "Done" }).click();
-    expect(await page.locator(".headline-number").textContent()).toBe("987");
+    expect(
+      await page.getByRole("region", { name: "Tokens" }).locator(".headline-number").textContent(),
+    ).toBe("987");
   },
 );

@@ -46,6 +46,57 @@ afterEach(() => {
 });
 
 describe("Overview", () => {
+  it("paints the Sessions headline and its subagent line from the real engine without a live announcement", async () => {
+    const server = inMemoryDashboardServer(
+      syntheticCopy(
+        [
+          {
+            start: 10,
+            input: 0,
+            cacheRead: 0,
+            cacheWrite: 0,
+            output: 0,
+            reasoning: 0,
+            session: 1,
+            subagent: 2,
+          },
+          {
+            start: 20,
+            input: 0,
+            cacheRead: 0,
+            cacheWrite: 0,
+            output: 0,
+            reasoning: 0,
+            session: 1,
+            subagent: 2,
+          },
+        ],
+        {
+          sessions: {
+            code: new Float64Array([1, 2]),
+            parent: new Float64Array([NaN, 1]),
+            session: new Float64Array([1, 1]),
+            project: new Float64Array([3, 3]),
+            fork: new Float64Array([NaN, NaN]),
+          },
+        },
+      ),
+    );
+    const engine = inThreadEngine(server.fetch);
+    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    try {
+      const region = await view.findByRole("region", { name: "Sessions" });
+      expect(region.querySelector(".headline-number")?.textContent).toBe("1");
+      expect(region.textContent).toContain("+ 1 subagent sessions");
+      expect(region.closest("[aria-live]")).toBeNull();
+      expect(view.getByRole("status").textContent).toBe("");
+      await accessible(view.container);
+    } finally {
+      cleanup();
+      await engine.dispose();
+      await server.dispose();
+    }
+  });
   it("announces connection transitions without live numbers and supports both Resume controls", async () => {
     const clock = manualClock();
     const server = inMemoryDashboardServer(syntheticCopy([]));

@@ -1,9 +1,7 @@
-import { encode, type TokenKind } from "@opencode-stats/browser-copy";
+import { encode, mapFields, stepFields, sessionFields } from "@opencode-stats/browser-copy";
 import type { StoreCopy } from "@opencode-stats/stats-store";
 
 export function encodeStore(copy: StoreCopy): Uint8Array {
-  const column = (kind: TokenKind) =>
-    Float64Array.from(copy.steps, (step) => step[kind] ?? Number.NaN);
   return new Uint8Array(
     encode({
       kind: copy.kind,
@@ -13,15 +11,16 @@ export function encodeStore(copy: StoreCopy): Uint8Array {
       historyCompleteFrom: copy.historyCompleteFrom,
       ids: copy.facts.map((fact) => fact.id),
       tombstones: copy.tombstones.map((fact) => fact.id),
-      names: [],
-      steps: {
-        start: Float64Array.from(copy.steps, (step) => step.start),
-        input: column("input"),
-        cacheRead: column("cacheRead"),
-        cacheWrite: column("cacheWrite"),
-        output: column("output"),
-        reasoning: column("reasoning"),
-      },
+      names: copy.names,
+      sessions: mapFields(sessionFields, (field) =>
+        Float64Array.from(copy.sessions, (row) => row[field] ?? NaN),
+      ),
+      projects: Float64Array.from(copy.projects),
+      sessionTombstones: Float64Array.from(copy.sessionTombstones),
+      projectTombstones: Float64Array.from(copy.projectTombstones),
+      steps: mapFields(stepFields, (field) =>
+        Float64Array.from(copy.steps, (row) => row[field] ?? NaN),
+      ),
     }),
   );
 }

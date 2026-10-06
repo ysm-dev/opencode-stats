@@ -80,6 +80,7 @@ export const wholePreferenceChange = async (
     expect(frames.every((frame) => frame === before || frame === after)).toBe(true);
     expect(
       await page
+        .getByRole("region", { name: "Tokens" })
         .locator(".headline-number")
         .evaluate((element) => element === window.preferenceNumber),
     ).toBe(true);

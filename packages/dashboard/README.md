@@ -1,6 +1,7 @@
 # Dashboard
 
-The Overview tracer bullet draws the engine's complete all-history Tokens state.
+The Overview draws the engine's complete all-history Tokens and Sessions state,
+with "+ subagent sessions" beneath Sessions.
 The page client uses the real module worker exported by `@opencode-stats/engine`;
 the page never fetches facts or computes metrics. TanStack's hand-written typed
 Overview route remains the routing boundary. Other pages and range controls land

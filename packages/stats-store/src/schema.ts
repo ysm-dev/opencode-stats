@@ -10,6 +10,13 @@ export const steps = sqliteTable("step", {
   cacheWrite: integer("cache_write"),
   output: integer(),
   reasoning: integer(),
+  provider: integer(),
+  model: integer(),
+  variant: integer().notNull(),
+  agent: integer(),
+  project: integer().notNull(),
+  sessionCode: integer("session_code").notNull(),
+  subagent: integer(),
   revision: integer().notNull(),
 });
 
@@ -33,4 +40,29 @@ export const tombstones = sqliteTable("tombstone", {
   id: text().primaryKey(),
   revision: integer().notNull(),
   deletedAt: integer("deleted_at").notNull(),
+});
+
+export const dimensionNames = sqliteTable("dimension_name", {
+  code: integer().primaryKey({ autoIncrement: true }),
+  dimension: text().notNull(),
+  id: text().notNull(),
+  name: text().notNull(),
+  revision: integer().notNull(),
+});
+
+export const sessionFacts = sqliteTable("session_fact", {
+  id: text().primaryKey(),
+  parent: text(),
+  session: text().notNull(),
+  project: text().notNull(),
+  title: text().notNull(),
+  fork: text(),
+  revision: integer().notNull(),
+});
+
+export const projectFacts = sqliteTable("project_fact", {
+  id: text().primaryKey(),
+  name: text(),
+  worktree: text().notNull(),
+  revision: integer().notNull(),
 });

@@ -82,6 +82,19 @@ describe("dashboard server program", () => {
       expect(Array.from(copy.steps.cacheWrite)).toEqual([3, NaN]);
       expect(Array.from(copy.steps.output)).toEqual([4, NaN]);
       expect(Array.from(copy.steps.reasoning)).toEqual([5, NaN]);
+      const permanentId = (code: number) => copy.names.find((name) => name.code === code)!.id;
+      expect(Array.from(copy.steps.provider, permanentId)).toEqual([
+        "synthetic-provider",
+        "synthetic-provider",
+      ]);
+      expect(Array.from(copy.steps.model, permanentId)).toEqual([
+        "synthetic-provider/synthetic-model",
+        "synthetic-provider/synthetic-model",
+      ]);
+      expect(Array.from(copy.steps.variant, permanentId)).toEqual(["default", "default"]);
+      expect(copy.sessions.code).toHaveLength(1);
+      expect(copy.projects).toHaveLength(1);
+      expect(copy.names.find((name) => name.dimension === "session")?.name).toBe("Untitled");
     } finally {
       await Effect.runPromise(Fiber.interrupt(fiber));
       await rm(file);

@@ -6,7 +6,7 @@ it("keeps the packed tab's facts through a server stop/restart and pauses live w
   await using fixture = await preferencesBrowser(chromium);
   const page = await fixture.context.newPage();
   await page.goto(`${fixture.server.origin}/?range=all`);
-  const number = page.locator(".headline-number");
+  const number = page.getByRole("region", { name: "Tokens" }).locator(".headline-number");
   await number.getByText("987", { exact: true }).waitFor();
   const observation = await page.evaluateHandle(() => {
     const original = document.querySelector(".headline-number");

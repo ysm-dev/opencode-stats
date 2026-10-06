@@ -25,6 +25,7 @@ function stateFor(
     address: "/?range=all",
     rangeLabel: "All time",
     tokens: current.tokens,
+    sessions: current.sessions,
     generation: current.generation,
     revision: current.revision,
     ...live.status(),

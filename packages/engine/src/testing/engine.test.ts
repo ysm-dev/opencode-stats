@@ -15,6 +15,7 @@ const initial = {
   paused: false,
   statusLine: "",
   announcement: "",
+  sessions: { total: 0, subagents: 0 },
 };
 function loadingEngine() {
   const started = Promise.withResolvers<void>();

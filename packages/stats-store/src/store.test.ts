@@ -15,6 +15,7 @@ import { stayInSync } from "./store.ts";
 import { nodeRuntime } from "./runtime.node.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { fiveTokens } from "./testing/fingerprint.ts";
+import { tokenFacts } from "./testing/canonical.ts";
 const home = vi.hoisted(() => ({ path: "" }));
 vi.mock("node:fs", async (original) => {
   const fs = await original<typeof import("node:fs")>();
@@ -52,7 +53,7 @@ it("builds every assistant step, keeping the five recorded token kinds independe
         }),
       ),
     );
-    expect(steps).toEqual([
+    expect(tokenFacts(steps)).toEqual([
       { start: 1000, input: 11, cacheRead: 22, cacheWrite: 33, output: 44, reasoning: 55 },
       {
         start: 2000,
@@ -205,7 +206,7 @@ it("counts incomplete and failed steps, recorded zeroes and start rewrites, but 
         }),
       ),
     );
-    expect(copy.steps).toEqual([
+    expect(tokenFacts(copy.steps)).toEqual([
       expected,
       ...Array.from({ length: 3 }, () => ({ ...expected, start: 1234 })),
     ]);
