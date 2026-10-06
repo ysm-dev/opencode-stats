@@ -14,6 +14,7 @@ import {
   type PromptColumns,
 } from "./facts.ts";
 import { checkedLength, decodeStrings, encodeStrings } from "./strings.ts";
+import { validateFactNames } from "./name-references.ts";
 
 export const formatVersion = 6;
 const headerLength = 128;
@@ -36,17 +37,7 @@ export function decode(input: unknown): BrowserCopy {
     throw new Error("Truncated browser copy header");
   }
   const header = new DataView(input);
-  if (header.getUint32(0, true) !== magic) throw new Error("Invalid browser copy magic");
-  if (header.getUint32(4, true) !== formatVersion)
-    throw new Error("Unsupported browser copy format version");
-  const kind = header.getUint32(44, true);
-  if (
-    kind > 1 ||
-    header.getUint32(92) !== 0 ||
-    header.getUint32(120) !== 0 ||
-    header.getUint32(124) !== 0
-  )
-    throw new Error("Invalid reserved header");
+  const kind = readKind(header);
   const rows = header.getUint32(72, true);
   const sessionCount = header.getUint32(96, true);
   const projectCount = header.getUint32(100, true);
@@ -103,7 +94,7 @@ export function decode(input: unknown): BrowserCopy {
   for (const values of [sessions.session, sessions.project]) validateRequiredCodes(values);
   if (kind === 0 && (sessionDeleted || projectDeleted))
     throw new Error("Invalid whole browser copy revision range");
-  return {
+  const copy: BrowserCopy = {
     kind: kind === 0 ? "whole" : "changes",
     generation,
     fromRevision,
@@ -118,6 +109,23 @@ export function decode(input: unknown): BrowserCopy {
     projectTombstones,
     ...strings,
   };
+  if (copy.kind === "whole") validateFactNames(copy, copy.names);
+  return copy;
+}
+
+function readKind(header: DataView): number {
+  if (header.getUint32(0, true) !== magic) throw new Error("Invalid browser copy magic");
+  if (header.getUint32(4, true) !== formatVersion)
+    throw new Error("Unsupported browser copy format version");
+  const kind = header.getUint32(44, true);
+  if (
+    kind > 1 ||
+    header.getUint32(92) !== 0 ||
+    header.getUint32(120) !== 0 ||
+    header.getUint32(124) !== 0
+  )
+    throw new Error("Invalid reserved header");
+  return kind;
 }
 
 function readRevisions(header: DataView) {
@@ -228,12 +236,7 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
   const stringOffset = checkedLength(
     headerLength + values.reduce((size, column) => size + column.length * 8, 0),
   );
-  if (copy.ids.length !== rows) throw new Error("Inconsistent browser copy ID columns");
-  if (copy.promptIds.length !== promptCount)
-    throw new Error("Inconsistent browser copy prompt IDs");
-  if (copy.toolIds.length !== toolCount) throw new Error("Inconsistent browser copy tool IDs");
-  if (toolFields.some((field) => copy.tools[field].length !== toolCount))
-    throw new Error("Inconsistent browser copy tool columns");
+  validateWriteColumns(copy);
   const strings = encodeStrings(copy);
   const length = checkedLength(stringOffset + strings.length);
   validateGeneration(copy.generation);
@@ -259,21 +262,7 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
   header.setUint32(112, promptCount, true);
   header.setUint32(116, toolCount, true);
   let offset = headerLength;
-  for (const [index, column] of values.entries()) {
-    if (index < columns.length && column.length !== rows)
-      throw new Error("Inconsistent browser copy columns");
-    if (
-      index >= columns.length &&
-      index < columns.length + promptFields.length &&
-      column.length !== promptCount
-    )
-      throw new Error("Inconsistent browser copy prompt columns");
-    if (
-      index >= columns.length + promptFields.length + toolFields.length &&
-      index < columns.length + promptFields.length + toolFields.length + sessionFields.length &&
-      column.length !== sessionCount
-    )
-      throw new Error("Inconsistent browser copy session columns");
+  for (const column of values) {
     for (const value of column) {
       header.setFloat64(offset, value, true);
       offset += 8;
@@ -282,4 +271,22 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
   new Uint8Array(buffer, stringOffset).set(strings);
   decode(buffer);
   return buffer;
+}
+
+function validateWriteColumns(copy: BrowserCopy): void {
+  if (copy.ids.length !== copy.steps.start.length)
+    throw new Error("Inconsistent browser copy ID columns");
+  if (copy.promptIds.length !== copy.prompts.start.length)
+    throw new Error("Inconsistent browser copy prompt IDs");
+  if (copy.toolIds.length !== copy.tools.start.length)
+    throw new Error("Inconsistent browser copy tool IDs");
+  for (const [label, values, count] of [
+    ["", copy.steps, copy.steps.start.length],
+    ["prompt ", copy.prompts, copy.prompts.start.length],
+    ["tool ", copy.tools, copy.tools.start.length],
+    ["session ", copy.sessions, copy.sessions.code.length],
+  ] as const) {
+    if (Object.values(values).some((column) => column.length !== count))
+      throw new Error(`Inconsistent browser copy ${label}columns`);
+  }
 }

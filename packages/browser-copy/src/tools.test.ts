@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { encode, decode } from "./index.ts";
-import { formatFixture } from "./testing/index.ts";
+import { formatFixture, syntheticCopy } from "./testing/index.ts";
 
 it("round-trips calls and NULL timing/outcome fields as zero-copy columns", () => {
   const copy = formatFixture();
@@ -19,9 +19,47 @@ it("rejects inconsistent call columns and identities before accepting a copy", (
   expect(() => encode({ ...copy, tools: { ...copy.tools, outcome: new Float64Array() } })).toThrow(
     "tool columns",
   );
-  expect(() => encode({ ...copy, toolIds: [copy.ids[0]!, ...copy.toolIds.slice(1)] })).toThrow(
+  expect(() => encode({ ...copy, toolIds: [copy.ids[0], ...copy.toolIds.slice(1)] })).toThrow(
     "fact IDs",
   );
+});
+
+it("rejects whole copies with dangling tool names instead of passing an unsafe code to the engine", () => {
+  const fixture = formatFixture();
+  const whole = syntheticCopy([], {
+    tools: fixture.tools,
+    toolIds: fixture.toolIds,
+    names: fixture.names,
+  });
+  expect(() =>
+    encode({ ...whole, names: whole.names.filter((name) => name.dimension !== "tool") }),
+  ).toThrow("tool name reference");
+  const bytes = encode(whole);
+  decode(bytes).tools.tool[0] = 999;
+  expect(() => decode(bytes)).toThrow("tool name reference");
+});
+
+it("rejects dangling recorded step-error names at the same whole-copy boundary", () => {
+  const fixture = formatFixture();
+  const whole = {
+    ...fixture,
+    kind: "whole" as const,
+    fromRevision: 0,
+    sessionTombstones: new Float64Array(),
+    projectTombstones: new Float64Array(),
+  };
+  expect(() =>
+    encode({ ...whole, names: whole.names.filter((name) => name.dimension !== "error") }),
+  ).toThrow("error name reference");
+  const bytes = encode(whole);
+  decode(bytes).steps.error[0] = 999;
+  expect(() => decode(bytes)).toThrow("error name reference");
+  const missing = encode(whole);
+  const columns = decode(missing).steps;
+  columns.error[0] = NaN;
+  expect(() => decode(missing)).toThrow("error name reference");
+  columns.failed[0] = 0;
+  expect(decode(missing).steps.error[0]).toBeNaN();
 });
 
 it.each([0, 4, -1, Infinity, 1.5])("rejects invalid tool outcome %s", (outcome) => {

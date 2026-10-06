@@ -1,4 +1,5 @@
 export { decode, encode, formatVersion } from "./binary.ts";
+export { validateFactNames } from "./name-references.ts";
 export {
   tokenKinds,
   stepDimensions,

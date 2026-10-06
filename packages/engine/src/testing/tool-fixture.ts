@@ -34,6 +34,6 @@ export const toolCopy = (calls = toolCalls) => {
     ...copy,
     names: [...copy.names, ...toolNames],
     toolIds: calls.map((_, i) => `tool:${i}`),
-    tools: mapToolFields((field) => Float64Array.from(calls, (call) => call[field] ?? NaN)),
+    tools: mapToolFields((field) => Float64Array.from(calls, (item) => item[field] ?? NaN)),
   };
 };

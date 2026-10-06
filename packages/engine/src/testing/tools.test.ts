@@ -5,7 +5,12 @@ import {
   syntheticCopy,
   inMemoryDashboardServer,
 } from "@opencode-stats/browser-copy/testing";
-import { mapToolFields, mapStepDimensions, type ToolCall } from "@opencode-stats/browser-copy";
+import {
+  decode,
+  mapToolFields,
+  mapStepDimensions,
+  type ToolCall,
+} from "@opencode-stats/browser-copy";
 import { rangeFixture } from "./range-fixture.ts";
 import { toolCopy, toolCalls, toolNames } from "./tool-fixture.ts";
 import { referenceTools } from "./tool-reference.ts";
@@ -118,17 +123,25 @@ it("applies call rewrites and tombstones atomically, then replaces all calls on 
 });
 
 it("never publishes a partially applied call batch when a sliced apply is interrupted", async () => {
-  const server = inMemoryDashboardServer(syntheticCopy([]));
+  const copy = toolCopy();
+  const server = inMemoryDashboardServer(syntheticCopy([], { names: copy.names }));
   const slices = blockedSlices();
+  let slicing = false;
   const engine = inThreadEngine(server.fetch, queueMicrotask, {
     ...manualClock(),
     ...slices.clock,
+    workNow: () => (slicing ? slices.clock.workNow() : 0),
   });
   try {
     await engine.client.request({ kind: "all-time" });
-    const copy = toolCopy();
+    slicing = true;
     server.commit(
-      syntheticCopy([], { revision: 2, toolIds: copy.toolIds, tools: copy.tools, names: [] }),
+      syntheticCopy([], {
+        revision: 2,
+        toolIds: copy.toolIds,
+        tools: copy.tools,
+        names: copy.names,
+      }),
     );
     await slices.entered;
     const closing = engine.dispose();
@@ -141,6 +154,105 @@ it("never publishes a partially applied call batch when a sliced apply is interr
     await server.dispose();
   }
 });
+
+it("returns a problem screen for a malformed whole copy instead of hanging while looking up its tool name", async () => {
+  const server = inMemoryDashboardServer(toolCopy());
+  const engine = inThreadEngine(
+    async (input, init) => {
+      const response = await server.fetch(input, init);
+      if (new URL(new Request(input, init).url).pathname !== "/api/browser-copy") return response;
+      const bytes = await response.arrayBuffer();
+      decode(bytes).tools.tool[0] = 999;
+      return new Response(bytes, { headers: response.headers });
+    },
+    queueMicrotask,
+    manualClock(),
+  );
+  try {
+    expect(await engine.client.request({ kind: "all-time" })).toEqual({
+      kind: "paint",
+      state: { screen: "problem", reason: "copy-unavailable" },
+    });
+  } finally {
+    await engine.dispose();
+    await server.dispose();
+  }
+});
+
+it("accepts a delta whose tool and step-error names were already supplied by the whole copy", async () => {
+  const copy = toolCopy();
+  await using f = rangeFixture(metricSteps, undefined, undefined, undefined, copy);
+  const first = await f.request({ kind: "all-time" });
+  await vi.waitFor(() => expect(f.server.streams).toBe(1));
+  const replacement = { ...toolCopy([{ ...toolCalls[1]!, outcome: 2 }]), revision: 2 };
+  f.server.respondWithChanges({
+    ...replacement,
+    kind: "changes",
+    fromRevision: first.revision,
+    names: [],
+    tombstones: copy.toolIds.slice(1),
+  });
+  f.server.commit(replacement);
+  await vi.waitFor(() =>
+    expect(f.states.at(-1)).toMatchObject({ revision: 2, tools: { calls: 1, failed: 1 } }),
+  );
+  const next = await f.request({ kind: "all-time" });
+  expect(next.tools.rows[0]).toMatchObject({ id: "read", name: "read", failed: 1 });
+  expect(next.metrics.errors).toEqual(first.metrics.errors);
+});
+
+it.each(["tool", "error"] as const)(
+  "rejects a delta with a dangling %s name without changing any previously complete facts or names",
+  async (dimension) => {
+    const copy = toolCopy();
+    await using f = rangeFixture(metricSteps, undefined, undefined, undefined, copy);
+    const before = await f.request({ kind: "all-time" });
+    await vi.waitFor(() => expect(f.server.streams).toBe(1));
+    const after = syntheticCopy(
+      metricSteps.map((step) => ({
+        ...step,
+        input: 1000,
+        error: dimension === "error" ? 999 : step.error,
+        failed: dimension === "error" ? 1 : step.failed,
+      })),
+      {
+        ...toolCopy(toolCalls.slice(0, 2)),
+        revision: 2,
+        names: copy.names.map((name) =>
+          name.dimension === "tool" ? { ...name, name: "Changed before rejection" } : name,
+        ),
+      },
+    );
+    if (dimension === "tool") after.tools.tool[1] = 999;
+    f.server.commit(after);
+    await vi.waitFor(() => expect(f.server.streams).toBe(0));
+    const retained = await f.request({ kind: "all-time" });
+    expect(retained.revision).toBe(before.revision);
+    expect(retained.tools).toEqual(before.tools);
+    expect(retained.metrics).toEqual(before.metrics);
+    expect(retained.tokens).toEqual(before.tokens);
+    expect(retained.sessions).toEqual(before.sessions);
+    expect(retained.checklists).toEqual(before.checklists);
+    expect(
+      f.states.every((state) => state.screen !== "dashboard" || state.revision === before.revision),
+    ).toBe(true);
+
+    const repaired = {
+      ...after,
+      revision: 3,
+      names: [
+        ...after.names,
+        { dimension, code: 999, id: "new-recorded-name", name: "New recorded name" },
+      ],
+    };
+    f.server.commit(repaired);
+    await f.clock.advance(2);
+    await vi.waitFor(() => expect(f.states.at(-1)).toMatchObject({ revision: 3 }));
+    const recovered = await f.request({ kind: "all-time" });
+    expect(recovered.tokens.total).toBeGreaterThan(before.tokens.total);
+    expect(recovered.tools.calls).toBe(2);
+  },
+);
 
 it("matches a straightforward reference for generated filters, ranges, missing timings and nearest ranks", async () => {
   await fc.assert(

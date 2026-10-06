@@ -2,25 +2,32 @@ import * as fc from "fast-check";
 import { randomBytes } from "node:crypto";
 import { syntheticCopy } from "./synthetic.ts";
 import { mapSessionFields, mapPromptFields, mapToolFields } from "../facts.ts";
+import { syntheticNames } from "./names.ts";
 
 const amount = fc.option(fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER }), { nil: null });
 const code = fc.integer({ min: 0, max: 0xfffffffe });
 const optionalCode = fc.option(code, { nil: null });
-const tokenStep = fc.record({
-  start: fc.integer({ min: -8_640_000_000_000_000, max: 8_640_000_000_000_000 }),
-  input: amount,
-  cacheRead: amount,
-  cacheWrite: amount,
-  output: amount,
-  reasoning: amount,
-  streamEnd: amount,
-  completed: amount,
-  error: optionalCode,
-  failed: fc.integer({ min: 0, max: 1 }),
-  interrupted: fc.integer({ min: 0, max: 1 }),
-  recordedCost: fc.option(fc.double({ min: 0, max: 1000000, noNaN: true }), { nil: null }),
-  estimatedCost: fc.option(fc.double({ min: 0, max: 1000000, noNaN: true }), { nil: null }),
-});
+const tokenStep = fc
+  .record({
+    start: fc.integer({ min: -8_640_000_000_000_000, max: 8_640_000_000_000_000 }),
+    input: amount,
+    cacheRead: amount,
+    cacheWrite: amount,
+    output: amount,
+    reasoning: amount,
+    streamEnd: amount,
+    completed: amount,
+    error: optionalCode,
+    failed: fc.integer({ min: 0, max: 1 }),
+    interrupted: fc.integer({ min: 0, max: 1 }),
+    recordedCost: fc.option(fc.double({ min: 0, max: 1000000, noNaN: true }), { nil: null }),
+    estimatedCost: fc.option(fc.double({ min: 0, max: 1000000, noNaN: true }), { nil: null }),
+  })
+  .map((step) => ({
+    ...step,
+    // A counted failure always records an error; a missing error is not a failure.
+    failed: step.error === null ? 0 : step.failed,
+  }));
 export const syntheticSteps = fc.array(tokenStep, { maxLength: 100 });
 const dimensionStep = fc.record({
   provider: optionalCode,
@@ -99,7 +106,14 @@ export const syntheticCopies = fc
         fromRevision,
         revision: fromRevision + increment,
         historyCompleteFrom,
-        names,
+        names: [
+          ...new Map(
+            [...syntheticNames(steps, calls), ...names].map((name) => [
+              `${name.dimension}\0${name.code}`,
+              name,
+            ]),
+          ).values(),
+        ],
         prompts: mapPromptFields((field) =>
           Float64Array.from(steps, (step) =>
             field === "start" ? step.start : (step[field] ?? NaN),

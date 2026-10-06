@@ -4,6 +4,7 @@ import {
   mapSessionFields,
   mapPromptFields,
   mapToolFields,
+  validateFactNames,
   type BrowserCopy,
   type DimensionName,
 } from "@opencode-stats/browser-copy";
@@ -83,6 +84,24 @@ async function applyDimensions(
   return true;
 }
 
+async function applyCalls(
+  next: ReturnType<typeof emptySnapshot>,
+  copy: BrowserCopy,
+  checkpoint: () => Promise<void>,
+  signal: AbortSignal,
+): Promise<boolean> {
+  for (const [index, id] of copy.toolIds.entries()) {
+    if (signal.aborted) return false;
+    next.tools = HashMap.set(
+      next.tools,
+      id,
+      mapToolFields((field) => copy.tools[field][index]!),
+    );
+    await checkpoint();
+  }
+  return true;
+}
+
 export function createFacts(clock: EngineClock) {
   let snapshot = emptySnapshot();
   const filteredPlacements = new Map<string, ReturnType<typeof matchingPlacements>>();
@@ -125,6 +144,10 @@ export function createFacts(clock: EngineClock) {
       }
     };
     try {
+      // Validate against the proposed registry before touching even staged facts.
+      // A malformed delta throws into live recovery without changing the last complete copy.
+      if (copy.kind === "changes")
+        validateFactNames(copy, [...HashMap.values(next.names), ...copy.names]);
       const rowsEnd = copy.tombstones.length + copy.ids.length;
       for (let index = 0; index < rowsEnd + copy.names.length; index++) {
         if (signal.aborted) return false;
@@ -151,15 +174,7 @@ export function createFacts(clock: EngineClock) {
         );
         await checkpoint();
       }
-      for (const [index, id] of copy.toolIds.entries()) {
-        if (signal.aborted) return false;
-        next.tools = HashMap.set(
-          next.tools,
-          id,
-          mapToolFields((field) => copy.tools[field][index]!),
-        );
-        await checkpoint();
-      }
+      if (!(await applyCalls(next, copy, checkpoint, signal))) return false;
       if (!(await applyDimensions(next, copy, checkpoint, signal))) return false;
       const sessions = await placeSessions(HashMap.values(next.facts), checkpoint, signal);
       if (signal.aborted) return false;

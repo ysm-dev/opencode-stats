@@ -7,6 +7,7 @@ import {
   type Step,
   type StepDimensions,
 } from "../facts.ts";
+import { syntheticNames } from "./names.ts";
 
 export function syntheticCopy(
   steps: readonly (Step & Partial<StepDimensions>)[],
@@ -20,7 +21,7 @@ export function syntheticCopy(
     historyCompleteFrom: 0,
     ids: steps.map((_, index) => `step-${index}`),
     tombstones: [],
-    names: [],
+    names: syntheticNames(steps),
     prompts: mapPromptFields(() => new Float64Array()),
     promptIds: [],
     tools: mapToolFields(() => new Float64Array()),

@@ -26,7 +26,7 @@ function summarize(calls: readonly ToolFact[]) {
   const timed = calls
     .filter((call) => Number.isFinite(call.runStart) && Number.isFinite(call.completed))
     .map((call) => call.completed - call.runStart)
-    .sort((a, b) => a - b);
+    .toSorted((a, b) => a - b);
   return {
     calls: calls.length,
     succeeded,
@@ -58,9 +58,11 @@ export function toolMetrics(
     ...summarize(calls),
     rows: [...groups]
       .map(([code, rows]) => {
-        const name = names.find((name) => name.dimension === "tool" && name.code === code)!;
+        const name = names.find(
+          (candidate) => candidate.dimension === "tool" && candidate.code === code,
+        )!;
         return { id: name.id, name: name.name, ...summarize(rows) };
       })
-      .sort((a, b) => a.id.localeCompare(b.id)),
+      .toSorted((a, b) => a.id.localeCompare(b.id)),
   };
 }

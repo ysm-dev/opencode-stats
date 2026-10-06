@@ -4,12 +4,31 @@ import * as Effect from "effect/Effect";
 import * as fc from "fast-check";
 import { expect, it } from "vitest";
 import { propertyParameters } from "@opencode-stats/browser-copy/testing";
-import { syntheticFixture } from "./testing/index.ts";
+import { syntheticFixture, type SyntheticMessage } from "./testing/index.ts";
 import { fingerprintFixture } from "./testing/fingerprint.ts";
 import { observedStore } from "./testing/store.ts";
 import { runWithClock } from "./testing/clock.ts";
 import { canonicalCopy } from "./testing/canonical.ts";
 import { nodeRuntime } from "./runtime.node.ts";
+
+function transitionMessage(action: number, start: number): SyntheticMessage {
+  return {
+    id: "step",
+    session: "root",
+    seq: 0,
+    start,
+    tools: [
+      {
+        id: "call",
+        name: action === 1 ? "bash" : "server.lookup",
+        status: action === 2 ? "streaming" : action === 3 ? "error" : "completed",
+        error: action === 3 ? "tool.interrupted" : undefined,
+        ran: action === 4 ? start : undefined,
+        completed: action === 5 ? start + 10 : undefined,
+      },
+    ],
+  };
+}
 
 it("counts scalar tool facts under current names once, excluding fork copies and Code Mode's nested calls", async () => {
   const f = syntheticFixture();
@@ -137,23 +156,7 @@ it("incremental calls equal a fresh build after generated tool transitions and r
               const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime);
               for (const [i, action] of actions.entries()) {
                 if (action === 0) writer.revert("root", 0);
-                else
-                  writer.message({
-                    id: "step",
-                    session: "root",
-                    seq: 0,
-                    start: i,
-                    tools: [
-                      {
-                        id: "call",
-                        name: action === 1 ? "bash" : "server.lookup",
-                        status: action === 2 ? "streaming" : action === 3 ? "error" : "completed",
-                        error: action === 3 ? "tool.interrupted" : undefined,
-                        ran: action === 4 ? i : undefined,
-                        completed: action === 5 ? i + 10 : undefined,
-                      },
-                    ],
-                  });
+                else writer.message(transitionMessage(action, i));
                 yield* time.tick;
               }
               const currentFacts = canonicalCopy(yield* store.read());
