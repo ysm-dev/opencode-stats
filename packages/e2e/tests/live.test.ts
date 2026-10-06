@@ -17,8 +17,8 @@ it("paints packed live edits and deletes within two seconds, whole and without r
   await using fixture = await preferencesBrowser(chromium);
   const page = await fixture.context.newPage();
   let navigations = 0;
-  page.on("framenavigated", () => {
-    navigations++;
+  page.on("request", (request) => {
+    if (request.isNavigationRequest()) navigations++;
   });
   await page.goto(fixture.server.origin);
   await page.getByRole("region", { name: "Tokens" }).getByText("987", { exact: true }).waitFor();
@@ -27,9 +27,11 @@ it("paints packed live edits and deletes within two seconds, whole and without r
   await page.evaluate(() => {
     window.livePaints = [];
     window.liveNumber = document.querySelector(".headline-number")!;
+    const paints = window.livePaints;
+    const number = window.liveNumber;
     const frame = () => {
-      window.livePaints.push({
-        tokens: window.liveNumber.textContent,
+      paints.push({
+        tokens: number.textContent,
         facts: document.querySelector<HTMLElement>('[aria-labelledby="tokens"]')!.dataset[
           "revision"
         ],

@@ -50,7 +50,7 @@ export const preferencesServer = async () => {
     );
     const database = join(directory, "synthetic.db");
     const writer = syntheticDatabase(database);
-    disposeWriter = writer.close;
+    disposeWriter = () => writer.close();
     writer.session("ses-preferences");
     writer.message({
       id: "msg-preferences",

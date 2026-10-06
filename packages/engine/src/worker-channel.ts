@@ -62,7 +62,7 @@ export function connectEngine(
     if (!closed) paint(0, active!);
   };
   const catchUp = async () => {
-    while (target && !closed) {
+    while (target && !controller.signal.aborted) {
       const wanted = target;
       target = undefined;
       const current = facts.current()!;

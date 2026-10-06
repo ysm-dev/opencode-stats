@@ -61,7 +61,7 @@ The bin argument reader, `packages/opencode-stats/src/bin.ts`, passes arguments 
 
 `bun run dev` opens Vite at `http://127.0.0.1:5173`, forwarding `/api` to the source dashboard server on **22440** with Host rewritten. Its synthetic SQLite file, state and cache stay under gitignored `.dev/`; it does not use an installed OpenCode database. Stop both processes with Ctrl+C.
 
-Overview shows all-history Tokens (input, cache read, cache write, output and reasoning), computed by the engine worker from the server's browser copy. The shell appears only after its complete state, fonts and styles are ready. A missing `--db` prints the selected path and the fix without opening a browser.
+Overview shows all-history Tokens (input, cache read, cache write, output and reasoning), computed by the engine worker from the server's browser copy. Open tabs follow committed edits and deletions without a reload. The live dot shows the time since the latest commit observed by the tab; before its first observed change, it says "Live". The shell appears only after its complete state, fonts and styles are ready. A missing `--db` prints the selected path and the fix without opening a browser.
 
 `bun run dev:plugin` loads the workspace plugin in a private `opencode serve` using the installed OpenCode executable. `--opencode <version>` installs an exact per-platform release; `--packed` loads `.release/package/` after `bun run release`. Its HOME/config/data stay under `.dev/opencode/`, its dashboard port is **22440**, and state/cache and the synthetic database are shared with `bun run dev`. Vite serves the source dashboard at `http://127.0.0.1:5173`. No shared OpenCode service or real database is used.
 

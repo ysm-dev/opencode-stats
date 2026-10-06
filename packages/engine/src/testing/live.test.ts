@@ -250,7 +250,7 @@ it("does not let an unsolicited live paint replace an unanswered user request", 
     deliver = answer;
     sent.resolve();
   });
-  const listener = vi.fn();
+  const listener = vi.fn<(state: EngineState) => void>();
   const unsubscribe = engine.client.subscribe(listener);
   try {
     const pending = engine.client.request({ kind: "all-time" });
