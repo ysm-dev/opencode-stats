@@ -157,7 +157,7 @@ export function createLiveEngine(
       if (paused) {
         status.pause();
         changed();
-      }
+      } else status.retry();
     }
     if (enabled()) start();
     else suspend();

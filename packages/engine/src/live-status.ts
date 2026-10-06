@@ -11,17 +11,18 @@ export function createLiveStatus(clock: EngineClock) {
   let lastWrite: number | undefined;
   let disconnectedAt: number | undefined;
   let pausedAt: number | undefined;
+  let resuming = false;
   let warning = false;
   let announcement = "";
   const read = () => {
-    if (pausedAt !== undefined)
+    const stale = disconnectedAt !== undefined && clock.now() - disconnectedAt >= 5000;
+    if (pausedAt !== undefined && (!resuming || !stale))
       return {
         paused: true,
         liveLabel: "Paused",
         statusLine: `Paused at ${time(pausedAt)}`,
         announcement,
       };
-    const stale = disconnectedAt !== undefined && clock.now() - disconnectedAt >= 5000;
     const statusLine = stale
       ? `Not updating since ${time(disconnectedAt!)} · the dashboard server isn't running`
       : "";
@@ -58,6 +59,10 @@ export function createLiveStatus(clock: EngineClock) {
     },
     pause: () => {
       pausedAt = clock.now();
+      resuming = false;
+    },
+    retry: () => {
+      resuming = true;
     },
     resume: () => {
       pausedAt = undefined;

@@ -54,14 +54,14 @@ describe("Overview", () => {
       await vi.waitFor(() => expect(server.streams).toBe(1));
       await server.drop();
       await vi.waitFor(() => expect(server.streams).toBe(0));
-      clock.advance(5);
+      await clock.advance(5);
       const warning = "Not updating since 14:02 · the dashboard server isn't running";
       await vi.waitFor(() => expect(view.getByRole("status").textContent).toBe(warning));
       const announcement = view.getByRole("status");
       const changes: string[] = [];
       const observer = new MutationObserver(() => changes.push(announcement.textContent));
       observer.observe(announcement, { childList: true, characterData: true, subtree: true });
-      clock.advance(1);
+      await clock.advance(1);
       await Promise.resolve();
       expect(changes).toEqual([]);
       server.resume();
@@ -75,7 +75,7 @@ describe("Overview", () => {
       expect(view.container.querySelector(".update-status")?.textContent).toBe(
         "Paused at 14:02 · Resume",
       );
-      clock.advance(60);
+      await clock.advance(60);
       expect(view.container.querySelector(".update-status")?.textContent).toBe(
         "Paused at 14:02 · Resume",
       );

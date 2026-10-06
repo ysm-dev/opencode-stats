@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Stream from "effect/Stream";
 import { bunServer } from "./http.bun.ts";
 import { startServer } from "./server.ts";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
@@ -17,7 +18,14 @@ describe("Bun HTTP contract", () => {
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
-            address = yield* startServer(folder);
+            address = yield* startServer(folder, {
+              whole: () => new Uint8Array(),
+              changes: () => Effect.succeed(new Uint8Array()),
+              live: Stream.concat(
+                Stream.make({ generation: "synthetic", revision: 1 }),
+                Stream.never,
+              ),
+            });
             const asset = yield* Effect.promise(() => fetch(`${address}/assets/dashboard-a1b2.js`));
             expect(asset.status).toBe(200);
             expect(asset.headers.get("content-type")).toContain("javascript");
@@ -28,6 +36,9 @@ describe("Bun HTTP contract", () => {
               Effect.scoped(startServer(folder).pipe(Effect.provide(bunServer(port)))),
             );
             expect(Exit.isFailure(failure)).toBe(true);
+            const live = yield* Effect.promise(() => fetch(`${address}/api/browser-copy/live`));
+            const opening = yield* Effect.promise(() => live.body!.getReader().read());
+            expect(new TextDecoder().decode(opening.value)).toContain("synthetic");
           }).pipe(Effect.provide(bunServer(0))),
         ),
       );

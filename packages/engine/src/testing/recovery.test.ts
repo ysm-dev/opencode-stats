@@ -32,14 +32,14 @@ it("retries every two visible seconds, warns once after five and clears the warn
   await open(f);
   await f.server.drop();
   await vi.waitFor(() => expect(f.server.streams).toBe(0));
-  f.clock.advance(1);
+  await f.clock.advance(1);
   expect(f.server.requests).toBe(2);
-  f.clock.advance(1);
+  await f.clock.advance(1);
   await vi.waitFor(() => expect(f.server.requests).toBe(3));
-  f.clock.advance(2);
+  await f.clock.advance(2);
   await vi.waitFor(() => expect(f.server.requests).toBe(4));
   expect(f.paints.at(-1)).toMatchObject({ liveLabel: "Live" });
-  f.clock.advance(1);
+  await f.clock.advance(1);
   await vi.waitFor(() =>
     expect(f.paints.at(-1)).toMatchObject({
       liveLabel: "Not updating",
@@ -48,12 +48,12 @@ it("retries every two visible seconds, warns once after five and clears the warn
     }),
   );
   const warnings = f.paints.length;
-  f.clock.advance(1);
+  await f.clock.advance(1);
   await vi.waitFor(() => expect(f.server.requests).toBe(5));
   expect(f.paints).toHaveLength(warnings);
   f.server.commit(copy(3));
   f.server.resume();
-  f.clock.advance(2);
+  await f.clock.advance(2);
   await vi.waitFor(() =>
     expect(f.paints.at(-1)).toMatchObject({
       revision: 3,
@@ -79,7 +79,7 @@ it.each(["visibility", "paused"] as const)(
     const requests = f.server.requests;
     f.server.commit(copy(2));
     f.server.commit(copy(3));
-    f.clock.advance(10);
+    await f.clock.advance(10);
     f.engine.client.signal({ kind: "focus" });
     await Promise.resolve();
     expect(f.server.requests).toBe(requests);
@@ -111,6 +111,29 @@ it("keeps pause while hidden and clears it on a same-revision resume", async () 
   await vi.waitFor(() => expect(f.paints.at(-1)).toMatchObject({ paused: false, revision: 1 }));
 });
 
+it("warns when Resume cannot reach the server, while intentional pause stays frozen", async () => {
+  const f = fixture();
+  await open(f);
+  f.engine.client.signal({ kind: "paused", paused: true });
+  await vi.waitFor(() => expect(f.server.streams).toBe(0));
+  await f.server.drop();
+  f.engine.client.signal({ kind: "paused", paused: false });
+  await vi.waitFor(() => expect(f.server.requests).toBe(3));
+  await f.clock.advance(5);
+  await vi.waitFor(() =>
+    expect(f.paints.at(-1)).toMatchObject({ liveLabel: "Not updating", tokens: { total: 10 } }),
+  );
+  f.engine.client.signal({ kind: "paused", paused: true });
+  await vi.waitFor(() => expect(f.clock.ticking).toBe(0));
+  await f.clock.advance(60);
+  expect(f.paints.at(-1)).toMatchObject({ liveLabel: "Paused", statusLine: "Paused at 14:02" });
+  f.server.resume();
+  f.engine.client.signal({ kind: "paused", paused: false });
+  await vi.waitFor(() =>
+    expect(f.paints.at(-1)).toMatchObject({ statusLine: "", announcement: "Up to date again" }),
+  );
+});
+
 it.each(["format", "release"])(
   "reloads a changed %s at the required visibility boundary",
   async (kind) => {
@@ -135,7 +158,7 @@ it("keeps a hidden initial request pending and starts only when shown", async ()
   const pending = f.engine.client.request({ kind: "all-time" });
   await Promise.resolve();
   expect(f.server.requests).toBe(0);
-  f.clock.advance(10);
+  await f.clock.advance(10);
   f.engine.client.signal({ kind: "visibility", visible: true });
   expect(await pending).toMatchObject({ state: { revision: 1 } });
   await f.engine.dispose();
