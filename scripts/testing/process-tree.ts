@@ -62,8 +62,16 @@ export async function verifyProcessCleanup(): Promise<void> {
   try {
     for (const mode of ["command", "vitest", "coordinator"]) {
       const pidsFile = join(folder, `${mode}.pids`);
+      const traceFile = join(folder, `${mode}.trace`);
       try {
-        const options = { capture: true, env: { ...process.env, BUDGET_PID_FILE: pidsFile } };
+        const options = {
+          capture: true,
+          env: {
+            ...process.env,
+            BUDGET_PID_FILE: pidsFile,
+            OPENCODE_STATS_CLEANUP_TRACE: traceFile,
+          },
+        };
         if (mode === "command") {
           await assert.rejects(
             runTimed(["bun", child, "2"], 1000, options),
@@ -87,6 +95,16 @@ export async function verifyProcessCleanup(): Promise<void> {
         );
         assert.deepEqual(pids.filter(running), [], `${mode}: workers survived the deadline`);
       } catch (error) {
+        const states = recorded(pidsFile).map((pid) => ({
+          pid,
+          state: spawnSync("ps", ["-p", String(pid), "-o", "pid=,ppid=,stat="], {
+            encoding: "utf8",
+            timeout: 1000,
+          }).stdout,
+        }));
+        process.stderr.write(
+          `[DEBUG-issue27-cleanup] mode=${mode} observedAt=${Date.now()} states=${JSON.stringify(states)} trace=${existsSync(traceFile) ? readFileSync(traceFile, "utf8") : "absent"}\n`,
+        );
         failures.push(`${mode}: ${String(error)}`);
       } finally {
         // Clean up even on the intentionally red run against the old watchdog.

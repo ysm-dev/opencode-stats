@@ -1,5 +1,11 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
+import { appendFileSync } from "node:fs";
+
+const traceCleanup = (event: string): void => {
+  const file = process.env["OPENCODE_STATS_CLEANUP_TRACE"];
+  if (file) appendFileSync(file, `${Date.now()} controller=${process.pid} ${event}\n`);
+};
 
 class CleanupFailure extends AggregateError {
   constructor(failures: Error[], context: string) {
@@ -84,6 +90,7 @@ const signal = (
 ): boolean => {
   try {
     process.kill(pid, name);
+    traceCleanup(`pid=${pid} signal=${name}`);
     return true;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ESRCH") return false;
@@ -159,12 +166,14 @@ const killOwnedTree = (pid: number, deadline: number, descendant: boolean): void
     });
     inventoryMs = Math.round(performance.now() - inventoryStarted);
     inventoryStatus = result.status;
+    traceCleanup(`pid=${pid} inventoryMs=${inventoryMs} status=${inventoryStatus}`);
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error("Cannot inventory test workers");
     phase = "descendants";
     for (const row of result.stdout.trim().split("\n")) {
       const [child, parent] = row.trim().split(/\s+/u).map(Number);
       if (parent !== pid || child === undefined || child === process.pid) continue;
+      traceCleanup(`pid=${pid} child=${child}`);
       try {
         killOwnedTree(child, deadline, true);
       } catch (error) {
