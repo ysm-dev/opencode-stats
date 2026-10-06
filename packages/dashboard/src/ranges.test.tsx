@@ -15,16 +15,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const step = (date: string, input: number, session: number) => ({
+  start: Date.parse(date),
+  input,
+  session,
+  cacheRead: 0,
+  cacheWrite: 0,
+  output: 0,
+  reasoning: 0,
+});
 const rangesDashboard = (deliverAnswer: (deliver: () => void) => void = queueMicrotask) => {
-  const step = (date: string, input: number, session: number) => ({
-    start: Date.parse(date),
-    input,
-    session,
-    cacheRead: 0,
-    cacheWrite: 0,
-    output: 0,
-    reasoning: 0,
-  });
   const server = inMemoryDashboardServer(
     syntheticCopy([
       step("2026-10-01T12:00Z", 1, 0),

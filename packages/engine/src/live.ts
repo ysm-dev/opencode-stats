@@ -15,6 +15,9 @@ type Session = {
   opening: boolean;
 };
 
+const timeKey = (value: { now: number; timeZone: string; locale: string }) =>
+  `${Math.floor(value.now / 60000)}\0${value.timeZone}\0${value.locale}\0${localDate(value.now, value.timeZone)}`;
+
 export function createLiveEngine(
   network: EngineNetwork,
   clock: EngineClock,
@@ -35,8 +38,6 @@ export function createLiveEngine(
   let presented = "";
   const readTime = () => ({ now: clock.now(), timeZone: clock.timeZone(), locale: clock.locale() });
   let time = readTime();
-  const timeKey = (value: typeof time) =>
-    `${Math.floor(value.now / 60000)}\0${value.timeZone}\0${value.locale}\0${localDate(value.now, value.timeZone)}`;
   const updateTime = (force = false) => {
     const next = readTime();
     if (!force && timeKey(next) === timeKey(time)) return false;

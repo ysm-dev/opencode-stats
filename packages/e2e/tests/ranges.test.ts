@@ -23,8 +23,9 @@ const watchRanges = async (page: Page) =>
         document.querySelector(".fixed-range")?.textContent,
       ]);
     window.rangeFrames = [];
+    const snapshot = window.rangeSnapshot;
     const frame = () => {
-      window.rangeFrames.push(window.rangeSnapshot());
+      window.rangeFrames.push(snapshot());
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);

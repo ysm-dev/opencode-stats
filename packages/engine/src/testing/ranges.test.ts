@@ -254,14 +254,16 @@ it("matches a row-oriented range reference for each preset and generated IANA zo
           const history = rows.length ? Math.min(...rows.map((row) => row.start)) : start;
           expect(state.period.start).toBe(preset === "all" ? history : start);
           expect(state.tokens).toEqual(referenceRangeTokens(rows, state.period.start, now));
-          if (preset !== "all") {
-            const shifted = await f.request({ kind: "shift", direction: -1 });
-            const previousStart = referenceMidnight(referenceAdd(state.period.from, -days), zone);
-            const previousEnd = referenceMidnight(state.period.from, zone);
-            expect(shifted.period).toMatchObject({ start: previousStart, end: previousEnd });
-            expect(shifted.tokens).toEqual(referenceRangeTokens(rows, previousStart, previousEnd));
-            expect((await f.request({ kind: "shift", direction: 1 })).address).toBe(state.address);
-          }
+          const shifted = await f.request({ kind: "shift", direction: -1 });
+          const previousStart =
+            preset === "all"
+              ? state.period.start
+              : referenceMidnight(referenceAdd(state.period.from, -days), zone);
+          const previousEnd =
+            preset === "all" ? state.period.end : referenceMidnight(state.period.from, zone);
+          expect(shifted.period).toMatchObject({ start: previousStart, end: previousEnd });
+          expect(shifted.tokens).toEqual(referenceRangeTokens(rows, previousStart, previousEnd));
+          expect((await f.request({ kind: "shift", direction: 1 })).address).toBe(state.address);
         }
         await f.engine.dispose();
         await f.server.dispose();

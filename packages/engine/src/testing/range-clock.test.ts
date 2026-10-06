@@ -100,9 +100,12 @@ it("re-indexes every day's dimensions on timezone changes and pins fixed ranges 
   expect(f.server.requests).toBe(2);
 });
 
-it.each(["visibility", "paused"] as const)(
-  "freezes range clocks and copies while %s, then catches up both in one paint",
-  async (kind) => {
+it.each([
+  { kind: "visibility", paused: false, statusLine: "" },
+  { kind: "paused", paused: true, statusLine: "Paused at 23:59" },
+] as const)(
+  "freezes range clocks and copies while $kind, then catches up both in one paint",
+  async ({ kind, paused, statusLine }) => {
     const f = rangeFixture(
       [rangeStep(Date.parse("2026-10-07T18:00Z"), 10)],
       "2026-10-07T18:14:59Z",
@@ -125,16 +128,15 @@ it.each(["visibility", "paused"] as const)(
     await Promise.resolve();
     expect(f.states).toHaveLength(paints);
     expect(f.server.requests).toBe(requests);
-    if (kind === "paused") {
-      const paused = await f.request({ kind: "preset", preset: "today" });
-      expect(paused).toMatchObject({
-        paused: true,
-        statusLine: "Paused at 23:59",
-        timeZone: "Asia/Kathmandu",
-        period: { to: "2026-10-07", end: Date.parse("2026-10-07T18:14:59Z") },
-        tokens: { total: 10 },
-      });
-    }
+    const frozen =
+      kind === "paused" ? await f.request({ kind: "preset", preset: "today" }) : f.states.at(-1);
+    expect(frozen).toMatchObject({
+      paused,
+      statusLine,
+      timeZone: "Asia/Kathmandu",
+      period: { to: "2026-10-07", end: Date.parse("2026-10-07T18:14:59Z") },
+      tokens: { total: 10 },
+    });
     const beforeResume = f.states.length;
     f.engine.client.signal(
       kind === "visibility" ? { kind, visible: true } : { kind, paused: false },

@@ -9,6 +9,11 @@ import {
   referenceMidnight,
 } from "./time-reference.ts";
 
+const interval = (bucket: { start: number; end: number }) => ({
+  start: bucket.start,
+  end: bucket.end,
+});
+
 it.each([
   ["America/New_York", "2026-03-08", 23],
   ["America/New_York", "2026-11-01", 25],
@@ -24,21 +29,22 @@ it.each([
     const end = referenceMidnight(referenceAdd(date, 1), zone);
     const buckets = calendarBuckets(start, end, zone, "hour");
     expect(buckets).toHaveLength(hours);
-    expect(buckets.map(({ start, end }) => ({ start, end }))).toEqual(
-      referenceHours(start, end, zone),
-    );
-    if (hours === 25) expect(new Set(buckets.map((bucket) => bucket.label)).size).toBe(25);
-    if (zone === "America/New_York" && hours === 25) {
-      expect(buckets[1]!.label).toContain("01:00:00.000-04:00");
-      expect(buckets[2]!.label).toContain("01:00:00.000-05:00");
-      expect(calendarBuckets(buckets[2]!.start + 12345, end, zone, "hour")[0]).toEqual(buckets[2]);
-    }
-    if (zone === "Australia/Lord_Howe" && hours === 25) {
-      expect(buckets[2]!.label).toContain("01:30:00.000+10:30");
-      expect(calendarBuckets(buckets[2]!.start + 900000, end, zone, "hour")[0]).toEqual(buckets[2]);
-    }
+    expect(buckets.map(interval)).toEqual(referenceHours(start, end, zone));
+    expect(new Set(buckets.map((bucket) => bucket.label)).size).toBe(hours);
   },
 );
+
+it.each([
+  ["America/New_York", "2026-11-01", 1, "01:00:00.000-04:00", 12345],
+  ["America/New_York", "2026-11-01", 2, "01:00:00.000-05:00", 12345],
+  ["Australia/Lord_Howe", "2026-04-05", 2, "01:30:00.000+10:30", 900000],
+] as const)("labels and retains %s %s hour occurrence %i", (zone, date, index, label, elapsed) => {
+  const start = referenceMidnight(date, zone);
+  const end = referenceMidnight(referenceAdd(date, 1), zone);
+  const bucket = calendarBuckets(start, end, zone, "hour")[index]!;
+  expect(bucket.label).toContain(label);
+  expect(calendarBuckets(bucket.start + elapsed, end, zone, "hour")[0]).toEqual(bucket);
+});
 
 it("matches Intl's independent local-day and hourly reference across IANA zones and calendars", () => {
   fc.assert(
@@ -50,9 +56,9 @@ it("matches Intl's independent local-day and hourly reference across IANA zones 
         const start = referenceMidnight(date, zone);
         const end = referenceMidnight(referenceAdd(date, 1), zone);
         expect(calendarBuckets(start, end, zone, "day")).toEqual([{ start, end, label: date }]);
-        expect(
-          calendarBuckets(start, end, zone, "hour").map(({ start, end }) => ({ start, end })),
-        ).toEqual(referenceHours(start, end, zone));
+        expect(calendarBuckets(start, end, zone, "hour").map(interval)).toEqual(
+          referenceHours(start, end, zone),
+        );
       },
     ),
     propertyParameters,
@@ -88,9 +94,7 @@ it.each([
     const end = referenceMidnight(referenceAdd(date, 1), zone);
     const buckets = calendarBuckets(start, end, zone, "hour");
     expect(buckets).toHaveLength(count);
-    expect(buckets.map(({ start, end }) => ({ start, end }))).toEqual(
-      referenceHours(start, end, zone),
-    );
+    expect(buckets.map(interval)).toEqual(referenceHours(start, end, zone));
     const preceding = buckets.findIndex((bucket) => bucket.label.includes(before));
     expect(preceding).toBeGreaterThanOrEqual(0);
     expect(buckets[preceding + 1]!.label).toContain(after);

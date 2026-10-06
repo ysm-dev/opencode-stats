@@ -46,8 +46,8 @@ export function rangeFixture(
     engine,
     states,
     request,
-    setZone: (zone: string) => {
-      timeZone = zone;
+    setZone: (nextZone: string) => {
+      timeZone = nextZone;
     },
   };
 }

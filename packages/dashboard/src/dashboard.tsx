@@ -8,7 +8,7 @@ import {
   type Accessor,
 } from "solid-js";
 import { render } from "solid-js/web";
-import { MetaProvider, Title } from "@solidjs/meta";
+import { MetaProvider } from "@solidjs/meta";
 import { Select } from "@opencode/ui/select";
 import { PreferenceProvider } from "./preferences.tsx";
 import { Settings } from "./settings.tsx";
@@ -32,6 +32,8 @@ type PageClient = ReturnType<typeof createPageClient>;
 type CompletePage = Extract<EngineState, { screen: "dashboard" }>;
 const PageState = createContext<Accessor<CompletePage>>();
 const PageActions = createContext<PageClient>();
+const focusRange = () =>
+  document.querySelector<HTMLElement>('.range-control [data-component="select-v2"]')!.focus();
 
 const RangeControls = () => {
   const state = useContext(PageState)!;
@@ -39,8 +41,6 @@ const RangeControls = () => {
   const selectPreset = (preset: (typeof presets)[number] | null) => {
     if (preset) void client.request({ kind: "preset", preset });
   };
-  const focusRange = () =>
-    document.querySelector<HTMLElement>('.range-control [data-component="select-v2"]')!.focus();
   const nextRange = () => {
     focusRange();
     void client.request({ kind: "shift", direction: 1 });
@@ -112,7 +112,6 @@ const Overview = () => {
     <>
       <header>
         <h1 tabIndex={-1}>Overview</h1>
-        <Title>Overview · {state().rangeLabel} · opencode-stats</Title>
         <RangeControls />
         <UpdateStatus />
       </header>
@@ -233,7 +232,6 @@ const CompleteDashboard = (props: {
   state: EngineState;
   router: ReturnType<typeof makeRouter>;
 }) => {
-  document.title = "Overview · opencode-stats";
   return (
     <MetaProvider>
       <PreferenceProvider>
@@ -272,6 +270,8 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
     },
   };
   const paint = (next: EngineState) => {
+    if (next.screen === "dashboard")
+      document.title = `Overview · ${next.rangeLabel} · opencode-stats`;
     if (
       next.screen === "dashboard" &&
       window.location.pathname + window.location.search !== next.address
