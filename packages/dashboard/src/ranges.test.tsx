@@ -1,9 +1,9 @@
 import { cleanup, screen } from "@solidjs/testing-library";
-import axe from "axe-core";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import { dashboardEnvironment } from "./testing/environment.ts";
 import { dashboardFixture } from "./testing/dashboard-fixture.tsx";
+import { accessible } from "./testing/accessibility.ts";
 
 beforeEach(() => {
   dashboardEnvironment("/");
@@ -71,11 +71,7 @@ it("opens fresh on Last 30 days and paints range controls, titles, muted compari
         ),
       ),
     ).toEqual(new Set(["/?range=today"]));
-    const results = await axe.run(f.view.container, {
-      rules: { "color-contrast": { enabled: false } },
-    });
-    expect(results.violations).toEqual([]);
-    expect(results.incomplete).toEqual([]);
+    await accessible(f.view.container);
   } finally {
     await f.close();
   }

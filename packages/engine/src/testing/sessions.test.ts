@@ -34,14 +34,21 @@ const copyFor = (steps: Parameters<typeof syntheticCopy>[0], facts = sessions, r
     projects: new Float64Array([9]),
   });
 
+const expectSessions = async (
+  engine: ReturnType<typeof inThreadEngine>,
+  expected: ReturnType<typeof referenceSessions>,
+) => {
+  expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
+    state: { sessions: expected },
+  });
+};
+
 it("rolls descendant steps up to their session, places each subagent at its own first step, counts a fork once, and ignores empty sessions", async () => {
   const steps = [step(50, 0, 2), step(10, 0, 2), step(20, 0, 1), step(30, 3, null)];
   const server = inMemoryDashboardServer(copyFor(steps));
   const engine = inThreadEngine(server.fetch);
   try {
-    expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
-      state: { sessions: { total: 2, subagents: 2 } },
-    });
+    await expectSessions(engine, { total: 2, subagents: 2 });
     const reference = referenceSessions(steps, sessions);
     expect(reference).toEqual({ total: 2, subagents: 2 });
     server.commit(
@@ -81,9 +88,7 @@ it("equals the row-oriented reference for generated first-step placements and ne
         const server = inMemoryDashboardServer(copyFor(steps));
         const engine = inThreadEngine(server.fetch);
         try {
-          expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
-            state: { sessions: referenceSessions(steps, sessions) },
-          });
+          await expectSessions(engine, referenceSessions(steps, sessions));
         } finally {
           await engine.dispose();
           await server.dispose();
@@ -104,9 +109,7 @@ it("uses counted ownership without traversing cyclic or missing imported parent 
   );
   const engine = inThreadEngine(server.fetch);
   try {
-    expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
-      state: { sessions: { total: 2, subagents: 2 } },
-    });
+    await expectSessions(engine, { total: 2, subagents: 2 });
   } finally {
     await engine.dispose();
     await server.dispose();

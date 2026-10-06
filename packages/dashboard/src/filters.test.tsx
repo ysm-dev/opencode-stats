@@ -1,9 +1,9 @@
 import { cleanup, within } from "@solidjs/testing-library";
-import axe from "axe-core";
 import { beforeEach, afterEach, onTestFinished, expect, it, vi } from "vitest";
 import { filterCopy } from "@opencode-stats/engine/testing";
 import { dashboardEnvironment } from "./testing/environment.ts";
 import { dashboardFixture } from "./testing/dashboard-fixture.tsx";
+import { accessible } from "./testing/accessibility.ts";
 
 beforeEach(() => dashboardEnvironment("/?range=all"));
 afterEach(() => {
@@ -82,11 +82,7 @@ it("renders native checklists below Pages, top five token amounts, proportional 
   expect(
     f.view.getByRole("region", { name: "Model" }).querySelector("[aria-live]")!.textContent,
   ).toBe("3 results");
-  const result = await axe.run(f.view.container, {
-    rules: { "color-contrast": { enabled: false } },
-  });
-  expect(result.violations).toEqual([]);
-  expect(result.incomplete).toEqual([]);
+  await accessible(f.view.container);
 });
 
 it("ticks and unticks with the headlines and all other checklist amounts, preserves focused controls, and sends no requests", async () => {
@@ -160,11 +156,7 @@ it("removes chips with next, previous and heading focus, announces only user cha
   expect(f.announcement()).toBe(announced);
   expect(changes).toEqual([]);
   observer.disconnect();
-  const result = await axe.run(f.view.container, {
-    rules: { "color-contrast": { enabled: false } },
-  });
-  expect(result.violations).toEqual([]);
-  expect(result.incomplete).toEqual([]);
+  await accessible(f.view.container);
 });
 
 it("restores bookmarks, raw unknown chips and Back/Forward by permanent IDs without filtering over the network", async () => {

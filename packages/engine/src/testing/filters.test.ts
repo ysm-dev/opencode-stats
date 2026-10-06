@@ -2,10 +2,23 @@ import { expect, it, vi } from "vitest";
 import * as fc from "fast-check";
 import { mapSessionFields } from "@opencode-stats/browser-copy";
 import { syntheticCopy, propertyParameters } from "@opencode-stats/browser-copy/testing";
-import { rangeFixture } from "./range-fixture.ts";
+import { rangeFixture, type CompleteState } from "./range-fixture.ts";
 import { filterSteps, filterMetadata, filterNames, filterSessions } from "./filter-fixture.ts";
 import { referenceFilters } from "./filter-reference.ts";
 import { filterDimensions } from "../filters.ts";
+
+const expectReference = (state: CompleteState, reference: ReturnType<typeof referenceFilters>) => {
+  expect(state.tokens).toEqual(reference.tokens);
+  expect(state.sessions).toEqual(reference.sessions);
+  for (const amount of reference.amounts) {
+    const value = state.checklists
+      .find((list) => list.dimension === amount.dimension)!
+      .values.find((candidate) => candidate.id === amount.id)!;
+    expect(value.tokens).toBe(amount.tokens);
+    expect(value.proportion).toBeGreaterThanOrEqual(0);
+    expect(value.proportion).toBeLessThanOrEqual(1);
+  }
+};
 
 it("keeps equal model labels distinct by permanent ID, including zero-token and out-of-range checklist values", async () => {
   await using f = rangeFixture(
@@ -61,14 +74,7 @@ it("combines any-of values and all-of dimensions, ignores only each checklist's 
     state.period,
     filterSessions,
   );
-  expect(state.tokens).toEqual(reference.tokens);
-  expect(state.sessions).toEqual(reference.sessions);
-  for (const amount of reference.amounts)
-    expect(
-      state.checklists
-        .find((list) => list.dimension === amount.dimension)!
-        .values.find((value) => value.id === amount.id)!.tokens,
-    ).toBe(amount.tokens);
+  expectReference(state, reference);
   expect(state.tokens.total).toBe(210);
   expect(state.address).toBe(
     "/?range=all&f.model=provider-0%2Fmodel-0&f.model=provider-1%2Fmodel-1&f.agent=build",
@@ -306,16 +312,7 @@ it("equals the independent row reference for arbitrary multi-dimension combinati
           state.period,
           filterSessions,
         );
-        expect(state.tokens).toEqual(reference.tokens);
-        expect(state.sessions).toEqual(reference.sessions);
-        for (const amount of reference.amounts) {
-          const value = state.checklists
-            .find((list) => list.dimension === amount.dimension)!
-            .values.find((candidate) => candidate.id === amount.id)!;
-          expect(value.tokens).toBe(amount.tokens);
-          expect(value.proportion).toBeGreaterThanOrEqual(0);
-          expect(value.proportion).toBeLessThanOrEqual(1);
-        }
+        expectReference(state, reference);
       },
     ),
     propertyParameters,

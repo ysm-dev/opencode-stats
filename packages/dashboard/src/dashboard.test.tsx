@@ -1,17 +1,11 @@
 import { render, cleanup, screen } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
-import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dashboard, mountDashboard } from "./dashboard.tsx";
 import { inThreadEngine, manualClock } from "@opencode-stats/engine/testing";
 import { inMemoryDashboardServer, syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import { dashboardEnvironment } from "./testing/environment.ts";
-
-const accessible = async (container: HTMLElement) => {
-  const results = await axe.run(container, { rules: { "color-contrast": { enabled: false } } });
-  expect(results.violations).toEqual([]);
-  expect(results.incomplete).toEqual([]);
-};
+import { accessible } from "./testing/accessibility.ts";
 
 const deferred = () => {
   let resolve!: () => void;

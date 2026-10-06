@@ -1,12 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
-import axe from "axe-core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { inThreadEngine } from "@opencode-stats/engine/testing";
 import { inMemoryDashboardServer, syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import { Dashboard } from "./dashboard.tsx";
 import { startup } from "./startup.ts";
 import { prepaintThemes } from "./preload.ts";
+import { accessible } from "./testing/accessibility.ts";
 
 const native = window.localStorage;
 const listeners = vi.spyOn(window, "addEventListener");
@@ -54,11 +54,6 @@ const dashboard = () => {
       await server.dispose();
     },
   };
-};
-const accessible = async () => {
-  const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false } } });
-  expect(result.violations).toEqual([]);
-  expect(result.incomplete).toEqual([]);
 };
 it("changes exactly three preferences through the real provider without touching page data", async () => {
   const { server, engine, view, user, close } = dashboard();
