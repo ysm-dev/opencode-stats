@@ -27,6 +27,7 @@ it("commits newest build units before an interruption and resumes without reread
     expect(committed).toHaveLength(1);
     expect(committed[0]!.steps[0]!.output).toBe(2);
     expect(committed[0]!.historyCompleteFrom).toBe(1000);
+    expect(committed[0]!.historyComplete).toBe(false);
     writer.rewriteWithoutCounter("msg-new", "SYNTHETIC INVALID JSON: must not be reread");
     writer.message({
       id: "msg-old",
@@ -40,6 +41,7 @@ it("commits newest build units before an interruption and resumes without reread
     expect(resumed.revision).toBe(2);
     expect(resumed.steps.map((step) => step.output)).toEqual([2, 3]);
     expect(resumed.historyCompleteFrom).toBe(1000);
+    expect(resumed.historyComplete).toBe(true);
   } finally {
     fixture.dispose();
   }
@@ -73,7 +75,7 @@ it("keeps the next unread unit's boundary while known units and new subagents ar
       (copy) => boundaries.push(copy.historyCompleteFrom),
       nodeRuntime,
     );
-    expect(boundaries).toEqual([3000, 5000, 1000, 1000, 1000]);
+    expect(boundaries).toEqual([3000, 3000, 3000, 3000, 1000]);
   } finally {
     fixture.dispose();
   }
@@ -167,7 +169,7 @@ it("announces the pending history boundary even when vanished sessions are remov
     );
     expect(progress).toEqual([
       [1, 1000],
-      [0, 3000],
+      [0, 0],
       [1, 3000],
     ]);
   } finally {

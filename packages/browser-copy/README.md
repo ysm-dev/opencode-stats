@@ -9,7 +9,7 @@ The production entries use no DOM, Node or Bun types:
 - `@opencode-stats/browser-copy/testing`: **Node test code only**. Synthetic
   copies and arbitraries, property parameters, and an in-memory HttpApi server.
 
-## Format 6
+## Format 7
 
 One little-endian buffer has this 128-byte header, followed by Float64 columns.
 Steps carry start, nullable stream end and completion, error code, counted failed/interrupted flags,
@@ -42,7 +42,8 @@ code columns. Every decoded column shares the input buffer.
 | 108  | Project tombstone count    | Uint32                                   |
 | 112  | Prompt count               | Uint32                                   |
 | 116  | Tool-call count            | Uint32                                   |
-| 120  | Reserved                   | Eight zero bytes                         |
+| 120  | History complete           | Uint32: incomplete = 0, complete = 1     |
+| 124  | Reserved                   | Four zero bytes                          |
 
 Instants are safe-integer Unix milliseconds. Token amounts are nonnegative
 safe integers; NaN means unrecorded, not zero, including missing step timings and

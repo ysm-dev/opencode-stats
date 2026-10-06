@@ -20,9 +20,17 @@ import {
   presets,
   type TimeRange,
 } from "./ranges.ts";
-import { changeLabel, periodLabel, rangeLabel, clockLabel, dateLabel } from "./time-labels.ts";
+import {
+  changeLabel,
+  periodLabel,
+  rangeLabel,
+  clockLabel,
+  dateLabel,
+  summarySpan,
+} from "./time-labels.ts";
 import { localDate } from "./calendar.ts";
 import { parseFilters, filterAddress, toggleFilter, removeFilter, type Filter } from "./filters.ts";
+import { historyLine } from "./history.ts";
 
 const measuredChange = (value: number | null, before: number | null) =>
   value === null || before === null ? "" : changeLabel(value, before);
@@ -34,9 +42,11 @@ function stateFor(
 ): EngineState {
   if (range === undefined) return { screen: "problem", reason: "invalid-address" };
   const current = live.current();
-  if (!current) return { screen: "problem", reason: "copy-unavailable" };
+  if (!current || !live.ready()) return { screen: "problem", reason: "copy-unavailable" };
   const { now, timeZone, locale } = live.time();
   const history = live.history(now, timeZone);
+  const historyLabel = dateLabel(localDate(history, timeZone), locale, false);
+  const status = live.status();
   const period = resolveRange(range, now, timeZone, history);
   const amounts = live.query(period, timeZone, filters);
   const previous = previousPeriod(range, period, timeZone, history);
@@ -83,6 +93,9 @@ function stateFor(
     },
     period,
     timeZone,
+    historyStart: history,
+    historyComplete: current.historyComplete,
+    summary: `You ran ${amounts.metrics.steps.toLocaleString("en-US")} steps across ${amounts.sessions.total.toLocaleString("en-US")} sessions ${period.start < history ? `since ${historyLabel}` : summarySpan(range, period, locale)}.`,
     comparison,
     ...amounts,
     recordedFromLabel:
@@ -92,7 +105,13 @@ function stateFor(
     ...live.filterState(period, timeZone, filters),
     generation: current.generation,
     revision: current.revision,
-    ...live.status(),
+    ...status,
+    statusLine: historyLine(
+      current.historyComplete,
+      historyLabel,
+      status.statusLine,
+      status.paused,
+    ),
     filterAnnouncement: "",
   };
 }
@@ -144,6 +163,7 @@ export function connectEngine(
   };
   const paint = (kind: ChangeKind = "live", work = 0, elapsed = 0) => {
     if (!active || !live.visible()) return;
+    if (live.current() && !live.ready() && live.status().liveLabel !== "Not updating") return;
     const started = clock.workNow();
     const id = pending?.id ?? 0;
     const changeKind = pending?.action.kind ?? kind;

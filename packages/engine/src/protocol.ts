@@ -46,6 +46,9 @@ const State = Schema.Union([
       days: Schema.Number,
     }),
     timeZone: Schema.String,
+    historyStart: Schema.Number,
+    historyComplete: Schema.Boolean,
+    summary: Schema.String,
     comparison: Schema.Struct({
       tokens: Schema.String,
       sessions: Schema.String,

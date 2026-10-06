@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
-import * as Clock from "effect/Clock";
+import * as Stream from "effect/Stream";
 import * as Deferred from "effect/Deferred";
 import { randomBytes } from "node:crypto";
 import {
@@ -27,6 +27,7 @@ import { encodeStore } from "./copy.ts";
 import { stayInSync, type StoreCopy, type StoreRuntime } from "@opencode-stats/stats-store";
 import { SqlFailure } from "@opencode-stats/stats-store";
 import { createLiveFeed, type CopyCursor } from "@opencode-stats/browser-copy/api";
+import { buildLine } from "./build-line.ts";
 
 export const program = (
   // oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: process arguments pass immediately to the argument parser
@@ -72,6 +73,7 @@ export const program = (
     yield* Effect.gen(function* () {
       let copy: StoreCopy | undefined;
       let bytes: Uint8Array = new Uint8Array();
+      const initial = yield* Deferred.make<void>();
       const ready =
         yield* Deferred.make<(cursor: CopyCursor) => Effect.Effect<StoreCopy, SqlFailure>>();
       const feed = yield* Effect.acquireRelease(
@@ -99,13 +101,13 @@ export const program = (
       yield* startServer(
         undefined,
         {
-          whole: () => bytes,
+          whole: () => Deferred.await(initial).pipe(Effect.map(() => bytes)),
           changes: (cursor) =>
             Deferred.await(ready).pipe(
               Effect.flatMap((read) => read(cursor)),
               Effect.map(encodeStore),
             ),
-          live: feed.stream,
+          live: Stream.unwrap(Deferred.await(initial).pipe(Effect.map(() => feed.stream))),
         },
         control,
       );
@@ -121,8 +123,7 @@ export const program = (
             log.write({ event: "stop", ...lifetime });
           }),
       );
-      const started = yield* Clock.currentTimeMillis;
-      yield* Effect.sync(() => log.write({ event: "build.start", steps: 0, milliseconds: 0 }));
+      yield* Effect.sync(() => process.stdout.write("opencode-stats-ready\n"));
       const store = yield* stayInSync(
         {
           source: options.db,
@@ -133,14 +134,15 @@ export const program = (
           copy = value;
           bytes = encodeStore(value);
           feed.announce(value);
+          Deferred.doneUnsafe(initial, Effect.void);
+        },
+        ({ kind, ...event }) => {
+          log.write({ event: kind, ...event });
+          if (options.starter === "terminal")
+            process.stdout.write(buildLine({ kind, ...event }, version, new Date()));
         },
       );
       yield* Deferred.succeed(ready, store.read);
-      const elapsed = (yield* Clock.currentTimeMillis) - started;
-      yield* Effect.sync(() =>
-        log.write({ event: "build.end", steps: copy!.steps.length, milliseconds: elapsed }),
-      );
-      yield* Effect.sync(() => process.stdout.write("opencode-stats-ready\n"));
       yield* control.stopped;
       yield* Effect.sleep("100 millis");
     }).pipe(

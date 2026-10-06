@@ -12,6 +12,14 @@ import statements from "./statements.json" with { type: "json" };
 import { commitUnit } from "./write-facts.ts";
 import type { StepPricer } from "./pricing.ts";
 
+class RebuildNeeded extends Error {
+  readonly reason: "version" | "damaged";
+  constructor(reason: "version" | "damaged") {
+    super();
+    this.reason = reason;
+  }
+}
+
 function units(inventory: ReadonlyArray<SourceSession>) {
   const byId = new Map(inventory.map((row) => [row.id, row]));
   const grouped = new Map<string, SourceSession[]>();
@@ -22,11 +30,14 @@ function units(inventory: ReadonlyArray<SourceSession>) {
     else grouped.set(owner, [session]);
   }
   return [...grouped.values()]
-    .map((group) => ({ sessions: group, latest: Math.max(...group.map((row) => row.latest ?? 0)) }))
+    .map((group) => ({
+      sessions: group,
+      latest: Math.max(...group.flatMap((row) => (row.latest === null ? [] : [row.latest]))),
+    }))
     .toSorted((a, b) => b.latest - a.latest);
 }
 
-export const statsStoreVersion = 7;
+export const statsStoreVersion = 8;
 export const initializeStore = Effect.fnUntraced(function* (
   paths: StorePaths,
   adapter: DatabaseAdapter,
@@ -36,8 +47,26 @@ export const initializeStore = Effect.fnUntraced(function* (
     for (const statement of statements)
       yield* db.$client.unsafe(statement.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "));
     yield* db.$client.unsafe("PRAGMA synchronous=NORMAL");
-    const old = (yield* db.select().from(metadata))[0];
-    if (old && old.version !== statsStoreVersion) yield* Effect.fail(new Error());
+    const old = yield* Effect.gen(function* () {
+      const versions = yield* db.$client.unsafe<{ version: number }>(
+        "SELECT version FROM metadata",
+      );
+      if (versions[0] && versions[0].version !== statsStoreVersion)
+        yield* Effect.fail(new RebuildNeeded("version"));
+      return (yield* db.select().from(metadata))[0];
+    }).pipe(
+      Effect.catchCause((cause) => {
+        const error = Cause.squash(cause);
+        return Effect.fail(
+          sqlFailure(error, "readStore").code === "SQLITE_ERROR"
+            ? new RebuildNeeded("damaged")
+            : error,
+        );
+      }),
+    );
+    const integrity = yield* db.$client.unsafe<{ quick_check: string }>("PRAGMA quick_check");
+    if (integrity.some((row) => row.quick_check !== "ok"))
+      yield* Effect.fail(new RebuildNeeded("damaged"));
     if (!old)
       yield* db.insert(metadata).values({
         id: 1,
@@ -45,8 +74,10 @@ export const initializeStore = Effect.fnUntraced(function* (
         generation: randomUUID(),
         revision: 0,
         historyCompleteFrom: 0,
+        historyComplete: false,
         expiredRevision: 0,
       });
+    return !old ? ("first" as const) : !old.historyComplete ? ("resume" as const) : undefined;
   }).pipe(
     Effect.provide(
       adapter({
@@ -57,17 +88,26 @@ export const initializeStore = Effect.fnUntraced(function* (
       }),
     ),
   );
-  yield* initialize.pipe(
-    Effect.catchCause(() =>
-      Effect.gen(function* () {
+  return yield* initialize.pipe(
+    Effect.catchCause((cause) => {
+      const error = Cause.squash(cause);
+      const failure = sqlFailure(error, "writeSteps");
+      if (
+        !(error instanceof RebuildNeeded) &&
+        failure.code !== "SQLITE_CORRUPT" &&
+        failure.code !== "SQLITE_NOTADB"
+      )
+        return Effect.fail(failure);
+      return Effect.gen(function* () {
         yield* Effect.sync(() => {
           for (const suffix of ["", "-wal", "-shm"])
             rmSync(`${paths.store}${suffix}`, { force: true });
           closeSync(openSync(paths.store, "a", 0o600));
         });
         yield* initialize;
-      }),
-    ),
+        return error instanceof RebuildNeeded ? error.reason : ("damaged" as const);
+      });
+    }),
     Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "writeSteps"))),
   );
 });
@@ -81,6 +121,7 @@ export const reconcile = Effect.fnUntraced(
     announce: () => Effect.Effect<void, Error>,
     checkBounds: boolean,
     pricer: StepPricer,
+    sourceVersion: number,
   ) {
     const db = yield* Database;
     const saved = yield* db.select().from(sessions);
@@ -121,13 +162,13 @@ export const reconcile = Effect.fnUntraced(
     );
     const initialCommit =
       removed.length > 0 ||
-      (!ordered.length && (header.revision === 0 || projectsChanged || vanishedDetails));
+      (!ordered.length && (!header.historyComplete || projectsChanged || vanishedDetails));
     if (initialCommit) {
       yield* commitUnit(
         undefined,
         removed.map((row) => row.id),
         now,
-        ordered[0]?.latest ?? null,
+        ordered.find((unit) => Number.isFinite(unit.latest))?.latest ?? null,
         byId,
         projects,
         registry,
@@ -135,6 +176,8 @@ export const reconcile = Effect.fnUntraced(
         pricer,
       );
       yield* announce();
+      yield* Effect.yieldNow;
+      if ((yield* reader.version) !== sourceVersion) return true;
     }
     for (const [index, unit] of ordered.entries()) {
       const snapshots = yield* Effect.forEach(
@@ -143,8 +186,10 @@ export const reconcile = Effect.fnUntraced(
       );
       const next = ordered
         .slice(index + 1)
-        .find((remaining) =>
-          remaining.sessions.some((session) => !saved.some((row) => row.id === session.id)),
+        .find(
+          (remaining) =>
+            Number.isFinite(remaining.latest) &&
+            remaining.sessions.some((session) => !saved.some((row) => row.id === session.id)),
         );
       yield* commitUnit(
         snapshots,
@@ -158,7 +203,10 @@ export const reconcile = Effect.fnUntraced(
         pricer,
       );
       yield* announce();
+      yield* Effect.yieldNow;
+      if ((yield* reader.version) !== sourceVersion) return true;
     }
+    return (yield* reader.version) !== sourceVersion;
   },
   Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "writeSteps"))),
 );

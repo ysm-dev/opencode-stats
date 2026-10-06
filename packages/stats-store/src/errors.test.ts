@@ -7,6 +7,7 @@ it.each([
   "SQLITE_FULL",
   "SQLITE_READONLY",
   "SQLITE_CORRUPT",
+  "SQLITE_NOTADB",
   "SQLITE_CANTOPEN",
   "SQLITE_CONSTRAINT",
   "SQLITE_IOERR",
@@ -23,6 +24,18 @@ it.each([
   expect(JSON.stringify(failure)).not.toContain("PRIVATE_TITLE");
   expect(sqlFailure(failure, "writeSteps")).toBe(failure);
   expect(sqlFailure({ code: `ERR_${code}` }, "readStore").code).toBe(code);
+});
+
+it.each([
+  [11, "SQLITE_CORRUPT"],
+  [26, "SQLITE_NOTADB"],
+])("narrows Node SQLite damage code %i without the native error message", (errcode, code) => {
+  const failure = sqlFailure(
+    { code: "ERR_SQLITE_ERROR", errcode, message: "SYNTHETIC PRIVATE" },
+    "readStore",
+  );
+  expect(failure.code).toBe(code);
+  expect(JSON.stringify(failure)).not.toContain("SYNTHETIC PRIVATE");
 });
 
 it("retains only complete numeric coordinates from our boundary stack", () => {

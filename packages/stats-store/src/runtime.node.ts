@@ -27,5 +27,6 @@ export const nodeDatabase: DatabaseAdapter = (config) =>
 // Same sync program, run in this thread: tests exercise the public store seam without IPC.
 export const nodeRuntime: StoreRuntime = {
   database: nodeDatabase,
-  worker: (paths, announce = () => Effect.void) => sync(paths, nodeDatabase, nodeSource, announce),
+  worker: (paths, announce = () => Effect.void, report) =>
+    sync(paths, nodeDatabase, nodeSource, announce, report),
 };

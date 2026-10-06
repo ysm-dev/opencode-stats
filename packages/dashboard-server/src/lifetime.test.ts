@@ -50,6 +50,9 @@ it("publishes the bound winner, a loser writes nothing, and an authenticated sto
   );
   try {
     await listening;
+    await vi.waitFor(() =>
+      expect(readFileSync(join(folder, "server.log"), "utf8")).toContain("event=build.end"),
+    );
     const record = readRecord(folder)!;
     expect(record).toMatchObject({
       address: `http://127.0.0.1:${port}`,
@@ -69,8 +72,8 @@ it("publishes the bound winner, a loser writes nothing, and an authenticated sto
     expect(before).toContain(
       `event=database database=${JSON.stringify(fixture.source)} source="flag"`,
     );
-    expect(before).toContain("event=build.start steps=0 milliseconds=0");
-    expect(before).toContain("event=build.end steps=0 milliseconds=");
+    expect(before).toContain('event=build.start reason="first" sessions=0 steps=0 milliseconds=0');
+    expect(before).toContain('event=build.end reason="first" sessions=0 steps=0 milliseconds=');
     expect(readdirSync(folder).filter((file) => file.endsWith(".db"))).toHaveLength(1);
     await Effect.runPromise(
       program(
@@ -82,7 +85,7 @@ it("publishes the bound winner, a loser writes nothing, and an authenticated sto
       ),
     );
     expect(readFileSync(join(folder, "server.log"), "utf8")).toBe(before);
-    expect(output).toHaveBeenCalledOnce();
+    expect(output).toHaveBeenCalledTimes(3);
     await expect(discover(folder, "/synthetic/different.db", "0.2.0-dev")).rejects.toThrow(
       "opencode-stats serves one OpenCode database at a time.",
     );

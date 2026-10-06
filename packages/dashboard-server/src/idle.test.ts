@@ -40,9 +40,9 @@ it.each(["plugin", "terminal"] as const)(
     const sleeping = Deferred.makeUnsafe<void>();
     const runtime = {
       ...nodeRuntime,
-      worker: (paths: Parameters<typeof nodeRuntime.worker>[0]) =>
+      worker: (...args: Parameters<typeof nodeRuntime.worker>) =>
         Effect.promise(() => work).pipe(
-          Effect.andThen(nodeRuntime.worker(paths)),
+          Effect.andThen(nodeRuntime.worker(...args)),
           Effect.andThen(Deferred.succeed(sleeping, undefined)),
           Effect.andThen(Effect.sleep("37 millis")),
         ),
@@ -87,8 +87,12 @@ it.each(["plugin", "terminal"] as const)(
             };
             yield* Effect.sync(() => {
               const text = readFileSync(join(folder, "server.log"), "utf8");
-              expect(text).toContain("event=build.start steps=0 milliseconds=0");
-              expect(text).toContain("event=build.end steps=1 milliseconds=37");
+              expect(text).toContain(
+                'event=build.start reason="first" sessions=0 steps=0 milliseconds=0',
+              );
+              expect(text).toContain(
+                'event=build.end reason="first" sessions=1 steps=1 milliseconds=0',
+              );
               expect(vi.getTimerCount()).toBe(1);
             });
             const readers = yield* Effect.promise(async () => {

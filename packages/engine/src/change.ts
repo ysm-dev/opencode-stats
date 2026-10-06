@@ -14,6 +14,7 @@ export const ChangeKind = Schema.Literals([
   "pause",
   "resume",
   "live",
+  "build",
   "visible",
   "minute",
   "day",

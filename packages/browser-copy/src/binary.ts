@@ -16,17 +16,18 @@ import {
 import { checkedLength, decodeStrings, encodeStrings } from "./strings.ts";
 import { validateFactNames } from "./name-references.ts";
 
-export const formatVersion = 6;
+export const formatVersion = 7;
 const headerLength = 128;
 const columns = stepFields;
 const magic = 0x5354434f;
 
-// Format 6: little endian, 128-byte header, then Float64 fact columns and strings.
+// Format 7: little endian, 128-byte header, then Float64 fact columns and strings.
 // Header: magic/u32, version/u32, generation/36 ASCII bytes, kind/u32,
 // fromRevision/f64, revision/f64, historyCompleteFrom/f64, rows/u32, bytes/u32.
 // Then strings bytes/u32, tombstone count/u32, name count/u32, reserved/u32.
 // At 96: session, project, session-tombstone and project-tombstone counts/u32.
-// At 112: prompt count/u32, tool count/u32, then two reserved/u32. Step columns precede prompt and tool columns,
+// At 112: prompt count/u32, tool count/u32, history-complete flag/u32, reserved/u32.
+// Step columns precede prompt and tool columns,
 // session columns, project codes and the two tombstone columns.
 // Length-prefixed UTF-16LE strings carry row IDs, tombstones and dimension names.
 // Each column has exactly `rows` entries. NaN means an unrecorded token kind.
@@ -100,6 +101,7 @@ export function decode(input: unknown): BrowserCopy {
     fromRevision,
     revision,
     historyCompleteFrom,
+    historyComplete: header.getUint32(120, true) === 1,
     steps,
     prompts,
     tools,
@@ -121,7 +123,7 @@ function readKind(header: DataView): number {
   if (
     kind > 1 ||
     header.getUint32(92) !== 0 ||
-    header.getUint32(120) !== 0 ||
+    header.getUint32(120, true) > 1 ||
     header.getUint32(124) !== 0
   )
     throw new Error("Invalid reserved header");
@@ -261,6 +263,7 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
   header.setUint32(108, copy.projectTombstones.length, true);
   header.setUint32(112, promptCount, true);
   header.setUint32(116, toolCount, true);
+  header.setUint32(120, Number(copy.historyComplete), true);
   let offset = headerLength;
   for (const column of values) {
     for (const value of column) {

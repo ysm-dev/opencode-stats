@@ -45,6 +45,9 @@ body {
 .live-status[data-updating="false"] .live-dot {
   background: var(--dashboard-muted-deep);
 }
+.update-status {
+  color: var(--dashboard-muted-base);
+}
 .update-status[data-warning="true"] {
   color: var(--dashboard-warning-base);
 }

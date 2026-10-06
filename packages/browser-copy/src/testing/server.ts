@@ -38,6 +38,7 @@ function difference(before: BrowserCopy, after: BrowserCopy): BrowserCopy {
       fromRevision: before.revision,
       revision: after.revision,
       historyCompleteFrom: after.historyCompleteFrom,
+      historyComplete: after.historyComplete,
       ids: indices.map((index) => after.ids[index]!),
       tombstones: [
         ...before.ids.filter((id) => !current.has(id)),

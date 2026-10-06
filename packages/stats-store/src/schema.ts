@@ -71,6 +71,7 @@ export const metadata = sqliteTable("metadata", {
   generation: text().notNull(),
   revision: integer().notNull(),
   historyCompleteFrom: integer("history_complete_from").notNull(),
+  historyComplete: integer("history_complete", { mode: "boolean" }).notNull(),
   expiredRevision: integer("expired_revision").notNull(),
 });
 

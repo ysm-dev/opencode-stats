@@ -1,6 +1,6 @@
 [
   "CREATE TABLE `dimension_name` (\n\t`code` integer PRIMARY KEY AUTOINCREMENT,\n\t`dimension` text NOT NULL,\n\t`id` text NOT NULL,\n\t`name` text NOT NULL,\n\t`revision` integer NOT NULL\n);\n",
-  "CREATE TABLE `metadata` (\n\t`id` integer PRIMARY KEY,\n\t`version` integer NOT NULL,\n\t`generation` text NOT NULL,\n\t`revision` integer NOT NULL,\n\t`history_complete_from` integer NOT NULL,\n\t`expired_revision` integer NOT NULL\n);\n",
+  "CREATE TABLE `metadata` (\n\t`id` integer PRIMARY KEY,\n\t`version` integer NOT NULL,\n\t`generation` text NOT NULL,\n\t`revision` integer NOT NULL,\n\t`history_complete_from` integer NOT NULL,\n\t`history_complete` integer NOT NULL,\n\t`expired_revision` integer NOT NULL\n);\n",
   "CREATE TABLE `model_price` (\n\t`id` text PRIMARY KEY,\n\t`name` text NOT NULL,\n\t`price` text\n);\n",
   "CREATE TABLE `pricing_catalog` (\n\t`id` integer PRIMARY KEY,\n\t`source` text NOT NULL,\n\t`stamp` integer,\n\t`updated_at` integer NOT NULL,\n\t`digest` text\n);\n",
   "CREATE TABLE `project_fact` (\n\t`id` text PRIMARY KEY,\n\t`name` text,\n\t`worktree` text NOT NULL,\n\t`revision` integer NOT NULL\n);\n",

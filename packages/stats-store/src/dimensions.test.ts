@@ -279,10 +279,10 @@ it("keeps earlier deletions excluded when several build units disappear in one p
         });
         expect(
           copies.map((copy) => copy.steps.find((step) => step.id === "child-step")?.session),
-        ).toEqual(["child", "child"]);
+        ).toEqual(["child"]);
         expect(
           copies.map((copy) => copy.sessions.some((session) => session.code === "root")),
-        ).toEqual([false, false]);
+        ).toEqual([false]);
         expect(canonicalCopy(yield* store.read()).sessions.map((session) => session.code)).toEqual([
           "child",
           "newest",

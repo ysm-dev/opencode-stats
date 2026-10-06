@@ -15,6 +15,7 @@ export function encodeStore(copy: StoreCopy): Uint8Array {
       fromRevision: copy.fromRevision,
       revision: copy.revision,
       historyCompleteFrom: copy.historyCompleteFrom,
+      historyComplete: copy.historyComplete,
       ids: copy.facts.map((fact) => fact.id),
       promptIds: copy.prompts.map((fact) => fact.id),
       toolIds: copy.tools.map((fact) => fact.id),

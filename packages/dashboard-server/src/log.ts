@@ -29,6 +29,8 @@ export type LogEvent =
       readonly event: "build.start" | "build.end";
       readonly steps: number;
       readonly milliseconds: number;
+      readonly sessions: number;
+      readonly reason: "first" | "version" | "damaged" | "resume";
     }
   | {
       readonly event: "crash";

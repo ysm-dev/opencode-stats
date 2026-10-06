@@ -27,6 +27,7 @@ import { localDate, midnight } from "./calendar.ts";
 import type { Period } from "./ranges.ts";
 import { stepMetrics, type PromptFact } from "./step-metrics.ts";
 import { toolMetrics, type ToolFact } from "./tool-metrics.ts";
+import { startOfHistory, activeFacts } from "./history.ts";
 
 const row = (copy: BrowserCopy, index: number): Fact =>
   mapStepFields((field) => copy.steps[field][index]!);
@@ -121,6 +122,7 @@ export function createFacts(clock: EngineClock) {
         tokens: ReturnType<typeof totals>;
         sessions: { total: number; subagents: number };
         historyCompleteFrom: number;
+        historyComplete: boolean;
       })
     | undefined;
   const apply = async (
@@ -186,6 +188,7 @@ export function createFacts(clock: EngineClock) {
         generation: copy.generation,
         revision: copy.revision,
         historyCompleteFrom: copy.historyCompleteFrom,
+        historyComplete: copy.historyComplete,
         tokens: totals(snapshot.amounts),
         sessions: { total: sessions.roots.size, subagents: sessions.subagents.size },
       };
@@ -199,7 +202,13 @@ export function createFacts(clock: EngineClock) {
       (start, prompt) => Math.min(start, prompt.start),
       placements.first,
     );
-    return first === Infinity ? midnight(localDate(now, timeZone), timeZone) : first;
+    return startOfHistory(
+      current!.historyComplete,
+      current!.historyCompleteFrom,
+      first,
+      now,
+      timeZone,
+    );
   };
   const names = () =>
     [...HashMap.values(snapshot.names)].filter((name) =>
@@ -209,6 +218,8 @@ export function createFacts(clock: EngineClock) {
     );
   const query = (period: Period, timeZone: string, filters: readonly Filter[]) => {
     indexZone(timeZone);
+    const start = history(clock.now(), timeZone);
+    period = { ...period, start: Math.max(period.start, start) };
     const compiled = compileFilters(filters, names());
     const key = JSON.stringify(filters);
     let placed = filteredPlacements.get(key);
@@ -226,8 +237,8 @@ export function createFacts(clock: EngineClock) {
       sessions: { total: count(placed.roots), subagents: count(placed.subagents) },
       tools: toolMetrics(matchingFacts(HashMap.values(snapshot.tools), compiled), names(), period),
       metrics: stepMetrics(
-        matchingFacts(HashMap.values(snapshot.facts), compiled),
-        matchingFacts(HashMap.values(snapshot.prompts), compiled),
+        matchingFacts(activeFacts(HashMap.values(snapshot.facts), start), compiled),
+        matchingFacts(activeFacts(HashMap.values(snapshot.prompts), start), compiled),
         names(),
         period,
       ),
@@ -235,6 +246,7 @@ export function createFacts(clock: EngineClock) {
   };
   const filterState = (period: Period, timeZone: string, filters: readonly Filter[]) => {
     indexZone(timeZone);
+    period = { ...period, start: Math.max(period.start, history(clock.now(), timeZone)) };
     const available = names();
     const compiled = compileFilters(filters, available);
     return {
@@ -270,6 +282,10 @@ export function createFacts(clock: EngineClock) {
     apply,
     current: () => current,
     history,
+    coversToday: () =>
+      current!.historyComplete ||
+      history(clock.now(), clock.timeZone()) <=
+        midnight(localDate(clock.now(), clock.timeZone()), clock.timeZone()),
     query,
     filterState,
     filterLabel: (filter: Filter) => filterName(filter, names()),

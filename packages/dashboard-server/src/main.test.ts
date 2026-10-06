@@ -65,12 +65,10 @@ describe("dashboard server program", () => {
       ),
     );
     try {
-      await vi.waitFor(() =>
-        expect(output).toHaveBeenCalledExactlyOnceWith("opencode-stats-ready\n"),
-      );
+      await vi.waitFor(() => expect(output).toHaveBeenCalledWith("opencode-stats-ready\n"));
       const response = await readWhenReady(`http://127.0.0.1:${port}${asset}`);
       expect(response.status).toBe(200);
-      expect(output).toHaveBeenCalledExactlyOnceWith("opencode-stats-ready\n");
+      expect(output).toHaveBeenCalledWith("opencode-stats-ready\n");
       expect(await response.text()).toBe("synthetic-preview");
       const again = await fetch(`http://127.0.0.1:${port}${asset}`);
       expect(again.status).toBe(200);

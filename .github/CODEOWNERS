@@ -86,6 +86,7 @@
 /packages/e2e/tests/whole-paint-canaries.test.ts @ysm-dev
 /packages/e2e/tests/testing/whole-paint.ts @ysm-dev
 /packages/e2e/tests/testing/change-tour.ts @ysm-dev
+/packages/e2e/tests/testing/build-paint.ts @ysm-dev
 /packages/e2e/tests/testing/change-clock.ts @ysm-dev
 /packages/e2e/tests/testing/whole-tour-tests.ts @ysm-dev
 /packages/dashboard/src/change-time.test.ts @ysm-dev

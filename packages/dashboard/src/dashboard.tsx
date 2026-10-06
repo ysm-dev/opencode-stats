@@ -109,6 +109,7 @@ const Overview = () => {
         <FilterChips />
         <UpdateStatus />
       </header>
+      <p data-state={stateMark(state())}>{state().summary}</p>
       <section
         aria-labelledby="tokens"
         data-state={stateMark(state())}
@@ -147,7 +148,7 @@ const LiveStatus = () => {
       data-state={stateMark(state())}
       data-generation={state().generation}
       data-revision={state().revision}
-      data-updating={!state().paused && !state().statusLine}
+      data-updating={!state().paused && state().liveLabel !== "Not updating"}
       aria-label={
         state().paused
           ? "Paused · Resume live updates"
@@ -172,7 +173,11 @@ const UpdateStatus = () => {
   return (
     <>
       <Show when={state().statusLine}>
-        <p class="update-status" data-state={stateMark(state())} data-warning={!state().paused}>
+        <p
+          class="update-status"
+          data-state={stateMark(state())}
+          data-warning={state().liveLabel === "Not updating"}
+        >
           {state().statusLine}
           <Show when={state().paused}>
             {" · "}

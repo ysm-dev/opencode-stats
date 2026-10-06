@@ -63,7 +63,7 @@ it("retains writes racing a build and tolerates a pending session vanishing befo
           }
         });
         const built = yield* store.read();
-        expect(built.steps.map((step) => step.output)).toEqual([1]);
+        expect(built.steps.map((step) => step.output)).toEqual([5]);
         yield* time.tick;
         expect((yield* store.read()).steps.map((step) => step.output)).toEqual([5]);
         const current = yield* store.read();

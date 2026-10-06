@@ -19,6 +19,7 @@ export function syntheticCopy(
     fromRevision: 0,
     revision: 1,
     historyCompleteFrom: 0,
+    historyComplete: true,
     ids: steps.map((_, index) => `step-${index}`),
     tombstones: [],
     names: syntheticNames(steps),

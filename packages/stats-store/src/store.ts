@@ -22,6 +22,7 @@ import type {
 } from "@opencode-stats/browser-copy";
 import * as Cause from "effect/Cause";
 import { sqlFailure } from "./errors.ts";
+import { statsStoreVersion } from "./build.ts";
 
 export type StoreCopy = {
   readonly kind: "whole" | "changes";
@@ -29,6 +30,7 @@ export type StoreCopy = {
   readonly generation: string;
   readonly revision: number;
   readonly historyCompleteFrom: number;
+  readonly historyComplete: boolean;
   readonly steps: ReadonlyArray<Step & StepDimensions>;
   readonly prompts: ReadonlyArray<Prompt & { readonly id: string }>;
   readonly tools: ReadonlyArray<ToolCall & { readonly id: string }>;
@@ -57,11 +59,13 @@ export type StoreCursor = { readonly generation: string; readonly revision: numb
 export type { StoreRuntime } from "./database.ts";
 export { statsStoreVersion } from "./build.ts";
 export { sqlFailure, SqlFailure } from "./errors.ts";
+export type { BuildEvent } from "./build-events.ts";
 
 export const stayInSync = Effect.fnUntraced(function* (
   options: StoreOptions,
   runtime: StoreRuntime,
   announce: (copy: StoreCopy) => void,
+  report: (event: import("./build-events.ts").BuildEvent) => void = () => {},
 ) {
   const readonly = true;
   const paths = yield* Effect.try({
@@ -75,6 +79,8 @@ export const stayInSync = Effect.fnUntraced(function* (
         Effect.gen(function* () {
           const headers = yield* db.select().from(metadata);
           const header = headers[0]!;
+          if (header.version !== statsStoreVersion)
+            return yield* Effect.fail(sqlFailure(undefined, "readStore"));
           const changes =
             since &&
             since.generation === header.generation &&
@@ -129,6 +135,7 @@ export const stayInSync = Effect.fnUntraced(function* (
             generation: header.generation,
             revision: header.revision,
             historyCompleteFrom: header.historyCompleteFrom,
+            historyComplete: header.historyComplete,
             steps: countedSteps(facts),
             facts,
             tools: calls,
@@ -179,7 +186,11 @@ export const stayInSync = Effect.fnUntraced(function* (
     Effect.map(notify),
     Effect.catch(() => Effect.void),
   );
-  yield* runtime.worker(paths, () => read().pipe(Effect.map(notify)));
+  yield* runtime.worker(
+    paths,
+    () => read().pipe(Effect.map(notify)),
+    (event) => Effect.sync(() => report(event)),
+  );
   yield* read().pipe(Effect.map(notify));
   return { read };
 });

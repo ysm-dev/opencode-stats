@@ -28,11 +28,12 @@ export const readBuilt = (
   options: StoreOptions,
   announce: (copy: StoreCopy) => void = () => {},
   runtime: StoreRuntime = inThreadRuntime,
+  report: Parameters<typeof stayInSync>[3] = () => {},
 ) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
-        const store = yield* stayInSync(options, runtime, announce);
+        const store = yield* stayInSync(options, runtime, announce, report);
         return yield* store.read();
       }),
     ),

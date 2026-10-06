@@ -1,4 +1,4 @@
-import { formatVersion } from "@opencode-stats/browser-copy";
+import { formatVersion, type BrowserCopy } from "@opencode-stats/browser-copy";
 import type { CopyCursor, LiveAnnouncement } from "@opencode-stats/browser-copy/api";
 import type { EngineClock } from "./clock.ts";
 import type { EngineSignal } from "./protocol.ts";
@@ -28,7 +28,9 @@ export function createLiveEngine(
 ) {
   let readyWork = 0;
   let readyStarted: number | undefined;
-  const facts = createFacts(clock);
+  let facts = createFacts(clock);
+  let incoming: ReturnType<typeof createFacts> | undefined;
+  let ready = false;
   const status = createLiveStatus(clock);
   let session: Session | undefined;
   let visible = true;
@@ -55,7 +57,8 @@ export function createLiveEngine(
     const started = clock.workNow();
     if (!paused) updateTime(true);
     presented = JSON.stringify(status.read());
-    const background = kind === "live" || kind === "resume" || kind === "visible";
+    const background =
+      kind === "live" || kind === "build" || kind === "resume" || kind === "visible";
     const work = (background ? readyWork : 0) + priorWork + clock.workNow() - started;
     const elapsed =
       clock.workNow() - (background ? (readyStarted ?? started) : started) + priorWork;
@@ -87,15 +90,26 @@ export function createLiveEngine(
       workStarted ??= started;
     };
     const signal = current.controller.signal;
-    const copy = await loadCopy(network, clock, addWork, cursor, signal);
-    if (!(await facts.apply(copy, signal, addWork)) && !signal.aborted) {
-      await facts.apply(
-        await loadCopy(network, clock, addWork, undefined, signal),
-        signal,
-        addWork,
-      );
-    }
+    const install = (copy: BrowserCopy) => {
+      if (
+        copy.kind === "whole" &&
+        facts.current() &&
+        copy.generation !== facts.current()!.generation
+      )
+        incoming = createFacts(clock);
+      return (incoming ?? facts).apply(copy, signal, addWork);
+    };
+    if (
+      !(await install(await loadCopy(network, clock, addWork, cursor, signal))) &&
+      !signal.aborted
+    )
+      await install(await loadCopy(network, clock, addWork, undefined, signal));
     if (!signal.aborted) {
+      if (incoming?.coversToday()) {
+        facts = incoming;
+        incoming = undefined;
+      }
+      ready ||= facts.coversToday();
       readyWork += ownWork;
       readyStarted ??= workStarted;
     }
@@ -104,7 +118,7 @@ export function createLiveEngine(
     while (current.target) {
       const wanted = current.target;
       current.target = undefined;
-      const before = facts.current();
+      const before = (incoming ?? facts).current();
       const newer =
         !before || wanted.generation !== before.generation || wanted.revision > before.revision;
       if (!newer && !current.opening) continue;
@@ -113,7 +127,12 @@ export function createLiveEngine(
       current.opening = false;
       if (newer && before) status.wrote();
       status.connected();
-      changed(current.kind);
+      if (!incoming && ready)
+        changed(
+          current.kind === "live" && (!before?.historyComplete || !facts.current()!.historyComplete)
+            ? "build"
+            : current.kind,
+        );
       current.kind = "live";
     }
   };
@@ -240,11 +259,12 @@ export function createLiveEngine(
     else suspend();
   };
   return {
-    current: facts.current,
-    query: facts.query,
-    filterState: facts.filterState,
-    filterLabel: facts.filterLabel,
-    history: facts.history,
+    current: () => facts.current(),
+    ready: () => ready,
+    query: (...args: Parameters<typeof facts.query>) => facts.query(...args),
+    filterState: (...args: Parameters<typeof facts.filterState>) => facts.filterState(...args),
+    filterLabel: (...args: Parameters<typeof facts.filterLabel>) => facts.filterLabel(...args),
+    history: (...args: Parameters<typeof facts.history>) => facts.history(...args),
     time: () => time,
     refreshTime: () => {
       if (enabled()) updateTime(true);

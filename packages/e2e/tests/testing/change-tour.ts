@@ -4,6 +4,7 @@ import { expect, vi } from "vitest";
 import type { preferencesServer } from "./preferences-server.ts";
 import { wholeChange, watchChangeRequests } from "./whole-paint.ts";
 import { tourTime, tourVisibility } from "./change-clock.ts";
+import { buildCommitPaints } from "./build-paint.ts";
 
 // Every ticket introducing a kind adds it here. This same tour is reusable by
 // CI and the reference runner; all content/writes here are explicitly synthetic.
@@ -23,6 +24,7 @@ export const currentChangeKinds = [
   "pause",
   "resume",
   "live",
+  "build",
   "visible",
   "minute",
   "day",
@@ -201,6 +203,8 @@ export async function changeTour(page: Page, server: Server, guard: Guard, touch
     );
   }
   for (let repeat = 0; repeat < 2; repeat++) {
+    guard.live(true);
+    await buildCommitPaints(page, write, now);
     guard.live(false);
     await rangesAndFilters(input);
     await appearance(input, repeat);

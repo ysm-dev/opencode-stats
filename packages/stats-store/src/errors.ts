@@ -7,6 +7,7 @@ const codes = [
   "SQLITE_FULL",
   "SQLITE_READONLY",
   "SQLITE_CORRUPT",
+  "SQLITE_NOTADB",
   "SQLITE_CANTOPEN",
   "SQLITE_CONSTRAINT",
   "SQLITE_IOERR",
@@ -40,6 +41,11 @@ export function sqlFailure(
     return new SqlFailure("UNEXPECTED", statement);
   seen.add(input);
   if (Cause.isCause(input)) return sqlFailure(Cause.squash(input), statement, seen);
+  // node:sqlite uses ERR_SQLITE_ERROR for both; the numeric code distinguishes damage.
+  if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 11)
+    return new SqlFailure("SQLITE_CORRUPT", statement);
+  if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 26)
+    return new SqlFailure("SQLITE_NOTADB", statement);
   for (const code of codes)
     if (
       Object.getOwnPropertyDescriptor(input, "code")?.value === code ||

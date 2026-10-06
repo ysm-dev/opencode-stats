@@ -149,7 +149,11 @@ export const commitUnit = Effect.fnUntraced(function* (
       );
       yield* db
         .update(metadata)
-        .set({ revision, historyCompleteFrom: unreadLatest ?? earliest })
+        .set({
+          revision,
+          historyCompleteFrom: header.historyComplete ? earliest : (unreadLatest ?? earliest),
+          historyComplete: header.historyComplete || unreadLatest === null,
+        })
         .where(eq(metadata.id, 1));
     }),
   );

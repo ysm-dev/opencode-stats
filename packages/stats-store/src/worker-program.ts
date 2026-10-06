@@ -6,6 +6,7 @@ import type { SourceAdapter } from "./source-reader.ts";
 import type { DatabaseAdapter, StorePaths } from "./database.ts";
 import * as Cause from "effect/Cause";
 import { SqlFailure } from "./errors.ts";
+import type { BuildEvent } from "./build-events.ts";
 
 type WorkerFailure = {
   readonly kind: "sqlite";
@@ -13,7 +14,7 @@ type WorkerFailure = {
   readonly statement: "readSource" | "writeSteps" | "readStore";
 };
 export type WorkerPort = {
-  postMessage(value: boolean | "stop" | "stopped" | StorePaths | WorkerFailure): void;
+  postMessage(value: boolean | "stop" | "stopped" | StorePaths | WorkerFailure | BuildEvent): void;
   addEventListener(type: "message", listener: (event: MessageEvent) => void): void;
   removeEventListener(type: "message", listener: (event: MessageEvent) => void): void;
 };
@@ -46,8 +47,12 @@ export const workerProgram = Effect.fnUntraced(function* (
   );
   const run = Effect.scoped(
     Effect.gen(function* () {
-      yield* sync(yield* Deferred.await(paths), adapter, source, () =>
-        Effect.sync(() => port.postMessage(true)),
+      yield* sync(
+        yield* Deferred.await(paths),
+        adapter,
+        source,
+        () => Effect.sync(() => port.postMessage(true)),
+        (event) => Effect.sync(() => port.postMessage(event)),
       );
       port.postMessage(true);
       yield* Effect.never;

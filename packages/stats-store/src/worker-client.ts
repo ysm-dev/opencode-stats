@@ -6,6 +6,7 @@ import * as Clock from "effect/Clock";
 import type { SyncWorker } from "./database.ts";
 import type { WorkerPort } from "./worker-program.ts";
 import { sqlFailure } from "./errors.ts";
+import { BuildEvent } from "./build-events.ts";
 
 export type WorkerHandle = WorkerPort & {
   terminate(): void | Promise<void>;
@@ -16,6 +17,7 @@ const response = Schema.decodeUnknownSync(
   Schema.Union([
     Schema.Boolean,
     Schema.Literal("stopped"),
+    BuildEvent,
     Schema.Struct({
       kind: Schema.Literal("sqlite"),
       code: Schema.String,
@@ -25,11 +27,11 @@ const response = Schema.decodeUnknownSync(
 );
 
 export const workerClient = (create: (clock: Clock.Clock) => WorkerHandle): SyncWorker =>
-  Effect.fnUntraced(function* (paths, announce = () => Effect.void) {
+  Effect.fnUntraced(function* (paths, announce = () => Effect.void, report = () => Effect.void) {
     const clock = yield* Clock.Clock;
     const ready = yield* Deferred.make<void, Error>();
     const stopped = yield* Deferred.make<void>();
-    const messages = yield* Queue.unbounded<Effect.Effect<void, Error>>();
+    const messages = yield* Queue.unbounded<{ run: Effect.Effect<void, Error>; ready: boolean }>();
     let cleanup = Effect.void;
     let initialized = false;
     let lateError: Error | undefined;
@@ -52,7 +54,10 @@ export const workerClient = (create: (clock: Clock.Clock) => WorkerHandle): Sync
     );
     const fail = () => {
       Deferred.doneUnsafe(stopped, Effect.void);
-      Queue.offerUnsafe(messages, Effect.fail(new Error("Stats store build failed.")));
+      Queue.offerUnsafe(messages, {
+        run: Effect.fail(new Error("Stats store build failed.")),
+        ready: false,
+      });
     };
     const receive = (event: MessageEvent) => {
       try {
@@ -62,21 +67,28 @@ export const workerClient = (create: (clock: Clock.Clock) => WorkerHandle): Sync
           return;
         }
         if (typeof message === "object") {
+          if (message.kind !== "sqlite") {
+            Queue.offerUnsafe(messages, { run: report(message), ready: false });
+            return;
+          }
           Deferred.doneUnsafe(stopped, Effect.void);
-          Queue.offerUnsafe(
-            messages,
-            Effect.fail(sqlFailure({ code: message.code }, message.statement)),
-          );
-        } else if (message) Queue.offerUnsafe(messages, announce());
+          Queue.offerUnsafe(messages, {
+            run: Effect.fail(sqlFailure({ code: message.code }, message.statement)),
+            ready: false,
+          });
+        } else if (message) Queue.offerUnsafe(messages, { run: announce(), ready: true });
         else {
           Deferred.doneUnsafe(stopped, Effect.void);
-          Queue.offerUnsafe(messages, Effect.fail(new Error("Stats store build failed.")));
+          Queue.offerUnsafe(messages, {
+            run: Effect.fail(new Error("Stats store build failed.")),
+            ready: false,
+          });
         }
       } catch {
         Deferred.doneUnsafe(stopped, Effect.void);
         const error = new Error("Invalid sync worker response.");
         if (initialized) lateError = error;
-        else Queue.offerUnsafe(messages, Effect.fail(error));
+        else Queue.offerUnsafe(messages, { run: Effect.fail(error), ready: false });
       }
     };
     worker.addEventListener("message", receive);
@@ -89,9 +101,9 @@ export const workerClient = (create: (clock: Clock.Clock) => WorkerHandle): Sync
       Effect.forever(
         Effect.gen(function* () {
           const result = yield* Queue.take(messages);
-          yield* result.pipe(
+          yield* result.run.pipe(
             Effect.matchEffect({
-              onSuccess: () => Deferred.succeed(ready, undefined),
+              onSuccess: () => (result.ready ? Deferred.succeed(ready, undefined) : Effect.void),
               onFailure: (error) => Deferred.fail(ready, error),
             }),
           );

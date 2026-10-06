@@ -157,6 +157,7 @@ export type BrowserCopy = {
   readonly fromRevision: number;
   readonly revision: number;
   readonly historyCompleteFrom: number;
+  readonly historyComplete: boolean;
   readonly steps: StepColumns;
   readonly prompts: PromptColumns;
   readonly promptIds: readonly string[];

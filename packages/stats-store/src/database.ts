@@ -5,6 +5,7 @@ import type * as Scope from "effect/Scope";
 import type { SqlClient } from "effect/sql/SqlClient";
 import type { EffectSQLiteNodeDatabase } from "drizzle-orm/effect-sqlite-node";
 import type { EffectSQLiteBunDatabase } from "drizzle-orm/effect-sqlite-bun";
+import type { BuildReport } from "./build-events.ts";
 
 export class Database extends Context.Service<
   Database,
@@ -22,5 +23,6 @@ export type StorePaths = { readonly source: string; readonly store: string };
 export type SyncWorker = (
   paths: StorePaths,
   announce?: () => Effect.Effect<void, Error>,
+  report?: BuildReport,
 ) => Effect.Effect<void, Error, Scope.Scope>;
 export type StoreRuntime = { readonly database: DatabaseAdapter; readonly worker: SyncWorker };
