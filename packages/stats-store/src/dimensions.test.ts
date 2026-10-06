@@ -261,6 +261,50 @@ it("removes the details of a session that disappears between build units even wh
   }
 });
 
+it("keeps earlier deletions excluded when several build units disappear in one pass", async () => {
+  const fixture = syntheticFixture();
+  const { writer, source, folder } = fixture;
+  writer.session("newest");
+  writer.session("root");
+  writer.session("child", "root");
+  writer.session("other");
+  for (const [session, start] of [
+    ["newest", 3],
+    ["child", 2],
+    ["other", 1],
+  ] as const)
+    writer.message({ id: `${session}-step`, session, seq: 0, start });
+  const copies: ReturnType<typeof canonicalCopy>[] = [];
+  try {
+    await runWithClock(() =>
+      Effect.gen(function* () {
+        const store = yield* observedStore(
+          { source, cacheHome: folder },
+          inThreadRuntime,
+          (copy) => {
+            if (copy.revision === 1) {
+              writer.deleteSession("root");
+              writer.deleteSession("other");
+            } else copies.push(canonicalCopy(copy));
+          },
+        );
+        expect(
+          copies.map((copy) => copy.steps.find((step) => step.id === "child-step")?.session),
+        ).toEqual(["child", "child"]);
+        expect(
+          copies.map((copy) => copy.sessions.some((session) => session.code === "root")),
+        ).toEqual([false, false]);
+        expect(canonicalCopy(yield* store.read()).sessions.map((session) => session.code)).toEqual([
+          "child",
+          "newest",
+        ]);
+      }),
+    );
+  } finally {
+    fixture.dispose();
+  }
+});
+
 it("removes unread session details when an interrupted build resumes after that session was deleted", async () => {
   const fixture = syntheticFixture();
   const { writer, source, folder } = fixture;
