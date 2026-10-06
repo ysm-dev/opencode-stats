@@ -14,17 +14,19 @@ export const remainingBudget = (started: number, now = performance.now()): numbe
 export const runTimed = async (
   command: readonly string[],
   milliseconds = TIME_BUDGET_MS,
-  options: { capture?: boolean; env?: NodeJS.ProcessEnv } = {},
+  options: { capture?: boolean; env?: NodeJS.ProcessEnv; cwd?: string; signal?: AbortSignal } = {},
 ): Promise<{ status: number; output: string }> => {
   const [executable, ...args] = command;
   if (!executable || !(milliseconds > 0 && milliseconds <= TIME_BUDGET_MS))
     throw new Error("Expected a command and a time budget of at most five minutes");
+  if (options.signal?.aborted) throw new Error("Command interrupted");
   const started = performance.now();
   const child = spawn(executable, args, {
     // Route terminal interrupts through our cleanup before workers can orphan.
     detached: process.platform !== "win32",
     stdio: options.capture ? "pipe" : "inherit",
     env: options.env ?? process.env,
+    cwd: options.cwd,
   });
   let output = "";
   child.stdout?.setEncoding("utf8").on("data", (chunk: string) => {
@@ -44,6 +46,7 @@ export const runTimed = async (
   };
   process.once("SIGINT", interrupt);
   process.once("SIGTERM", interrupt);
+  options.signal?.addEventListener("abort", interrupt, { once: true });
   const timer = setTimeout(() => {
     expired = true;
     stop();
@@ -61,6 +64,7 @@ export const runTimed = async (
     clearTimeout(timer);
     process.off("SIGINT", interrupt);
     process.off("SIGTERM", interrupt);
+    options.signal?.removeEventListener("abort", interrupt);
   }
 };
 

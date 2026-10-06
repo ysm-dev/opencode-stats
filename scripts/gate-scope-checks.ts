@@ -45,7 +45,7 @@ export function* scopeChecks(extension: string): Generator<Check> {
     command: ["lint", file],
     expect: ["no-floating-promises"],
   };
-  for (const gate of ["test", "mutate"]) {
+  for (const gate of ["test"]) {
     yield {
       gate: `testing code and contracts excluded from ${gate} (${extension})`,
       files: {
@@ -66,16 +66,7 @@ export function* scopeChecks(extension: string): Generator<Check> {
     `packages/dashboard/src/${folder}/gate-canary.${extension}`,
     `scripts/${folder}/gate-canary.${extension}`,
   ]);
-  for (const gate of [
-    "format:check",
-    "lint",
-    "typecheck",
-    "test",
-    "mutate",
-    "exceptions",
-    "knip",
-    "dup",
-  ]) {
+  for (const gate of ["format:check", "lint", "typecheck", "test", "exceptions", "knip", "dup"]) {
     const content =
       gate === "exceptions"
         ? "// @ts-ignore -- forbidden outside artifacts\nexport const fine = 1;\n"

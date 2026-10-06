@@ -1,5 +1,12 @@
 # #34: shortening the hosted critical path
 
+**Policy update (2026-10-06):** Mutation testing is retired. The mutation shard
+plans, required-check lists and local sequential-aggregate allowance below are
+obsolete historical measurements, not instructions to restore that system.
+Current CI runs only the remaining gates, with one external 300-second deadline
+around the entire local aggregate and the unchanged hosted full-attempt deadline.
+The cold-worker dependency-discovery evidence below remains current and intact.
+
 The initial measurements below describe the **139-test baseline**. They are
 historical evidence, not proof for the larger #39 suite. The combined-suite
 reassessment later in this report supersedes the original headroom projection.

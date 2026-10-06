@@ -11,11 +11,11 @@
 /.jscpd.json              @ysm-dev
 /knip.json                @ysm-dev
 /**/vitest.config.*       @ysm-dev
-/stryker.config.*         @ysm-dev
-/stryker.canary.config.js @ysm-dev
 /scripts/shard.ts         @ysm-dev
-/scripts/ci-shards.ts     @ysm-dev
-/scripts/testing/ci-shards.ts @ysm-dev
+/scripts/ci.ts            @ysm-dev
+/scripts/testing/ci.ts    @ysm-dev
+/scripts/verification-shards.ts @ysm-dev
+/scripts/testing/verification.ts @ysm-dev
 /scripts/time-budget.ts   @ysm-dev
 /scripts/process-tree.ts  @ysm-dev
 /scripts/e2e.ts           @ysm-dev

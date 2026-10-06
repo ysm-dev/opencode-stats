@@ -1,19 +1,12 @@
 import { writeFile, readFile } from "node:fs/promises";
 import { watch } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, inject } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture } from "../testing/server.ts";
 import { heldBrowser } from "../testing/held-browser.ts";
 import { openBrowser } from "./browser.ts";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-
-// Stryker's Vitest runner provides this ID; its instrumented modules accept it through this environment variable.
-declare module "vitest" {
-  interface ProvidedContext {
-    activeMutant: string | undefined;
-  }
-}
 
 describe("browser opening", () => {
   it.each([
@@ -71,7 +64,6 @@ describe("browser opening", () => {
   }) => {
     const local = await heldBrowser();
     onTestFinished(local.release);
-    // Execute the same public call here so Stryker's per-test selection includes this subprocess probe.
     await openBrowser("http://127.0.0.1:22439", "linux", local.env);
     expect(await local.pid).toBeGreaterThan(0);
     const browser = await heldBrowser();
@@ -82,7 +74,7 @@ describe("browser opening", () => {
       `import {openBrowser} from ${JSON.stringify(new URL("./browser.ts", import.meta.url).href)}; await openBrowser('http://127.0.0.1:22439','linux',process.env);`,
     );
     const caller = spawn(process.execPath, [script], {
-      env: { ...process.env, ...browser.env, __STRYKER_ACTIVE_MUTANT__: inject("activeMutant") },
+      env: { ...process.env, ...browser.env },
       stdio: "pipe",
     });
     const controller = new AbortController();

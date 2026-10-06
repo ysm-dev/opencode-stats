@@ -4,7 +4,6 @@ import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { TOML, YAML } from "bun";
 import root from "../package.json" with { type: "json" };
-import mutation from "../stryker.config.js";
 import { narrowJson, object } from "./json.ts";
 import { testTimeouts } from "./test-timeouts.ts";
 import { TIME_BUDGET_MS } from "./time-budget.ts";
@@ -54,13 +53,31 @@ assert.ok(
 );
 const bun = object(narrowJson(TOML.parse(readFileSync("bunfig.toml", "utf8"))));
 assert.equal(object(bun["test"])["timeout"], 5000, "Bun test timeout must stay at five seconds");
-for (const name of ["test", "mutate", "contracts", "e2e"] as const)
+for (const name of [
+  "ci",
+  "ci:checks",
+  "native:prepare",
+  "opencode:prepare",
+  "budgets",
+  "format:check",
+  "lint",
+  "typecheck",
+  "test",
+  "knip",
+  "dup",
+  "exceptions",
+  "shape",
+  "contracts",
+  "release",
+  "bundle:check",
+  "e2e",
+  "outdated",
+  "verify-gates",
+] as const)
   assert.ok(
     root.scripts[name].startsWith("bun run scripts/time-budget.ts "),
     `${name} needs a whole-run watchdog`,
   );
-assert.equal(mutation.dryRunTimeoutMinutes, 1, "Mutation dry run must finish within one minute");
-assert.equal(mutation.timeoutMS, 5000, "Mutation test timeout must stay at five seconds");
 for (const file of globSync(["vitest.config.ts", "packages/*/vitest.config.ts"])) {
   const limit = file.replaceAll("\\", "/") === "packages/e2e/vitest.config.ts" ? 30_000 : 5_000;
   checkTestConfig(await import(pathToFileURL(resolve(file)).href), limit);

@@ -275,7 +275,7 @@ A named, reasoned waiver of a gate. A whole file's exception is approved by a hu
 _Avoid_: ignore, suppression, disable, override, waiver
 
 **Edge file**:
-A thin file that connects tested code to something tests can't run, such as process arguments, a worker's global scope or the page itself. It carries a human-approved exception from coverage and mutation, and only the end-to-end test runs it.
+A thin file that connects tested code to something tests can't run, such as process arguments, a worker's global scope or the page itself. It carries a human-approved exception from coverage, and only the end-to-end test runs it.
 _Avoid_: shim, bootstrap, entry point (most entry points are tested)
 
 **Hold**:

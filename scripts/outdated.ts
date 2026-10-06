@@ -121,13 +121,7 @@ const actionDependency = async (name: string, version: string, file: string): Pr
 
 try {
   const manifests = globSync("**/package.json", {
-    exclude: [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/.release/**",
-      "**/.dev/**",
-      "**/.stryker-tmp/**",
-    ],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.release/**", "**/.dev/**"],
   });
   if (!manifests.length) throw new Error("No package manifests found");
   await Promise.all(manifests.map(packageDependencies));
