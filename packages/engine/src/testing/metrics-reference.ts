@@ -3,6 +3,12 @@ import type { Filter } from "../filters.ts";
 import type { Period } from "../ranges.ts";
 
 type Row = Step & Partial<StepDimensions>;
+const share = (count: number, total: number) => (total === 0 ? null : count / total);
+const quantile = (values: readonly number[], percentile: number) =>
+  values.length
+    ? values.toSorted((a, b) => a - b)[Math.ceil(values.length * percentile) - 1]!
+    : null;
+
 export function referenceMetrics(
   rows: readonly Row[],
   delivered: readonly Prompt[],
@@ -28,11 +34,6 @@ export function referenceMetrics(
     .filter(matches)
     .filter((row) => row.start >= period.start && row.start < period.end).length;
   const steps = facts.length;
-  const share = (count: number, total: number) => (total === 0 ? null : count / total);
-  const quantile = (values: readonly number[], percentile: number) =>
-    values.length
-      ? [...values].sort((a, b) => a - b)[Math.ceil(values.length * percentile) - 1]!
-      : null;
   const timed = facts
     .filter((row) => row.streamEnd != null)
     .map((row) => row.streamEnd! - row.start);
@@ -48,7 +49,7 @@ export function referenceMetrics(
       return { id: name.id, name: name.name, failed, rate: share(failed, steps) };
     })
     .filter((error) => error.failed > 0)
-    .sort((a, b) => a.id.localeCompare(b.id));
+    .toSorted((a, b) => a.id.localeCompare(b.id));
   const failed = errors.reduce((sum, error) => sum + error.failed, 0);
   const aborted = names.find((name) => name.dimension === "error" && name.id === "aborted")?.code;
   return {

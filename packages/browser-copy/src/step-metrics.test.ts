@@ -53,7 +53,7 @@ it("validates prompt identities, columns and scalar metadata at the decoder boun
   expect(() =>
     encode({ ...copy, prompts: { ...copy.prompts, model: new Float64Array() } }),
   ).toThrow("prompt columns");
-  expect(() => encode({ ...copy, promptIds: [copy.ids[0]!, "other"] })).toThrow("fact IDs");
+  expect(() => encode({ ...copy, promptIds: [copy.ids[0], "other"] })).toThrow("fact IDs");
   expect(() =>
     encode({ ...copy, prompts: { ...copy.prompts, start: new Float64Array([NaN, 1]) } }),
   ).toThrow("instant");

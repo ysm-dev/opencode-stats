@@ -80,7 +80,7 @@ export function stepMetrics(
         const name = names.find((value) => value.dimension === "error" && value.code === code)!;
         return { id: name.id, name: name.name, failed: count, rate: ratio(count, steps) };
       })
-      .sort((a, b) => a.id.localeCompare(b.id)),
+      .toSorted((a, b) => a.id.localeCompare(b.id)),
     response: {
       p50: rank(response, 0.5),
       p95: rank(response, 0.95),

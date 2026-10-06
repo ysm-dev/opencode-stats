@@ -9,6 +9,7 @@ import {
   mapPromptFields,
   type BrowserCopy,
   type StepColumns,
+  type PromptColumns,
 } from "./facts.ts";
 import { checkedLength, decodeStrings, encodeStrings } from "./strings.ts";
 
@@ -74,9 +75,7 @@ export function decode(input: unknown): BrowserCopy {
     (field) =>
       new Float64Array(input, stepEnd + promptFields.indexOf(field) * promptCount * 8, promptCount),
   );
-  validateInstants(prompts.start, false);
-  for (const field of promptFields.filter((field) => field !== "start"))
-    validateCodes(prompts[field]);
+  validatePromptColumns(prompts);
   const sessionColumn = (index: number) =>
     new Float64Array(input, promptEnd + index * sessionCount * 8, sessionCount);
   const sessions = mapSessionFields((field) => sessionColumn(sessionFields.indexOf(field)));
@@ -147,6 +146,12 @@ function validateColumns(steps: StepColumns): void {
     }
   }
   for (const dimension of stepDimensions) validateCodes(steps[dimension]);
+}
+
+function validatePromptColumns(prompts: PromptColumns): void {
+  const { start, ...dimensions } = prompts;
+  validateInstants(start, false);
+  for (const values of Object.values(dimensions)) validateCodes(values);
 }
 
 function validateInstants(values: Float64Array, nullable: boolean): void {

@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "types": ["node"], "lib": ["es2023", "DOM", "esnext.disposable"] },
+  "compilerOptions": { "types": ["node"], "lib": ["es2024", "DOM", "esnext.disposable"] },
   "include": ["tests/**/*.ts", "tests/**/*.tsx"]
 }

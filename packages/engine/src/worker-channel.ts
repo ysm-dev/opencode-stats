@@ -23,6 +23,9 @@ import { changeLabel, periodLabel, rangeLabel, clockLabel, dateLabel } from "./t
 import { localDate } from "./calendar.ts";
 import { parseFilters, filterAddress, toggleFilter, removeFilter, type Filter } from "./filters.ts";
 
+const measuredChange = (value: number | null, before: number | null) =>
+  value === null || before === null ? "" : changeLabel(value, before);
+
 function stateFor(
   range: TimeRange | undefined,
   filters: readonly Filter[],
@@ -52,10 +55,11 @@ function stateFor(
     comparison.sessions = changeLabel(amounts.sessions.total, before.sessions.total);
     for (const key of ["steps", "prompts", "failed"] as const)
       comparison[key] = changeLabel(amounts.metrics[key], before.metrics[key]);
-    const changed = (current: number | null, previous: number | null) =>
-      current === null || previous === null ? "" : changeLabel(current, previous);
-    comparison.response = changed(amounts.metrics.response.p50, before.metrics.response.p50);
-    comparison.cacheHitRate = changed(amounts.metrics.cacheHitRate, before.metrics.cacheHitRate);
+    comparison.response = measuredChange(amounts.metrics.response.p50, before.metrics.response.p50);
+    comparison.cacheHitRate = measuredChange(
+      amounts.metrics.cacheHitRate,
+      before.metrics.cacheHitRate,
+    );
     comparison.caption = `Previous period · ${periodLabel(previous, locale)} · through ${clockLabel(previous.end, timeZone, locale)}`;
   }
   return {

@@ -57,6 +57,15 @@ const wholeRange = async (page: Page, action: () => Promise<void>, title: string
   expect(frames.filter((frame) => ![before, after].includes(frame))).toEqual([]);
 };
 
+const usesMutedColour = (element: Element) => {
+  const muted = document.createElement("span");
+  muted.style.color = "var(--dashboard-muted-base)";
+  element.append(muted);
+  const matches = getComputedStyle(element).color === getComputedStyle(muted).color;
+  muted.remove();
+  return matches;
+};
+
 it.each([chromium, webkit])(
   "paints packed ranges whole, restores history and bookmarks, and sends no user-change requests in %s",
   async (browser) => {
@@ -145,16 +154,7 @@ it.each([chromium, webkit])(
       await page.getByRole("region", { name: "Tokens" }).locator(".previous-period").textContent(),
     ).toContain("↑ 12%");
     const comparison = page.getByRole("region", { name: "Tokens" }).locator(".previous-period");
-    expect(
-      await comparison.evaluate((element) => {
-        const muted = document.createElement("span");
-        muted.style.color = "var(--dashboard-muted-base)";
-        element.append(muted);
-        const matches = getComputedStyle(element).color === getComputedStyle(muted).color;
-        muted.remove();
-        return matches;
-      }),
-    ).toBe(true);
+    expect(await comparison.evaluate(usesMutedColour)).toBe(true);
     const previousDate = new Intl.DateTimeFormat("en-GB", {
       day: "numeric",
       month: "short",
