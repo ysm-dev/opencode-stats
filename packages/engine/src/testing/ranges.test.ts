@@ -152,6 +152,18 @@ it("can shift a non-preset span onto today even when its end falls in the future
   });
 });
 
+it("keeps a non-preset span fixed when shifting its end onto today", async () => {
+  const f = rangeFixture([rangeStep(Date.parse("2026-09-01"))]);
+  await f.request({ kind: "address", address: "/?range=fixed&from=2026-09-30&to=2026-10-03" });
+  const state = await f.request({ kind: "shift", direction: 1 });
+  expect(state).toMatchObject({
+    address: "/?range=fixed&from=2026-10-04&to=2026-10-07",
+    period: { from: "2026-10-04", to: "2026-10-07", days: 4 },
+    range: { fixedLabel: "4 Oct 2026 – 7 Oct 2026" },
+  });
+  expect(await f.request({ kind: "address", address: state.address })).toEqual(state);
+});
+
 it.each([
   [966, "↓ 3.4%"],
   [0, "↓ 100%"],
