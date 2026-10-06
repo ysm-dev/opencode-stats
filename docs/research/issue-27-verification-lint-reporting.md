@@ -40,6 +40,16 @@ exclusion. No other command family receives the formatter argument.
 
 ## Evidence and limits
 
+- All 36 public lint-verifier controls passed under GitHub reporting in 224.34s,
+  within one unchanged external 300-second deadline. This includes both SDK
+  runtime rejection controls, both type-only acceptance controls and every
+  other caller of the shared formatter selection. Each was selected by its
+  existing one-based `VERIFICATION_SHARD=index/231`; no checks were rewritten or
+  removed, and each invocation also ran the existing freshness controls.
+- Formatting, full lint, types, time budgets, duplication, exceptions, normal and
+  production-strict dead-code checks, and package shape passed in 5.55s under a
+  separate external 300-second deadline. The root script type program also
+  passed directly. Workspace type checks reused their valid Turbo cache.
 - Shard 11/16 passed completely under the GitHub-reporting environment above,
   including its full-suite positive coverage control.
 - Shard 12/16 passed SDK rejection for `.tsx`, then failed the unrelated
@@ -57,3 +67,7 @@ Scratch evidence is under the approved OpenCode temporary directory:
 `verification-lint-reporting-red.log`, `verification-lint-reporting-green-11.log`
 and `verification-lint-reporting-green-12.log`; the direct production controls
 are in `verification-lint-reporting-production.log`.
+The exhaustive controls and static-gate evidence are in
+`verification-lint-reporting-controls.log` and
+`verification-lint-reporting-static.log`; their adjacent `.ts` proof drivers
+invoke the existing public commands through the repository's watchdog.
