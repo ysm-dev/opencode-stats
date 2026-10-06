@@ -1,16 +1,11 @@
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setImmediate } from "node:timers/promises";
-import { expect, inject, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 import * as childProcess from "node:child_process";
 import { once } from "node:events";
 
 vi.mock("node:child_process", { spy: true });
-declare module "vitest" {
-  interface ProvidedContext {
-    activeMutant: string | undefined;
-  }
-}
 import { holdServer, startOrJoin } from "./hold.ts";
 import { readRecord } from "./record.ts";
 import { standIn, stopProcess } from "./testing/server.ts";
@@ -83,9 +78,7 @@ it("the starter exits naturally while its detached server stays alive", async ({
     script,
     `import {startOrJoin} from ${JSON.stringify(new URL("./hold.ts", import.meta.url).href)}; await startOrJoin(${JSON.stringify(options)},new AbortController().signal);`,
   );
-  const caller = childProcess.spawn(process.execPath, [script], {
-    env: { ...process.env, __STRYKER_ACTIVE_MUTANT__: inject("activeMutant") },
-  });
+  const caller = childProcess.spawn(process.execPath, [script]);
   const controller = new AbortController();
   const exit = once(caller, "exit", { signal: controller.signal });
   onTestFinished(() => {

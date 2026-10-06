@@ -4,8 +4,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { runTimed } from "../time-budget.ts";
+import { killProcessTree } from "../process-tree.ts";
 
-const running = (pid: number): boolean => {
+export const running = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
     if (process.platform === "win32") return true;
@@ -20,6 +21,12 @@ const recorded = (file: string): number[] => {
   const pids = existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").map(Number) : [];
   assert.ok(pids.every((pid) => Number.isSafeInteger(pid) && pid > 0));
   return pids;
+};
+
+export const stopRecorded = (file: string): void => {
+  for (const pid of recorded(file)) {
+    if (running(pid)) killProcessTree(pid);
+  }
 };
 
 export async function verifyProcessCleanup(): Promise<void> {
@@ -83,9 +90,7 @@ export async function verifyProcessCleanup(): Promise<void> {
         failures.push(`${mode}: ${String(error)}`);
       } finally {
         // Clean up even on the intentionally red run against the old watchdog.
-        for (const pid of recorded(pidsFile)) {
-          if (running(pid)) process.kill(pid, "SIGKILL");
-        }
+        stopRecorded(pidsFile);
       }
     }
     assert.deepEqual(failures, []);

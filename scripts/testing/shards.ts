@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { globSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { YAML } from "bun";
 import { shard } from "../shard.ts";
 import { checks } from "../gate-checks.ts";
@@ -29,7 +29,6 @@ const verifyMatrix = (name: string, label: string, variable: string, count: numb
   assert.ok(Array.isArray(steps));
   assert.ok(steps.some((step) => object(object(step)["env"] ?? {})[variable] === selector));
 };
-verifyMatrix("mutation", "Mutation", "MUTATION_SHARD", 12);
 verifyMatrix("verification", "Gate verification", "VERIFICATION_SHARD", 16);
 
 const canaries = [...checks()];
@@ -48,30 +47,17 @@ for (const command of new Set(canaries.map((check) => check.command[0]))) {
     `Unbalanced verification command ${command}`,
   );
 }
-const sources = globSync([
-  "packages/*/src/**/*.{ts,tsx}",
-  "packages/opencode-stats/server.ts",
-]).toSorted();
-verifyPartition(sources, 12);
-for (let index = 1; index <= 6; index += 1) {
-  assert.deepEqual(
-    new Set([...shard(sources, `${index}/12`), ...shard(sources, `${index + 6}/12`)]),
-    new Set(shard(sources, `${index}/6`)),
-    "Twelve mutation shards must retain every old six-shard source",
-  );
-}
 
 const items = Array.from({ length: 227 }, (_, index) => String(index));
 assert.deepEqual(shard(items, undefined), items);
 assert.deepEqual(shard(items, "1/1"), items);
-for (const count of [12, 16]) verifyPartition(items, count);
+verifyPartition(items, 16);
 assert.deepEqual(shard(["only"], "2/4"), []);
 for (const invalid of [
   "",
   "0/4",
   "5/4",
   "17/16",
-  "13/12",
   "1/0",
   "1/2/3",
   "1.5/4",

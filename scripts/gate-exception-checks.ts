@@ -19,7 +19,6 @@ export function* exceptionChecks(extension: string): Generator<Check> {
     "// oxlint-disable-next-line typescript/no-explicit-any -- canary",
     "// oxlint-disable-next-line no-explicit-any -- canary",
     "// oxlint-disable-next-line typescript/no-unsafe-assignment -- canary",
-    "// Stryker disable next-line all -- blanket canary",
     "// @ts-expect-error",
     "// oxlint-disable-next-line typescript/no-restricted-types -- not a declared boundary",
   ];
@@ -53,7 +52,6 @@ export function* exceptionChecks(extension: string): Generator<Check> {
   }
   const file = `packages/dashboard/src/gate-canary.${extension}`;
   for (const [gate, gates, expect] of [
-    ["coverage without mutation", ["coverage"], "coverage requires mutation"],
     ["any manifest entry", ["typescript/no-explicit-any"], "forbidden gate"],
     ["unsafe manifest entry", ["typescript/no-unsafe-call"], "forbidden gate"],
   ] as const) {

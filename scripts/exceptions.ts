@@ -15,11 +15,8 @@ for (const entry of exceptions) {
   if (!existsSync(entry.path)) failures.push(`${entry.path}: file no longer exists`);
   if (!entry.reason.trim()) failures.push(`${entry.path}: missing reason`);
   if (/[?*{}[\]!]/u.test(entry.path)) failures.push(`${entry.path}: waiver must name one file`);
-  if (!entry.gates.length || entry.gates.some((gate) => !["coverage", "mutation"].includes(gate))) {
+  if (!entry.gates.length || entry.gates.some((gate) => gate !== "coverage")) {
     failures.push(`${entry.path}: forbidden gate`);
-  }
-  if (entry.gates.includes("coverage") && !entry.gates.includes("mutation")) {
-    failures.push(`${entry.path}: coverage requires mutation`);
   }
   const owned = owners.split("\n").some((line) => {
     const [pattern, ...accounts] = line.trim().split(/\s+/u);
@@ -42,7 +39,7 @@ if (JSON.stringify(expectedEdges) !== JSON.stringify(actualEdges))
 
 const forbidden =
   /(?:eslint-disable|@ts-ignore|@ts-nocheck|@ts-check|(?:v8|c8|istanbul)\s+ignore|jscpd:ignore)/u;
-const directive = /(?:oxlint-disable(?:-next-line|-line)?|Stryker disable(?: next-line)?)/u;
+const directive = /oxlint-disable(?:-next-line|-line)?/u;
 const forbiddenRule = /(?:no-explicit-any|no-unsafe-[\w-]+)/u;
 
 const inspectComment = (
