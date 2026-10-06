@@ -85,7 +85,7 @@ export function createLiveEngine(
       });
   };
   const announce = (current: Session, event: LiveAnnouncement) => {
-    if (session !== current) return;
+    // Stream callbacks are synchronous; interrupting the fiber stops their delivery.
     if ("format" in event) {
       if (event.format !== formatVersion) {
         closed = true;

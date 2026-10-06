@@ -144,6 +144,7 @@ export const program = (
       yield* control.stopped;
       yield* Effect.sleep("100 millis");
     }).pipe(
+      Effect.scoped,
       Effect.provide(adapter(options.port)),
       Effect.catchCause((cause) =>
         Effect.gen(function* () {

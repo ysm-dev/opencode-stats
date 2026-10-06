@@ -8,6 +8,22 @@ it("keeps the packed tab's facts through a server stop/restart and pauses live w
   await page.goto(`${fixture.server.origin}/?range=all`);
   const number = page.locator(".headline-number");
   await number.getByText("987", { exact: true }).waitFor();
+  const observation = await page.evaluateHandle(() => {
+    const original = document.querySelector(".headline-number");
+    const samples: Array<{ tokens: string; line: string }> = [];
+    const observer = new MutationObserver(() =>
+      samples.push({
+        tokens: original!.textContent,
+        line: document.querySelector(".update-status")?.textContent ?? "",
+      }),
+    );
+    observer.observe(document.querySelector(".shell")!, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+    return { original, samples, observer };
+  });
   await fixture.server.stop();
   await page
     .getByRole("button", { name: "Not updating · Pause live updates", exact: true })
@@ -27,7 +43,7 @@ it("keeps the packed tab's facts through a server stop/restart and pauses live w
     tokens: { input: 2001 },
   });
   await fixture.server.start();
-  await number.getByText("2,001", { exact: true }).waitFor();
+  await number.getByText("2,001", { exact: true }).waitFor({ timeout: 2500 });
   expect(await page.locator(".update-status").count()).toBe(0);
   expect(await page.getByRole("status").textContent()).toBe("Up to date again");
   await page.getByRole("button", { name: /Pause live updates/u }).click();
@@ -41,4 +57,17 @@ it("keeps the packed tab's facts through a server stop/restart and pauses live w
   await number.getByText("0", { exact: true }).waitFor();
   expect(await page.locator(".update-status").count()).toBe(0);
   expect(page.url()).toBe(`${fixture.server.origin}/?range=all`);
+  const paints = await observation.evaluate(({ original, samples, observer }) => {
+    observer.disconnect();
+    return { same: original === document.querySelector(".headline-number"), samples };
+  });
+  expect(paints.same).toBe(true);
+  expect(paints.samples.length).toBeGreaterThan(0);
+  expect(
+    paints.samples.every(
+      ({ tokens, line }) =>
+        (tokens !== "2,001" || !line.startsWith("Not updating")) && (tokens !== "0" || line === ""),
+    ),
+  ).toBe(true);
+  await observation.dispose();
 });

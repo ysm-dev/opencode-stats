@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Stream from "effect/Stream";
+import { encode } from "@opencode-stats/browser-copy";
+import { syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import { bunServer } from "./http.bun.ts";
 import { startServer } from "./server.ts";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
@@ -14,13 +16,14 @@ describe("Bun HTTP contract", () => {
     await mkdir(join(folder, "assets"));
     await writeFile(join(folder, "assets/dashboard-a1b2.js"), "synthetic-bun-asset");
     let address = "";
+    const bytes = new Uint8Array(encode(syntheticCopy([])));
     try {
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             address = yield* startServer(folder, {
-              whole: () => new Uint8Array(),
-              changes: () => Effect.succeed(new Uint8Array()),
+              whole: () => bytes,
+              changes: () => Effect.succeed(bytes),
               live: Stream.concat(
                 Stream.make({ generation: "synthetic", revision: 1 }),
                 Stream.never,
@@ -39,7 +42,7 @@ describe("Bun HTTP contract", () => {
             const live = yield* Effect.promise(() => fetch(`${address}/api/browser-copy/live`));
             const opening = yield* Effect.promise(() => live.body!.getReader().read());
             expect(new TextDecoder().decode(opening.value)).toContain("synthetic");
-          }).pipe(Effect.provide(bunServer(0))),
+          }).pipe(Effect.scoped, Effect.provide(bunServer(0))),
         ),
       );
       const stopped = await fetch(address).catch(() => null);

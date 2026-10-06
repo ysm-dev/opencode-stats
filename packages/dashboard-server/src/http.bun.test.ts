@@ -50,6 +50,7 @@ describe("Bun HTTP adapter on Node", () => {
         expect.objectContaining({
           hostname: "127.0.0.1",
           port: 22439,
+          idleTimeout: 0,
           disablePreemptiveShutdown: true,
         }),
       );
