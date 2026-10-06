@@ -14,7 +14,7 @@ const browsers = [
   { name: "WebKit", engine: webkit },
 ];
 const require = createRequire(import.meta.url);
-it.each(browsers)(
+it.concurrent.each(browsers)(
   "$name paints a cold stored theme before the one module bundle, then follows other tabs without requests",
   async ({ engine }) => {
     await using fixture = await preferencesBrowser(engine);
@@ -147,7 +147,9 @@ const palettes = [
   { id: "matrix", scheme: "light" },
   { id: "everforest", scheme: "light" },
 ];
-it.each(browsers.flatMap((browser) => palettes.map((palette) => ({ ...browser, ...palette }))))(
+it.concurrent.each(
+  browsers.flatMap((browser) => palettes.map((palette) => ({ ...browser, ...palette }))),
+)(
   "$name $id $scheme Settings reflows, has measured contrast, and keeps visible keyboard focus",
   async ({ engine, id, scheme }) => {
     await using fixture = await preferencesBrowser(engine, { deviceScaleFactor: 2 });
@@ -258,7 +260,7 @@ it.each(browsers.flatMap((browser) => palettes.map((palette) => ({ ...browser, .
   },
 );
 
-it.each(browsers)(
+it.concurrent.each(browsers)(
   "$name still loads its installed dashboard when the native storage getter is denied",
   async ({ engine }) => {
     await using fixture = await preferencesBrowser(engine);
