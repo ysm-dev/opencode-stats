@@ -9,7 +9,12 @@ export function* runtimeChecks(extension: string): Generator<Check> {
         'import { Plugin } from "@opencode/plugin";\nexport const forbidden = Plugin.define;\n',
     },
     command: ["lint", pluginFile],
-    expect: ["no-restricted-imports", "types only"],
+    expect: [
+      "eslint(no-restricted-imports)",
+      "@opencode/plugin",
+      "OpenCode plugin imports must be types only.",
+      `gate-canary.${extension}`,
+    ],
   };
   yield {
     gate: `OpenCode plugin type import allowed (${extension})`,
