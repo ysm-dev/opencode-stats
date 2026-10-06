@@ -28,7 +28,7 @@ with `Five-minute time budget exceeded or invalid start time` before changes.
 ## Measurement and falsifiable candidates
 
 Targeted temporary timing around preference fixture acquisition measured 4.54s
-total npm installation and 4.62s server readiness across the 12 local cases;
+total npm installation and 4.64s server readiness across the 12 local cases;
 the whole preference file took approximately 25.2s under the complete suite.
 The largest cost was browser assertions, not redundant npm preparation.
 All profiling statements were removed before validation.
@@ -95,8 +95,49 @@ waits rather than removing them: individual cases still took approximately
   unauthorized lifecycle hold/stop requests must not terminate the server;
   real WAL/source read-only checks and deliberately cold source loading remain.
 - Verification remains last, exhaustive and isolated, with the existing 16
-  hosted names/selectors/ownership/planted controls unchanged. Full aggregate
-  and final reconciliation evidence is recorded below after validation.
+  hosted names/selectors/ownership/planted controls unchanged.
+
+## Final acceptance evidence
+
+`501fa93` was reconciled with the latest integration `eea0753` before final
+checks (`git merge --no-edit integration/opencode-stats-v1`: already up to
+date). One actual public `bun run ci` passed, exit 0, **278.04s**, leaving
+21.96s under the external 300s preparation-inclusive aggregate deadline.
+It passed all source gates, 632 ordinary tests with 100% coverage in all four
+measures per file, eight real Bun contracts, release, all 28 e2e cases, and
+all 16 isolated verification shards last. This is candidate local proof,
+not a new root-integration or physical hosted result.
+
+Original meaningful negative controls were exercised, not just counted:
+
+| Control, retained unchanged                               | Final macOS | Clean 2-CPU Linux |
+| --------------------------------------------------------- | ----------- | ----------------- |
+| Missing browser rejects and removes owned fixture         | 2.715s      | 2.457s            |
+| Failed npm install rejects and removes owned fixture      | 2.469s      | 0.677s            |
+| Browser launch rejection stops server/removes directory   | 1.652s      | 1.065s            |
+| Forbidden bundle imports/bin dependencies rejected        | 0.716s      | 0.240s            |
+| Unauthorized holds/stops refused; real last-hold shutdown | 12.338s     | 11.125s           |
+
+Full local verification additionally passed the aggregate deadline/fail-closed
+control (1.6s), public e2e preparation omission rejection (0.2s), and shared
+e2e preparation/test deadline control (1.8s), along with every other existing
+gate family and both extensions. Production elevated-signalling/cleanup code
+is byte-unchanged from `eea0753`; its parent's real Linux privileged recovery
+proof remains applicable, rather than relabeling macOS controls as sudo proof.
+
+An external assertion over the measured public plugin runs rejects the original
+sequential result with `Independent shutdown waits did not genuinely overlap`
+(exit 1). It accepts the concurrent run (exit 0): wall 24,420ms versus case
+times 12,092 / 12,404 / 12,170ms. It also demands all three original version/mode
+cases and at least ten seconds per case. This distinguishes genuine overlap
+from a faster machine or shortened shutdown. It is diagnostic evidence, not a
+new CI threshold or gate.
+
+The aggregate's fresh tarball and Linux differential tarball have identical
+SHA256 `9ecf70f2e910a6646944d941d9181bb914eb2436b4f64575732e29add4e8798d`.
+No owned validation container or worktree process remains; unrelated containers
+were left untouched. No matrix/context changes, dependency changes, waivers,
+ticket changes or pushes were made.
 
 ## Artifacts
 
@@ -111,6 +152,9 @@ External evidence under the approved temporary OpenCode directory:
   only; `both` is the final candidate. An initial discarded harness attempt
   failed because the minimal image has no `/usr/bin/time`; it is not test proof.
 - `ci-critical-path-final-macos-e2e.log`.
+- `ci-critical-path-final-ci.log` (complete actual 278.04s aggregate).
+- `ci-critical-path-overlap.ts`, `ci-critical-path-overlap-{red,green}.log`
+  (assertions against the measured original/final public plugin runs).
 - `ci-critical-path-linux.ts` (external archived differential harness; containers
   removed on completion/failure).
 
