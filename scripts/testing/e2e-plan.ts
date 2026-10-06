@@ -69,7 +69,9 @@ for (const setting of [
 ])
   assert.ok(config.includes(setting), "E2e must use the shared workload plan");
 assert.ok(
-  readFileSync("scripts/e2e-sequencer.ts", "utf8").includes("compareE2e(left.moduleId, right.moduleId)"),
+  readFileSync("scripts/e2e-sequencer.ts", "utf8").includes(
+    "compareE2e(left.moduleId, right.moduleId)",
+  ),
   "E2e execution must use workload order",
 );
 process.stdout.write("E2e shards are balanced, exhaustive and share preparation requirements.\n");
