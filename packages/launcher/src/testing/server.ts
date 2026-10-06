@@ -1,7 +1,7 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setImmediate } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import type { ServerRecord } from "../record.ts";
 
 export const serverRecord = (
@@ -18,15 +18,41 @@ export const serverRecord = (
   ...overrides,
 });
 
+const running = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    if (process.platform !== "linux") return true;
+    // A container's PID 1 may not reap an exited detached process. kill(0)
+    // still succeeds for that zombie, although it owns no resources to stop.
+    const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+    return !stat.slice(stat.lastIndexOf(")") + 2).startsWith("Z ");
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error.code === "ESRCH" || error.code === "ENOENT")
+    )
+      return false;
+    throw error;
+  }
+};
+
+const exited = async (pid: number): Promise<boolean> => {
+  const deadline = performance.now() + 1000;
+  while (running(pid) && performance.now() < deadline) await setTimeout(10);
+  return !running(pid);
+};
+
 export async function stopProcess(pid: number): Promise<void> {
-  process.kill(pid, "SIGTERM");
-  for (;;) {
-    await setImmediate();
-    try {
-      process.kill(pid, 0);
-    } catch {
-      return;
-    }
+  try {
+    if (!running(pid)) return;
+    process.kill(pid, "SIGTERM");
+    if (await exited(pid)) return;
+    process.kill(pid, "SIGKILL");
+    if (!(await exited(pid))) throw new Error("Owned process did not exit during cleanup");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ESRCH") return;
+    throw error;
   }
 }
 
