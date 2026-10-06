@@ -24,7 +24,6 @@ export const observeFilters = async (page: Page) =>
         ),
         chips: document.querySelector(".filter-chips")!.textContent,
         numbers: [...document.querySelectorAll(".headline-number")].map((node) => node.textContent),
-        address: location.search,
       });
     const frames: string[] = [];
     window.filterFrames = frames;
@@ -58,4 +57,12 @@ export async function wholeFilter(page: Page, action: () => Promise<void>, token
   expect(sampled.current).not.toBe(old);
   expect(sampled.frames.length).toBeGreaterThan(0);
   for (const frame of sampled.frames) expect([old, sampled.current]).toContain(frame);
+  // Browser Back/Forward moves its URL before the worker answers. Marks describe the drawn page.
+  expect(
+    await page.evaluate(
+      () =>
+        document.querySelector(".filters")!.getAttribute("data-range") ===
+        location.pathname + location.search,
+    ),
+  ).toBe(true);
 }

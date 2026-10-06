@@ -273,7 +273,7 @@ it("equals the independent row reference for arbitrary multi-dimension combinati
         }),
         { maxLength: 35 },
       ),
-      fc.subarray(filterNames),
+      fc.subarray([...filterNames]),
       fc.boolean(),
       async (generated, selected, fixed) => {
         const rows = generated.map(({ index, ...tokens }) => ({

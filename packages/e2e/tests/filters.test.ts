@@ -41,6 +41,7 @@ it.each([chromium, webkit])(
       name: "filter-provider-1/filter-model-5",
       exact: true,
     });
+    await model6.focus();
     await observeFilters(page);
     const requests: string[] = [];
     f.context.on("request", (request) => requests.push(request.url()));
@@ -50,21 +51,20 @@ it.each([chromium, webkit])(
     await wholeFilter(page, () => model5.click(), "1,300");
     const bookmark = page.url();
     await wholeFilter(page, () => model6.click(), "600");
-    await wholeFilter(
-      page,
-      () =>
-        page
-          .getByRole("button", { name: "Remove Model filter · filter-provider-1/filter-model-5" })
-          .click(),
-      "2,800",
-    );
+    const chip = page.getByRole("button", {
+      name: "Remove Model filter · filter-provider-1/filter-model-5",
+    });
+    await chip.focus();
+    await wholeFilter(page, () => chip.click(), "2,800");
     expect(
       await page
         .getByRole("heading", { name: "Active filters" })
         .evaluate((heading) => heading === document.activeElement),
     ).toBe(true);
     await wholeFilter(page, () => model6.click(), "700");
-    await wholeFilter(page, () => page.getByRole("button", { name: "Clear all" }).click(), "2,800");
+    const clear = page.getByRole("button", { name: "Clear all" });
+    await clear.focus();
+    await wholeFilter(page, () => clear.click(), "2,800");
     expect(await page.locator(".filter-announcement").textContent()).toBe("Filters cleared");
     expect(
       await page

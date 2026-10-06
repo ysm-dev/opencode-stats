@@ -17,7 +17,7 @@ const filtersDashboard = (deliverAnswer: (deliver: () => void) => void = queueMi
   onTestFinished(f.close);
   const number = () =>
     view.getByRole("region", { name: "Tokens" }).querySelector(".headline-number")!.textContent;
-  const models = () => within(view.getByRole("region", { name: "Model", exact: true }));
+  const models = () => within(view.getByRole("region", { name: "Model" }));
   const announcement = () => view.container.querySelector(".filter-announcement")!.textContent;
   return { ...f, number, models, announcement };
 };
@@ -66,24 +66,21 @@ it("renders native checklists below Pages, top five token amounts, proportional 
   await f.user.type(search, "model 0");
   expect(f.models().getAllByRole("checkbox")).toHaveLength(1);
   expect(
-    f.view.getByRole("region", { name: "Model", exact: true }).querySelector("[aria-live]")!
-      .textContent,
+    f.view.getByRole("region", { name: "Model" }).querySelector("[aria-live]")!.textContent,
   ).toBe("1 results");
   await f.user.clear(search);
   expect(f.models().getAllByRole("checkbox")).toHaveLength(7);
   await f.user.type(search, "no such model");
   expect(f.models().queryAllByRole("checkbox")).toEqual([]);
   expect(
-    f.view.getByRole("region", { name: "Model", exact: true }).querySelector("[aria-live]")!
-      .textContent,
+    f.view.getByRole("region", { name: "Model" }).querySelector("[aria-live]")!.textContent,
   ).toBe("No matches");
   expect(document.activeElement).toBe(search);
   await f.user.clear(search);
   await f.user.type(search, "provider-1");
   expect(f.models().getAllByRole("checkbox")).toHaveLength(3);
   expect(
-    f.view.getByRole("region", { name: "Model", exact: true }).querySelector("[aria-live]")!
-      .textContent,
+    f.view.getByRole("region", { name: "Model" }).querySelector("[aria-live]")!.textContent,
   ).toBe("3 results");
   const result = await axe.run(f.view.container, {
     rules: { "color-contrast": { enabled: false } },
@@ -102,9 +99,7 @@ it("ticks and unticks with the headlines and all other checklist amounts, preser
   expect(model.checked).toBe(true);
   expect(document.activeElement).toBe(model);
   expect(f.models().getByText("660 tokens")).toBeTruthy();
-  expect(
-    within(f.view.getByRole("region", { name: "Agent", exact: true })).getByText("70 tokens"),
-  ).toBeTruthy();
+  expect(within(f.view.getByRole("region", { name: "Agent" })).getByText("70 tokens")).toBeTruthy();
   expect(f.announcement()).toBe("");
   expect(f.view.getByRole("status").textContent).toBe("");
   await f.user.click(await f.view.findByRole("checkbox", { name: "Model 5" }));
@@ -213,9 +208,7 @@ it("recovers focused deleted checklist rows at the same complete live paint, wit
   expect(document.activeElement).toBe(f.view.getByRole("checkbox", { name: "Project 0" }));
   f.server.commit({ ...filterCopy(), revision: 3, projects: new Float64Array() });
   await vi.waitFor(() => expect(f.view.queryByRole("checkbox", { name: "Project 0" })).toBeNull());
-  expect(document.activeElement).toBe(
-    f.view.getByRole("heading", { name: "Project", exact: true }),
-  );
+  expect(document.activeElement).toBe(f.view.getByRole("heading", { name: "Project" }));
   expect(f.announcement()).toBe("");
 });
 
