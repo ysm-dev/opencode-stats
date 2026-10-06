@@ -28,23 +28,31 @@ const runner = join(folder, "runner.ts");
 writeFileSync(
   fixture,
   `import { appendFileSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 if (process.argv[3] !== "user" && process.getuid() !== 0) throw new Error("Expected privileged fixture");
 appendFileSync(process.argv[2], process.pid + "\\n");
 if (process.argv[3] === "user") appendFileSync(process.argv[2] + ".user", process.pid + "\\n");
-if (!process.argv[3]) appendFileSync(process.argv[2] + ".monitor", process.ppid + "\\n");
-if (!process.argv[3]) spawn(process.execPath, [process.argv[1], process.argv[2], "leaf"], { detached: true, stdio: "inherit" }).unref();
+if (!process.argv[3] || process.argv[3] === "pty") {
+  appendFileSync(process.argv[2] + ".monitor", process.ppid + "\\n");
+  appendFileSync(process.argv[2] + ".monitor-uid", spawnSync("ps", ["-p", String(process.ppid), "-o", "uid="], { encoding: "utf8", timeout: 1000 }).stdout);
+  spawn(process.execPath, [process.argv[1], process.argv[2], "leaf"], { detached: true, stdio: "inherit" }).unref();
+}
 process.on("SIGTERM", () => {});
 process.on("SIGHUP", () => {});
+process.stdout.on("error", () => {});
 setInterval(() => process.stdout.write("owned preparation heartbeat\\n"), 50);
 `,
 );
+const ptyCommand = ["/usr/bin/sudo", "-n", process.execPath, fixture, pids, "pty"]
+  .map((argument) => "'" + argument.replaceAll("'", "'\\''") + "'")
+  .join(" ");
 writeFileSync(
   runner,
   `import { appendFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 appendFileSync(${JSON.stringify(pids)}, process.pid + "\\n");
-spawn("/usr/bin/sudo", ["-n", process.execPath, ${JSON.stringify(fixture)}, ${JSON.stringify(pids)}], { stdio: "inherit" });
+if (process.env["OWNED_PTY_FIXTURE"] === "1") spawn("script", ["-q", "-c", ${JSON.stringify(ptyCommand)}, "/dev/null"], { stdio: "inherit" });
+else spawn("/usr/bin/sudo", ["-n", process.execPath, ${JSON.stringify(fixture)}, ${JSON.stringify(pids)}], { stdio: "inherit" });
 spawn(process.execPath, [${JSON.stringify(fixture)}, ${JSON.stringify(pids)}, "user"], { detached: true, stdio: "inherit" }).unref();
 setInterval(() => {}, 1000);
 `,
@@ -70,7 +78,7 @@ const rescue = (file: string): void => {
   }
 };
 try {
-  for (const mode of ["deadline", "abort", "SIGINT", "SIGTERM", "denied", "kill-denied"]) {
+  for (const mode of ["pty", "deadline", "abort", "SIGINT", "SIGTERM", "denied", "kill-denied"]) {
     const originalPath = process.env["PATH"];
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -79,6 +87,7 @@ try {
     }, 500);
     const denied = join(folder, mode);
     const failure = mode === "denied" || mode === "kill-denied";
+    const pty = mode === "pty" || mode === "kill-denied";
     if (failure) {
       mkdirSync(denied);
       writeFileSync(
@@ -94,13 +103,18 @@ try {
     let rejection = "";
     try {
       await assert.rejects(
-        runTimed([process.execPath, runner], mode === "deadline" || failure ? 500 : 5000, {
-          capture: true,
-          signal: controller.signal,
-          env: {
-            ...process.env,
+        runTimed(
+          [process.execPath, runner],
+          mode === "deadline" || mode === "pty" || failure ? 500 : 5000,
+          {
+            capture: true,
+            signal: controller.signal,
+            env: {
+              ...process.env,
+              OWNED_PTY_FIXTURE: pty ? "1" : "0",
+            },
           },
-        }),
+        ),
         (error) => {
           rejection = String(error);
           return true;
@@ -116,6 +130,12 @@ try {
         4,
         "Fixture must reach the user coordinator/sibling and detached root descendants",
       );
+      if (pty)
+        assert.equal(
+          readFileSync(`${pids}.monitor-uid`, "utf8").trim(),
+          "0",
+          "Fixture must reach a real root sudo PTY monitor",
+        );
       if (failure) {
         assert.ok(
           owned[0] && !alive(owned[0]),
@@ -146,11 +166,16 @@ try {
         [],
         `${mode}: elevated owned descendants survived cleanup`,
       );
+      assert.deepEqual(
+        recorded(`${pids}.monitor`).filter(alive),
+        [],
+        `${mode}: owned sudo monitor survived cleanup`,
+      );
       assert.match(
         rejection,
         failure
           ? /Command cleanup failed/u
-          : mode === "deadline"
+          : mode === "deadline" || mode === "pty"
             ? /exceeded its time budget/u
             : /Command interrupted/u,
       );
@@ -173,6 +198,7 @@ try {
       rmSync(pids, { force: true });
       rmSync(`${pids}.user`, { force: true });
       rmSync(`${pids}.monitor`, { force: true });
+      rmSync(`${pids}.monitor-uid`, { force: true });
     }
   }
   process.stdout.write("Owned elevated descendants terminate; unrelated control survives.\n");
