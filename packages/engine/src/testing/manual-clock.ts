@@ -1,3 +1,5 @@
+const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 export function manualClock() {
   let now = new Date(2026, 9, 7, 14, 2).getTime();
   const timers = new Set<{ at: number; interval: number; update: () => void }>();
@@ -8,7 +10,6 @@ export function manualClock() {
       timers.delete(timer);
     };
   };
-  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
   return {
     now: () => now,
     everySecond: (update: () => void) => schedule(1000, update, 1000),
