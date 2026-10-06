@@ -1,6 +1,6 @@
 # Browser preferences — #37 implementation notes
 
-Implemented against integration `a669ec2f187bf22ec6933833ba4b9fa2cd61eb7e` (including
+Implemented against integration `75974a98940cb90faba35402605d3f404a3ed99a` (including
 #35 sync and #40 launcher reconciliation) using the
 published `@opencode/ui` 2.0.21 provider, resolvers and controls. No accessibility exception.
 
@@ -62,6 +62,10 @@ It also has negative/boundary fixtures through the same public palette seam.
   viewport/density conditions, not a claimed Safari/Chrome toolbar-zoom or screen-reader walkthrough.
 
 Every validation command is bounded at five minutes, with the tighter 5-second unit/Bun,
-10-second hook and 30-second browser caps retained. The repo-wide policy implementer owns
-the new mutation-free, outer-bounded local/GitHub CI command; its integration must be reconciled
-before claiming the new aggregate's final acceptance.
+10-second hook and 30-second browser caps retained. The mutation-free policy integration is
+reconciled and its outer-300-second `bun run ci` was executed. Preparation, ordinary gates,
+coverage, contracts, release and all 25 packed tests passed. Final gate verification is blocked
+by the independent #35 stats-store tests exceeding their 5-second caps in isolated verification:
+`runtime.bun.test.ts`, `history.test.ts` and `types.test.ts`. Their limits were not raised and
+their source/tests were not changed by #37. Full aggregate acceptance requires the #35 owner
+to optimize/reconcile those tests; the preferences-specific checks have no remaining failure.
