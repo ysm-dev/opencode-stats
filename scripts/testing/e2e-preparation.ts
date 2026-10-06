@@ -12,8 +12,9 @@ const folder = fs.mkdtempSync(join(tmpdir(), "opencode-stats-e2e-preparation-"))
 const record = join(folder, "stages");
 const pids = join(folder, "pids");
 fs.mkdirSync(join(folder, "scripts"));
-fs.mkdirSync(join(folder, "packages/e2e"), { recursive: true });
-for (const name of ["e2e", "process-tree"])
+fs.mkdirSync(join(folder, "packages/e2e/tests"), { recursive: true });
+fs.writeFileSync(join(folder, "packages/e2e/tests/synthetic.test.ts"), "export {};\n");
+for (const name of ["e2e", "process-tree", "e2e-plan", "shard"])
   fs.copyFileSync(`scripts/${name}.ts`, join(folder, `scripts/${name}.ts`));
 fs.writeFileSync(
   join(folder, "scripts/time-budget.ts"),

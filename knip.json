@@ -8,7 +8,8 @@
         "scripts/{exceptions,verify-gates,shape,outdated,contracts,e2e,dev,dev-plugin,generate,commit-message,release,bundle-check,native-build,native-prepare,native-outdated,opencode-prepare,ci,check-time-budgets}.ts",
         "scripts/testing/ci.ts",
         "scripts/testing/verification.ts",
-        "scripts/testing/e2e-preparation.ts"
+        "scripts/testing/e2e-preparation.ts",
+        "scripts/testing/e2e-plan.ts"
       ],
       "project": ["scripts/**/*.{ts,tsx}", "*.{js,ts}"]
     },

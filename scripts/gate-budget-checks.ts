@@ -4,6 +4,24 @@ import type { Check } from "./verify-gates.ts";
 
 export function* budgetChecks(): Generator<Check> {
   yield {
+    gate: "e2e workload plan is exhaustive and shared with preparation",
+    files: {},
+    command: ["scripts/testing/e2e-plan.ts"],
+    expect: ["E2e shards are balanced, exhaustive and share preparation requirements."],
+    accepts: true,
+  };
+  yield {
+    gate: "e2e execution cannot silently use a different shard plan",
+    files: {
+      "packages/e2e/vitest.config.ts": readFileSync(
+        "packages/e2e/vitest.config.ts",
+        "utf8",
+      ).replace("sequencer: BalancedE2eSequencer", "sequencer: undefined"),
+    },
+    command: ["scripts/testing/e2e-plan.ts"],
+    expect: ["E2e must use the shared workload plan"],
+  };
+  yield {
     gate: "public e2e prepares native source assets before its runtimes",
     files: {
       "scripts/e2e.ts": readFileSync("scripts/e2e.ts", "utf8").replace(
@@ -188,7 +206,10 @@ export function* budgetChecks(): Generator<Check> {
   yield {
     gate: "public e2e cannot silently omit browser and OS preparation",
     files: {
-      "scripts/e2e.ts": readFileSync("scripts/e2e.ts", "utf8").replace("run(browser), ", ""),
+      "scripts/e2e.ts": readFileSync("scripts/e2e.ts", "utf8").replace(
+        "plan.browsers.length",
+        "false",
+      ),
     },
     command: ["scripts/testing/e2e-preparation.ts"],
     expect: ["Parallel e2e preparation did not complete"],

@@ -40,7 +40,6 @@ assert.deepEqual(packedMatrix["include"], [
   ...["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
     os: "macos-15-intel",
     shard: selector,
-    ...(selector === "1/4" || selector === "4/4" ? { browser: "chromium" } : {}),
   })),
 ]);
 const rawPackedSteps = packed["steps"];

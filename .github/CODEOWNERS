@@ -19,6 +19,9 @@
 /scripts/time-budget.ts   @ysm-dev
 /scripts/process-tree.ts  @ysm-dev
 /scripts/e2e.ts           @ysm-dev
+/scripts/e2e-plan.ts @ysm-dev
+/scripts/e2e-sequencer.ts @ysm-dev
+/scripts/testing/e2e-plan.ts @ysm-dev
 /scripts/test-timeouts.ts @ysm-dev
 /scripts/check-time-budgets.ts @ysm-dev
 /scripts/ci-duration.ts   @ysm-dev

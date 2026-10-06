@@ -92,14 +92,12 @@ jobs:
             shard: 2/2
           - os: macos-15-intel
             shard: 1/4
-            browser: chromium
           - os: macos-15-intel
             shard: 2/4
           - os: macos-15-intel
             shard: 3/4
           - os: macos-15-intel
             shard: 4/4
-            browser: chromium
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
     steps:
@@ -128,8 +126,6 @@ jobs:
       # Isolate browser/process workloads; Vitest partitions the complete
       # suite, with one file worker per runner and existing per-file concurrency.
       - run: bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers=1', matrix.shard) || '' }}
-        env:
-          E2E_BROWSER: ${{ matrix.browser }}
 
   intel:
     name: Packed tarball (macos-15-intel)
