@@ -53,7 +53,7 @@ test("public Bun runtime reads an inactive companion-free WAL source without cha
         "--experimental-strip-types",
         "--input-type=module",
         "--eval",
-        `import {syntheticDatabase} from ${JSON.stringify(new URL("./testing/index.ts", import.meta.url).href)}; const writer=syntheticDatabase(process.argv[1]);writer.session("ses-inactive");writer.message({id:"msg-inactive",session:"ses-inactive",seq:0,start:1234567890000,tokens:{input:7,output:0}});writer.close();`,
+        `import {syntheticDatabase} from ${JSON.stringify(new URL("./testing/database.ts", import.meta.url).href)}; const writer=syntheticDatabase(process.argv[1]);writer.session("ses-inactive");writer.message({id:"msg-inactive",session:"ses-inactive",seq:0,start:1234567890000,tokens:{input:7,output:0}});writer.close();`,
         source,
       ],
       { encoding: "utf8" },

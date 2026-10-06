@@ -52,6 +52,8 @@ export default defineConfig({
   // second optimization/504/full reload while the first page is loading.
   optimizeDeps: { entries: ["index.html", require.resolve("@opencode-stats/engine/worker")] },
   server: {
+    // Start the same cold transforms during server startup, before browser navigation.
+    warmup: { clientFiles: ["./index.html", "./src/client.tsx"] },
     host: "127.0.0.1",
     port: 5173,
     strictPort: true,
