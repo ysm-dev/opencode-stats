@@ -1,7 +1,6 @@
 import { expect, it } from "vitest";
 import { decode, encode } from "./index.ts";
-import { syntheticCopy } from "./testing/index.ts";
-import { formatFixture } from "./testing/format-fixture.ts";
+import { syntheticCopy, formatFixture } from "./testing/index.ts";
 
 const step = { start: 1, input: 2, cacheRead: null, cacheWrite: 0, output: 3, reasoning: null };
 const name = { dimension: "model", code: 7, id: "provider/model", name: "A model 🌍" };

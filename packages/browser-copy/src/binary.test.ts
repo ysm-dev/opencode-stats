@@ -2,8 +2,12 @@ import { expect, it } from "vitest";
 import * as fc from "fast-check";
 import { createHash } from "node:crypto";
 import { decode, encode, formatVersion } from "./index.ts";
-import { propertyParameters, syntheticCopies, syntheticCopy } from "./testing/index.ts";
-import { formatFixture } from "./testing/format-fixture.ts";
+import {
+  propertyParameters,
+  syntheticCopies,
+  syntheticCopy,
+  formatFixture,
+} from "./testing/index.ts";
 
 it("round-trips step facts with all five token kinds without copying columns", () => {
   const copy = syntheticCopy([
