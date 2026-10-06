@@ -110,7 +110,18 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: lts/*
+      - uses: actions/cache/restore@v6.1.0
+        if: runner.os != 'Linux'
+        id: bun-cache
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-1.4.2-${{ hashFiles('bun.lock', 'bunfig.toml', 'patches/**') }}
       - run: bun install --frozen-lockfile
+      - uses: actions/cache/save@v6.1.0
+        if: runner.os != 'Linux' && steps.bun-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ steps.bun-cache.outputs.cache-primary-key }}
       - run: bun run scripts/testing/time-budgets.ts
         if: ${{ !matrix.shard || startsWith(matrix.shard, '1/') }}
       - uses: actions/download-artifact@v8.0.1
