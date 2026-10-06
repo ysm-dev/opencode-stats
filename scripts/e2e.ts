@@ -18,6 +18,7 @@ const browser = [
   ...(process.platform === "linux" ? ["--with-deps"] : []),
   ...(process.env["E2E_BROWSER"] === "chromium" ? ["chromium"] : ["chromium", "webkit"]),
 ];
+await run(["bun", "run", "native:prepare"]);
 const preparation = [run(browser), run(["bun", "run", "opencode:prepare"])];
 try {
   await Promise.all(preparation);

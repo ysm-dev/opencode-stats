@@ -13,7 +13,7 @@ const browsers = [
   { name: "Chromium", engine: chromium },
   { name: "WebKit", engine: webkit },
 ];
-it.concurrent.each(browsers)(
+it.each(browsers)(
   "$name paints a cold stored theme before the one module bundle, then follows other tabs without requests",
   async ({ engine }) => {
     await using fixture = await preferencesBrowser(engine);
@@ -182,7 +182,7 @@ it.concurrent.each(browsers)(
   },
 );
 
-it.concurrent.each(browsers)(
+it.each(browsers)(
   "$name still loads its installed dashboard when the native storage getter is denied",
   async ({ engine }) => {
     await using fixture = await preferencesBrowser(engine);

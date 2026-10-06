@@ -4,6 +4,17 @@ import type { Check } from "./verify-gates.ts";
 
 export function* budgetChecks(): Generator<Check> {
   yield {
+    gate: "public e2e prepares native source assets before its runtimes",
+    files: {
+      "scripts/e2e.ts": readFileSync("scripts/e2e.ts", "utf8").replace(
+        'await run(["bun", "run", "native:prepare"]);',
+        "",
+      ),
+    },
+    command: ["scripts/testing/e2e-preparation.ts"],
+    expect: ["Native preparation must precede runtimes and tests"],
+  };
+  yield {
     gate: "platform proofs cannot omit an operating system",
     files: {
       ".github/workflows/ci.yml": readFileSync(".github/workflows/ci.yml", "utf8").replace(

@@ -50,7 +50,7 @@ for (const command of [
   "bun run contracts",
   "bun run bundle:check",
 ]) {
-  const proofs = packedSteps.filter((step) => object(step)["run"] === command);
+  const proofs = packedSteps.map(object).filter((step) => step["run"] === command);
   assert.equal(proofs.length, 1, `Missing platform proof: ${command}`);
   assert.equal(
     object(proofs[0])["if"],

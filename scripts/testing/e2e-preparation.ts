@@ -24,6 +24,7 @@ fs.writeFileSync(
   JSON.stringify({
     scripts: {
       e2e: root.scripts.e2e,
+      "native:prepare": "bun stage.ts Native",
       "opencode:prepare": "bun stage.ts OpenCode",
       vitest: "bun stage.ts tests",
     },
@@ -50,7 +51,7 @@ for (const step of steps) {
     while (true) {}
   }
 }
-if (process.env["VERIFY_OVERLAP"] === "1" && stage !== "tests") {
+if (process.env["VERIFY_OVERLAP"] === "1" && (stage === "Playwright" || stage === "OpenCode")) {
   const sibling = stage === "Playwright" ? "OpenCode" : "browser";
   while (!readFileSync(${JSON.stringify(record)}, "utf8").split("\\n").includes(sibling)) await Bun.sleep(5);
 }
@@ -67,7 +68,13 @@ appendFileSync(${JSON.stringify(pids)}, process.pid + "\\n");
 process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);
 `,
 );
-const stages = [...(process.platform === "linux" ? ["OS"] : []), "browser", "OpenCode", "tests"];
+const stages = [
+  "Native",
+  ...(process.platform === "linux" ? ["OS"] : []),
+  "browser",
+  "OpenCode",
+  "tests",
+];
 try {
   const overlap = await runTimed(["bun", "run", "e2e"], 5000, {
     capture: true,
@@ -75,6 +82,11 @@ try {
     env: { ...process.env, VERIFY_OVERLAP: "1" },
   });
   assert.equal(overlap.status, 0, `Parallel e2e preparation did not complete\n${overlap.output}`);
+  assert.equal(
+    fs.readFileSync(record, "utf8").trim().split("\n")[0],
+    "Native",
+    "Native preparation must precede runtimes and tests",
+  );
   assert.deepEqual(
     fs.readFileSync(record, "utf8").trim().split("\n").toSorted(),
     stages.toSorted(),
@@ -112,9 +124,11 @@ try {
     assert.ok(performance.now() - started < 2000, `${stage}: preparation escaped its deadline`);
     const observed = fs.readFileSync(record, "utf8").trim().split("\n");
     const expected =
-      stage === "tests" || stage === "OpenCode"
-        ? stages.filter((step) => step !== "tests" || stage === "tests")
-        : [...stages.slice(0, stages.indexOf(stage) + 1), "OpenCode"];
+      stage === "Native"
+        ? ["Native"]
+        : stage === "tests" || stage === "OpenCode"
+          ? stages.filter((step) => step !== "tests" || stage === "tests")
+          : [...stages.slice(0, stages.indexOf(stage) + 1), "OpenCode"];
     assert.deepEqual(observed.toSorted(), expected.toSorted());
     assert.ok(
       !observed.includes("browser") || observed.indexOf("OS") < observed.indexOf("browser"),
