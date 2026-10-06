@@ -192,13 +192,14 @@ describe("Overview", () => {
   });
 
   it("does not navigate or paint when unmounted before its ready barrier resolves", async () => {
+    const address = window.location.href;
     const { fonts, server, engine, view } = waitingForFonts();
     try {
       await vi.waitFor(() => expect(engine.answers).toHaveLength(1));
       view.unmount();
       fonts.resolve();
       await Promise.resolve();
-      expect(window.location.search).toBe("");
+      expect(window.location.href).toBe(address);
       expect(view.container.textContent).toBe("");
     } finally {
       fonts.resolve();

@@ -277,6 +277,7 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
       window.location.pathname + window.location.search !== next.address
     ) {
       router.history[historyMode](next.address);
+      router.history.flush();
     }
     historyMode = "replace";
     setState(next);

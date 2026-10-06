@@ -10,8 +10,7 @@ const regionalEnglish = (locale: string) => {
 export const clockLabel = (instant: number, timeZone: string, locale: string) =>
   new Intl.DateTimeFormat(regionalEnglish(locale), {
     timeZone,
-    hour: "numeric",
-    minute: "2-digit",
+    timeStyle: "short",
     hourCycle: new Intl.DateTimeFormat(locale, { hour: "numeric" }).resolvedOptions().hourCycle,
   }).format(instant);
 const dateLabel = (date: string, locale: string) => {

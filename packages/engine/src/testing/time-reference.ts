@@ -1,13 +1,19 @@
 import type { Step } from "@opencode-stats/browser-copy";
 import { referenceTokens } from "./reference.ts";
 
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 export const referenceDate = (instant: number, timeZone: string) => {
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(instant);
+  let formatter = dateFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    dateFormatters.set(timeZone, formatter);
+  }
+  const parts = formatter.formatToParts(instant);
   const field = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((part) => part.type === type)!.value;
   return `${field("year")}-${field("month")}-${field("day")}`;
