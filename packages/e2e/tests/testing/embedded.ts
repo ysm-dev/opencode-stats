@@ -54,7 +54,7 @@ export async function checkEmbedded(
     expect(Array.from(copy.steps.cacheWrite)).toEqual([3]);
     expect(Array.from(copy.steps.output)).toEqual([4]);
     expect(Array.from(copy.steps.reasoning)).toEqual([5]);
-    expect(readFileSync(source)).toEqual(before);
+    expect(readFileSync(source).equals(before)).toBe(true);
     expect(transcript.error).toBe("");
   } finally {
     child.kill("SIGINT");

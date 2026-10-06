@@ -182,13 +182,9 @@ describe("installed release", () => {
           expect(Array.from(copy.steps.start)).toEqual([1234567890000]);
           expect(Array.from(copy.steps.input)).toEqual([1]);
           expect(Array.from(copy.steps.reasoning)).toEqual([5]);
-          const equalityStarted = performance.now();
-          expect(readFileSync(join(folder, "synthetic.db"))).toEqual(before);
-          const walAfter = walBefore ? readFileSync(join(folder, "synthetic.db-wal")) : null;
-          expect(walAfter).toEqual(walBefore);
-          process.stdout.write(
-            `[DEBUG-issue27] byte equality ${state}: ${Math.round(performance.now() - equalityStarted)}ms, ${before.length + (walBefore?.length ?? 0)} bytes\n`,
-          );
+          expect(readFileSync(join(folder, "synthetic.db")).equals(before)).toBe(true);
+          if (walBefore)
+            expect(readFileSync(join(folder, "synthetic.db-wal")).equals(walBefore)).toBe(true);
           const browser = await chromium.launch({ headless: true });
           try {
             if (scenario === "Overview") await checkOverview(browser, origin, "15");

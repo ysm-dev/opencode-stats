@@ -1,4 +1,5 @@
-import { execFileSync, spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -34,7 +35,7 @@ export const preferencesServer = async () => {
   try {
     await writeFile(join(directory, "package.json"), '{"private":true}');
     const tarball = (await readdir(resolve(".release"))).find((name) => name.endsWith(".tgz"))!;
-    execFileSync(
+    await promisify(execFile)(
       process.platform === "win32" ? "npm.cmd" : "npm",
       [
         "install",
