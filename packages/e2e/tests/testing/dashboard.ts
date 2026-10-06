@@ -21,13 +21,13 @@ const blockedAssets = {
 function observeLoad(context: BrowserContext, page: Page) {
   const errors: string[] = [];
   const events: string[] = [];
-  const pending = new Set<Request>();
+  const pending = new Map<Request, { started: number; response?: number; status?: number }>();
   const record = (event: string) => {
-    events.push(event);
+    events.push(`${new Date().toISOString()} ${event}`);
     if (events.length > 60) events.shift();
   };
   context.on("request", (request) => {
-    pending.add(request);
+    pending.set(request, { started: performance.now() });
     if (request.resourceType() !== "script")
       record(`request ${request.resourceType()} ${request.url()}`);
   });
@@ -35,6 +35,11 @@ function observeLoad(context: BrowserContext, page: Page) {
     pending.delete(request);
   });
   context.on("response", (response) => {
+    const timing = pending.get(response.request());
+    if (timing) {
+      timing.response = performance.now();
+      timing.status = response.status();
+    }
     if (response.request().resourceType() === "script" && response.status() >= 400)
       errors.push(`Module load failed: ${response.status()} ${response.url()}`);
     if (response.request().resourceType() !== "script" || response.status() >= 400)
@@ -57,13 +62,19 @@ function observeLoad(context: BrowserContext, page: Page) {
     errors,
     describe: (asset: string, width: number) =>
       JSON.stringify({
+        observedAt: new Date().toISOString(),
         asset,
         width,
         page: page.url(),
         workers: page.workers().map((worker) => worker.url()),
-        pending: [...pending]
-          .slice(-20)
-          .map((request) => `${request.resourceType()} ${request.url()}`),
+        pending: [...pending].slice(-20).map(([request, timing]) => ({
+          resource: request.resourceType(),
+          url: request.url(),
+          ageMs: Math.round(performance.now() - timing.started),
+          responseMs:
+            timing.response === undefined ? null : Math.round(timing.response - timing.started),
+          status: timing.status ?? null,
+        })),
         events,
       }),
   };
