@@ -43,14 +43,15 @@ assert.deepEqual(packedMatrix["include"], [
     ...(selector === "1/4" || selector === "4/4" ? { browser: "chromium" } : {}),
   })),
 ]);
-const packedSteps = packed["steps"];
-assert.ok(Array.isArray(packedSteps));
+const rawPackedSteps = packed["steps"];
+assert.ok(Array.isArray(rawPackedSteps));
+const packedSteps = Array.from(rawPackedSteps, object);
 for (const command of [
   "bun run scripts/testing/time-budgets.ts",
   "bun run contracts",
   "bun run bundle:check",
 ]) {
-  const proofs = packedSteps.map(object).filter((step) => step["run"] === command);
+  const proofs = packedSteps.filter((step) => step["run"] === command);
   assert.equal(proofs.length, 1, `Missing platform proof: ${command}`);
   assert.equal(
     object(proofs[0])["if"],
