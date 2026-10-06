@@ -35,6 +35,8 @@ function observeLoad(context: BrowserContext, page: Page) {
     pending.delete(request);
   });
   context.on("response", (response) => {
+    if (response.request().resourceType() === "script" && response.status() >= 400)
+      errors.push(`Module load failed: ${response.status()} ${response.url()}`);
     if (response.request().resourceType() !== "script" || response.status() >= 400)
       record(`response ${response.status()} ${response.url()}`);
   });

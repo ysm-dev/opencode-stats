@@ -21,9 +21,13 @@ const shell = process.platform === "win32";
 const release = resolve(".release");
 
 describe("installed release", () => {
-  it.each(["live", "inactive"])(
-    "installs only our tarball and serves a %s WAL source under --no-install",
-    async (state) => {
+  it.each([
+    { state: "live", scenario: "Overview" },
+    { state: "inactive", scenario: "Overview" },
+    { state: "live", scenario: "sync reload" },
+  ])(
+    "installs only our tarball and serves a $state WAL source under --no-install ($scenario)",
+    async ({ state, scenario }) => {
       const tarballs = (await readdir(release)).filter((file) => file.endsWith(".tgz"));
       expect(tarballs).toHaveLength(1);
       const folder = await mkdtemp(join(tmpdir(), "stats-installed-"));
@@ -175,8 +179,8 @@ describe("installed release", () => {
           expect(walAfter).toEqual(walBefore);
           const browser = await chromium.launch({ headless: true });
           try {
-            await checkOverview(browser, origin, "15");
-            if (state === "live") await checkReload(browser, origin, copy, db);
+            if (scenario === "Overview") await checkOverview(browser, origin, "15");
+            else await checkReload(browser, origin, copy, db);
           } finally {
             await browser.close();
           }
