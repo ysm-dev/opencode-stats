@@ -1,7 +1,8 @@
 import { onTestFinished, expect } from "vitest";
 import { syntheticCopy, inMemoryDashboardServer } from "@opencode-stats/browser-copy/testing";
 import type { EngineAction, EngineState } from "../index.ts";
-import { inThreadEngine, manualClock } from "./index.ts";
+import { inThreadEngine } from "./channel.ts";
+import { manualClock } from "./manual-clock.ts";
 
 export type CompleteState = Extract<EngineState, { screen: "dashboard" }>;
 export const rangeStep = (start: number, input = 1) => ({

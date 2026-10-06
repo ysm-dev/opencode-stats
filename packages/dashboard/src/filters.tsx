@@ -56,6 +56,7 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
               onChange={(event) => {
                 // Native activation must not paint a tick before the worker's complete answer.
                 event.currentTarget.checked = find(id).selected;
+                event.currentTarget.focus();
                 void client.request({ kind: "filter", dimension: props.dimension, id });
               }}
             />
@@ -103,7 +104,13 @@ export const Filters = () => {
         <h2 id="filters-title" tabIndex={-1}>
           Filters
         </h2>
-        <button type="button" onClick={() => void client.request({ kind: "clear-filters" })}>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.currentTarget.focus();
+            void client.request({ kind: "clear-filters" });
+          }}
+        >
           Clear all
         </button>
       </div>
@@ -150,7 +157,10 @@ export const FilterChips = () => {
             type="button"
             id={chipId(key)}
             aria-label={`Remove ${filterLabels[find(key).dimension]} filter · ${find(key).name}`}
-            onClick={() => remove(key)}
+            onClick={(event) => {
+              event.currentTarget.focus();
+              remove(key);
+            }}
           >
             {filterLabels[find(key).dimension]}: {find(key).name} ×
           </button>

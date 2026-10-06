@@ -1,4 +1,4 @@
-import type { Locator, Page } from "playwright";
+import type { Page } from "playwright";
 import { expect } from "vitest";
 
 declare global {
@@ -32,23 +32,6 @@ export const observeFilters = async (page: Page) =>
       requestAnimationFrame(sample);
     };
     requestAnimationFrame(sample);
-  });
-
-export const observeFilterFocus = (input: Locator) =>
-  input.evaluateHandle((element) => {
-    const events: Array<{ kind: string; target: string; active: string; connected: boolean }> = [];
-    const record = (event: Event) => {
-      const active = document.activeElement;
-      events.push({
-        kind: event.type,
-        target: event.target instanceof Element ? event.target.id || event.target.tagName : "",
-        active: active?.id || active?.tagName || "",
-        connected: element.isConnected,
-      });
-    };
-    for (const kind of ["focusin", "focusout", "mousedown", "mouseup", "click", "change"])
-      document.addEventListener(kind, record, true);
-    return { element, events };
   });
 
 export async function wholeFilter(page: Page, action: () => Promise<void>, tokens: string) {
