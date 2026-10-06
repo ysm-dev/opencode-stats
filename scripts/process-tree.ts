@@ -134,6 +134,13 @@ const terminate = (pid: number, deadline: number, descendant: boolean): void => 
   }
 };
 
+const childPids = (output: string): number[] => {
+  const children = output.trim().split(/\s+/u).filter(Boolean).map(Number);
+  if (children.some((pid) => !Number.isSafeInteger(pid) || pid <= 0))
+    throw new Error("Invalid child process ID");
+  return children.filter((pid) => pid !== process.pid);
+};
+
 const killOwnedTree = (pid: number, deadline: number, descendant: boolean): void => {
   // Freeze each parent before discovering its children so it cannot fork past
   // the snapshot. PPIDs include detached sessions; process groups do not.
@@ -164,11 +171,7 @@ const killOwnedTree = (pid: number, deadline: number, descendant: boolean): void
     if (result.status !== 0 && result.status !== 1)
       throw new Error("Cannot inventory test workers");
     phase = "descendants";
-    for (const row of result.stdout.split("\n")) {
-      if (!row.trim()) continue;
-      const child = Number(row);
-      if (!Number.isSafeInteger(child) || child <= 0) throw new Error("Invalid child process ID");
-      if (child === process.pid) continue;
+    for (const child of childPids(result.stdout)) {
       try {
         killOwnedTree(child, deadline, true);
       } catch (error) {

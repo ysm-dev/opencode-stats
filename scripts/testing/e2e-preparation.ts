@@ -75,7 +75,10 @@ try {
     env: { ...process.env, VERIFY_OVERLAP: "1" },
   });
   assert.equal(overlap.status, 0, `Parallel e2e preparation did not complete\n${overlap.output}`);
-  assert.deepEqual(fs.readFileSync(record, "utf8").trim().split("\n").sort(), [...stages].sort());
+  assert.deepEqual(
+    fs.readFileSync(record, "utf8").trim().split("\n").toSorted(),
+    stages.toSorted(),
+  );
   fs.rmSync(record);
   for (const [failure, blocked] of [
     ["OpenCode", "browser"],

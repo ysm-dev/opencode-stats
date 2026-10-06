@@ -21,7 +21,6 @@ export default defineConfig({
       transformIndexHtml: {
         order: "post",
         handler: async () => {
-          const started = performance.now();
           const loaded = await runnerImport<typeof import("./src/preload.ts")>(
             decodeURIComponent(new URL("./src/preload.ts", import.meta.url).pathname),
             {
@@ -37,16 +36,11 @@ export default defineConfig({
               },
             },
           );
-          const imported = performance.now();
-          const children = await loaded.module.classicPreload();
-          process.stderr.write(
-            `[DEBUG-issue27-preload] import=${Math.round(imported - started)}ms compile=${Math.round(performance.now() - imported)}ms\n`,
-          );
           return [
             {
               tag: "script",
               attrs: { id: "preferences-startup" },
-              children,
+              children: await loaded.module.classicPreload(),
               injectTo: "head-prepend",
             },
           ];

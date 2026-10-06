@@ -11,8 +11,10 @@ const palettes = [
   { id: "everforest", scheme: "light" },
 ];
 
-export const testSettings = (engine: BrowserType, name: string) =>
-  it.concurrent.each(palettes)(
+export const testSettings = (engine: BrowserType, name: string) => {
+  // Isolate the measured WebKit startup/frame stalls from sibling cases.
+  const test = name === "WebKit" ? it : it.concurrent;
+  return test.each(palettes)(
     `${name} $id $scheme Settings reflows, has measured contrast, and keeps visible keyboard focus`,
     async ({ id, scheme }) => {
       await using fixture = await preferencesBrowser(engine, { deviceScaleFactor: 2 });
@@ -122,3 +124,4 @@ export const testSettings = (engine: BrowserType, name: string) =>
       }
     },
   );
+};

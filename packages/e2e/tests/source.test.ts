@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { stripVTControlCharacters } from "node:util";
 import { chromium } from "playwright";
-import { expect, it, onTestFinished, vi } from "vitest";
+import { expect, it, onTestFailed, vi } from "vitest";
 import { capture } from "./testing/process.ts";
 import { checkOverview } from "./testing/dashboard.ts";
 import { coldSourceCache } from "./testing/source-cache.ts";
@@ -10,8 +10,8 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
   const phases: string[] = [];
   const phase = (event: string) => phases.push(`${new Date().toISOString()} ${event}`);
   let startupTrace = "";
-  onTestFinished(() => {
-    process.stderr.write(`[DEBUG-issue27-source] ${phases.join("\n")}\n${startupTrace}\n`);
+  onTestFailed(() => {
+    process.stderr.write(`[cold-source-failure] ${phases.join("\n")}\n${startupTrace}\n`);
   });
   phase("cold cache");
   const restoreCache = await coldSourceCache();
