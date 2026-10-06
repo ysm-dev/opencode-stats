@@ -10,6 +10,7 @@ import type { SourceReader, SourceSession, SourceProject } from "./source-reader
 import { owningSession, sessionDetails, detailKeys, makeDimensions } from "./dimensions.ts";
 import statements from "./statements.json" with { type: "json" };
 import { commitUnit } from "./write-facts.ts";
+import type { StepPricer } from "./pricing.ts";
 
 function units(inventory: ReadonlyArray<SourceSession>) {
   const byId = new Map(inventory.map((row) => [row.id, row]));
@@ -25,7 +26,7 @@ function units(inventory: ReadonlyArray<SourceSession>) {
     .toSorted((a, b) => b.latest - a.latest);
 }
 
-export const statsStoreVersion = 6;
+export const statsStoreVersion = 7;
 export const initializeStore = Effect.fnUntraced(function* (
   paths: StorePaths,
   adapter: DatabaseAdapter,
@@ -79,6 +80,7 @@ export const reconcile = Effect.fnUntraced(
     now: number,
     announce: () => Effect.Effect<void, Error>,
     checkBounds: boolean,
+    pricer: StepPricer,
   ) {
     const db = yield* Database;
     const saved = yield* db.select().from(sessions);
@@ -130,6 +132,7 @@ export const reconcile = Effect.fnUntraced(
         projects,
         registry,
         true,
+        pricer,
       );
       yield* announce();
     }
@@ -152,6 +155,7 @@ export const reconcile = Effect.fnUntraced(
         projects,
         registry,
         !initialCommit && index === 0,
+        pricer,
       );
       yield* announce();
     }

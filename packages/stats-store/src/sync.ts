@@ -8,6 +8,7 @@ import { Database, type DatabaseAdapter, type StorePaths } from "./database.ts";
 import type { SourceAdapter } from "./source-reader.ts";
 import { initializeStore, reconcile, collectTombstones } from "./build.ts";
 import { sqlFailure } from "./errors.ts";
+import { pricingForPass } from "./pricing.ts";
 
 export const sync = Effect.fnUntraced(function* (
   paths: StorePaths,
@@ -36,10 +37,12 @@ export const sync = Effect.fnUntraced(function* (
     Effect.gen(function* () {
       const file = yield* identity;
       const reader = yield* source(paths.source);
+      const price = pricingForPass(reader);
       let baseline = yield* reader.version;
       let reconciliation = yield* Clock.currentTimeMillis;
       const pass = Effect.fnUntraced(function* (checkBounds: boolean) {
         const inventory = yield* reader.inventory;
+        const pricer = yield* price(announce);
         yield* reconcile(
           reader,
           inventory.sessions,
@@ -47,6 +50,7 @@ export const sync = Effect.fnUntraced(function* (
           yield* Clock.currentTimeMillis,
           announce,
           checkBounds,
+          pricer,
         );
       });
       const collect = Effect.gen(function* () {

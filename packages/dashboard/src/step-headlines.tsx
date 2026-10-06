@@ -11,7 +11,8 @@ export const PreviousNumber = (props: {
     | "failed"
     | "response"
     | "cacheHitRate"
-    | "tools";
+    | "tools"
+    | "cost";
 }) => {
   const state = useContext(PageState)!;
   return (
@@ -31,6 +32,7 @@ const duration = (value: number | null) => (value === null ? "—" : `${number(v
 const Headline = (props: {
   id: string;
   title: string;
+  about?: boolean;
   value: string;
   line?: string;
   metric: Parameters<typeof PreviousNumber>[0]["metric"];
@@ -45,8 +47,20 @@ const Headline = (props: {
       data-revision={state().revision}
       data-range={state().address}
     >
-      <h2 id={props.id}>{props.title}</h2>
-      <p class="headline-number">{props.value}</p>
+      <h2 id={props.id}>
+        <Show when={props.about}>
+          <span aria-hidden="true">≈ </span>
+          <span class="sr-only">about </span>
+        </Show>
+        {props.title}
+      </h2>
+      <p class="headline-number">
+        <Show when={props.about}>
+          <span aria-hidden="true">≈ </span>
+          <span class="sr-only">about </span>
+        </Show>
+        {props.value}
+      </p>
       <Show when={props.line}>
         <p>{props.line}</p>
       </Show>
@@ -61,6 +75,14 @@ export const StepHeadlines = () => {
   const recordedFrom = () => metrics().response.recordedFrom;
   return (
     <>
+      <Headline
+        id="cost"
+        title="Cost"
+        about
+        value={metrics().cost.estimated === null ? "—" : `$${number(metrics().cost.estimated)}`}
+        line={`$${number(metrics().cost.recorded)} recorded cost · ${percent(metrics().cost.pricedShare)} of tokens priced`}
+        metric="cost"
+      />
       <Headline
         id="steps"
         title="Steps"

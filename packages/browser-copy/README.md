@@ -9,11 +9,11 @@ The production entries use no DOM, Node or Bun types:
 - `@opencode-stats/browser-copy/testing`: **Node test code only**. Synthetic
   copies and arbitraries, property parameters, and an in-memory HttpApi server.
 
-## Format 5
+## Format 6
 
 One little-endian buffer has this 128-byte header, followed by Float64 columns.
 Steps carry start, nullable stream end and completion, error code, counted failed/interrupted flags,
-five token kinds, provider, model, variant, agent, project,
+nullable recorded and estimated costs, five token kinds, provider, model, variant, agent, project,
 owning session and originating subagent. Prompt columns follow steps, carrying delivery
 and provider, model, variant, agent, project and session codes. Tool-call columns follow prompts:
 step start, nullable run start and completion, nullable outcome, tool and the step's dimensions.
@@ -46,7 +46,8 @@ code columns. Every decoded column shares the input buffer.
 
 Instants are safe-integer Unix milliseconds. Token amounts are nonnegative
 safe integers; NaN means unrecorded, not zero, including missing step timings and
-unassigned prompt attribution. Step outcome flags are zero or one; tool outcomes are
+unassigned prompt attribution. Costs are finite nonnegative USD amounts, or NaN when unrecorded or unpriced.
+Step outcome flags are zero or one; tool outcomes are
 1 (succeeded), 2 (failed), 3 (stopped), or NaN (none yet). The decoder validates the header
 and exact payload/column lengths before constructing column views, then checks
 their values. The encoder also refuses invalid metadata or columns.

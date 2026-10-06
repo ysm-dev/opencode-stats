@@ -19,5 +19,5 @@ export function dashboardFixture(
     await engine.dispose();
     await server.dispose();
   };
-  return { server, engine, clock, view, user, close };
+  return { server, engine, clock, view, user, close, [Symbol.asyncDispose]: close };
 }

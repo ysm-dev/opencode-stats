@@ -2,6 +2,7 @@ import * as Schema from "effect/Schema";
 import type { DimensionName, promptFields } from "@opencode-stats/browser-copy";
 import type { Fact } from "./amounts.ts";
 import type { Period } from "./ranges.ts";
+import { Cost, emptyCost, addCost, costTotals } from "./cost.ts";
 
 const measured = Schema.NullOr(Schema.Number);
 export const StepMetrics = Schema.Struct({
@@ -27,6 +28,7 @@ export const StepMetrics = Schema.Struct({
   }),
   context: Schema.Struct({ median: measured, p95: measured, max: measured }),
   cacheHitRate: measured,
+  cost: Cost,
 });
 export type PromptFact = Readonly<Record<(typeof promptFields)[number], number>>;
 const rank = (sorted: readonly number[], percentile: number): number | null =>
@@ -49,11 +51,13 @@ export function stepMetrics(
   let recordedFrom: number | null = null;
   let cacheRead = 0n;
   let contextTotal = 0n;
+  const cost = emptyCost();
   for (const fact of facts) {
     if (!Number.isNaN(fact.streamEnd))
       recordedFrom = Math.min(recordedFrom ?? fact.start, fact.start);
     if (!inPeriod(fact.start, period)) continue;
     steps++;
+    addCost(cost, fact);
     interrupted += fact.interrupted;
     if (fact.failed === 1) errors.set(fact.error, (errors.get(fact.error) ?? 0) + 1);
     if (!Number.isNaN(fact.streamEnd)) response.push(fact.streamEnd - fact.start);
@@ -89,5 +93,6 @@ export function stepMetrics(
     },
     context: { median: rank(context, 0.5), p95: rank(context, 0.95), max: context.at(-1) ?? null },
     cacheHitRate: ratio(Number(cacheRead), Number(contextTotal)),
+    cost: costTotals(cost),
   };
 }

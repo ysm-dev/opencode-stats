@@ -52,6 +52,18 @@ export function referenceMetrics(
     .toSorted((a, b) => a.id.localeCompare(b.id));
   const failed = errors.reduce((sum, error) => sum + error.failed, 0);
   const aborted = names.find((name) => name.dimension === "error" && name.id === "aborted")?.code;
+  const priced = facts.filter((row) => row.estimatedCost != null);
+  const tokenSum = (rows: readonly Row[]) =>
+    rows.reduce(
+      (sum, row) =>
+        sum +
+        (row.input ?? 0) +
+        (row.cacheRead ?? 0) +
+        (row.cacheWrite ?? 0) +
+        (row.output ?? 0) +
+        (row.reasoning ?? 0),
+      0,
+    );
   return {
     steps,
     prompts,
@@ -75,5 +87,10 @@ export function referenceMetrics(
       contexts.reduce((sum, row) => sum + row.cacheRead!, 0),
       sizes.reduce((sum, size) => sum + size, 0),
     ),
+    cost: {
+      estimated: priced.length ? priced.reduce((sum, row) => sum + row.estimatedCost!, 0) : null,
+      recorded: facts.reduce((sum, row) => sum + (row.recordedCost ?? 0), 0),
+      pricedShare: share(tokenSum(priced), tokenSum(facts)),
+    },
   };
 }

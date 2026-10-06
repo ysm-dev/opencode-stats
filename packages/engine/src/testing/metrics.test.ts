@@ -171,6 +171,14 @@ it("matches a row-oriented reference for generated ranges, every filter dimensio
           context: fc.integer({ min: 0, max: 1000 }).map((n) => n * 2),
           error: fc.constantFrom(null, 500, 501, 502),
           complete: fc.boolean(),
+          estimatedCost: fc.option(
+            fc.integer({ min: 0, max: 400 }).map((value) => value / 4),
+            { nil: null },
+          ),
+          recordedCost: fc.option(
+            fc.integer({ min: 0, max: 400 }).map((value) => value / 4),
+            { nil: null },
+          ),
         }),
         { maxLength: 25 },
       ),
@@ -182,6 +190,8 @@ it("matches a row-oriented reference for generated ranges, every filter dimensio
           ...metricStep(`2026-10-0${row.day}T12:00Z`, row.duration, row.context, row.error),
           ...mapStepDimensions((field) => filterSteps[index % filterSteps.length]![field]),
           cacheWrite: row.complete ? 0 : null,
+          estimatedCost: row.estimatedCost,
+          recordedCost: row.recordedCost,
         }));
         const prompts = steps.map((step) => ({ ...step, start: step.start - 1 }));
         const server = inMemoryDashboardServer(

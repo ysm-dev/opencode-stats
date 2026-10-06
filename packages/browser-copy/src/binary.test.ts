@@ -78,6 +78,7 @@ it("pins the format version to a fixed synthetic encoding", () => {
     3: "88d2bb6ab7a87f4efb60978228b9b607c3958ac8eb3fdfea6ab6e274a26ae6d6",
     4: "910e80205f85cb48955c06876b6981612f874eb7d5c5a0c03ef42f3fbac5f13b",
     5: "0539460d2cfd667dbb8b5787acdbad34b9a55773ab107c0eced9534f581a7e26",
+    6: "544fa0d14e5f95ab7cbc30f1ada0c4e0e43a12ea5b63a238e151d52d58108c3e",
   };
   expect(
     createHash("sha256").update(new Uint8Array(bytes)).digest("hex"),

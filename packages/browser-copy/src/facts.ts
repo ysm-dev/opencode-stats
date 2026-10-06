@@ -17,6 +17,8 @@ export const stepFields = [
   "error",
   "failed",
   "interrupted",
+  "recordedCost",
+  "estimatedCost",
   ...tokenKinds,
   ...stepDimensions,
 ] as const;
@@ -83,6 +85,8 @@ export function mapStepFields<Value>(
     error: read("error"),
     failed: read("failed"),
     interrupted: read("interrupted"),
+    recordedCost: read("recordedCost"),
+    estimatedCost: read("estimatedCost"),
     ...mapTokenFields(read),
     ...mapStepDimensions(read),
   };
@@ -113,6 +117,8 @@ export type Step = {
   readonly error?: number | null;
   readonly failed?: number;
   readonly interrupted?: number;
+  readonly recordedCost?: number | null;
+  readonly estimatedCost?: number | null;
 } & Readonly<Record<TokenKind, number | null>>;
 export type StepColumns = { readonly start: Float64Array } & Readonly<
   Record<(typeof stepFields)[number], Float64Array>

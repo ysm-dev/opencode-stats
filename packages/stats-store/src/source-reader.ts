@@ -20,6 +20,9 @@ const fact = Schema.Struct({
   cacheWrite: usage,
   output: usage,
   reasoning: usage,
+  recordedCost: Schema.NullOr(
+    Schema.Number.check(Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0)),
+  ),
   provider: Schema.NullOr(Schema.String),
   model: Schema.NullOr(Schema.String),
   variant: Schema.String,
@@ -73,6 +76,7 @@ const factsSql = `SELECT id, session_id AS session, seq AS position,
   json_extract(data,'$.tokens.cache.write') AS cacheWrite,
   json_extract(data,'$.tokens.output') AS output,
   json_extract(data,'$.tokens.reasoning') AS reasoning,
+  json_extract(data,'$.cost') AS recordedCost,
   json_extract(data,'$.model.providerID') AS provider,
   json_extract(data,'$.model.id') AS model,
   coalesce(json_extract(data,'$.model.variant'),'default') AS variant,
@@ -99,6 +103,14 @@ function readTransaction<A>(db: NativeReader, read: () => A): A {
 export function sourceReader(db: NativeReader) {
   db.exec("PRAGMA busy_timeout=20");
   return {
+    catalogStamp: attempt(() => {
+      const row = db.all("SELECT time_updated FROM kv WHERE key='models-dev:catalog'")[0];
+      return row ? Schema.decodeUnknownSync(instant)(row["time_updated"]) : null;
+    }),
+    catalog: attempt(() => {
+      const row = db.all("SELECT value FROM kv WHERE key='models-dev:catalog'")[0];
+      return row ? Schema.decodeUnknownSync(Schema.String)(row["value"]) : null;
+    }),
     version: attempt(() =>
       Schema.decodeUnknownSync(instant)(db.all("PRAGMA main.data_version")[0]!["data_version"]),
     ),

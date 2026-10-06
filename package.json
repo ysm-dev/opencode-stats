@@ -25,6 +25,7 @@
     "dev": "bun run native:prepare && bun run scripts/dev.ts",
     "dev:plugin": "bun run native:prepare && bun run scripts/dev-plugin.ts",
     "generate": "bun run scripts/generate.ts",
+    "prices:refresh": "bun run scripts/prices-refresh.ts",
     "release": "bun run scripts/time-budget.ts scripts/release.ts",
     "bundle:check": "bun run scripts/time-budget.ts scripts/bundle-check.ts",
     "e2e": "bun run scripts/time-budget.ts scripts/e2e.ts",

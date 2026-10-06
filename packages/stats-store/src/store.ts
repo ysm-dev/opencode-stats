@@ -1,5 +1,13 @@
 import * as Effect from "effect/Effect";
-import { metadata, steps, prompts, tools, tombstones } from "./schema.ts";
+import {
+  metadata,
+  steps,
+  prompts,
+  tools,
+  tombstones,
+  pricingCatalog,
+  modelPrices,
+} from "./schema.ts";
 import { countedSteps, readDimensions } from "./read-dimensions.ts";
 import { gt, eq, or } from "drizzle-orm";
 import { Database, type StoreRuntime } from "./database.ts";
@@ -40,6 +48,10 @@ export type StoreCopy = {
   readonly projects: ReadonlyArray<number>;
   readonly sessionTombstones: ReadonlyArray<number>;
   readonly projectTombstones: ReadonlyArray<number>;
+  readonly pricing: {
+    readonly catalog: typeof pricingCatalog.$inferSelect;
+    readonly models: ReadonlyArray<typeof modelPrices.$inferSelect>;
+  };
 };
 export type StoreCursor = { readonly generation: string; readonly revision: number };
 export type { StoreRuntime } from "./database.ts";
@@ -133,6 +145,10 @@ export const stayInSync = Effect.fnUntraced(function* (
             tombstones: deleted.filter(
               (row) => !row.id.startsWith("session:") && !row.id.startsWith("project:"),
             ),
+            pricing: {
+              catalog: (yield* db.select().from(pricingCatalog))[0]!,
+              models: yield* db.select().from(modelPrices).orderBy(modelPrices.id),
+            },
             ...dimensions,
           };
         }),

@@ -3,10 +3,10 @@
 `stayInSync(options, runtime, announce)` builds once at startup, announces the
 committed copy, and returns `read()` or `read(cursor)`. Reads contain UTC step
 starts, nullable stream ends and completions, counted failed/interrupted flags and error-type codes,
-five independently nullable token kinds, step dimensions, delivered prompts, sessions,
+five independently nullable token kinds, separate recorded and estimated costs, step dimensions, delivered prompts, tool calls, sessions,
 subagent sessions, projects and names, not totals or message content.
 
-Stats-store version 6 rebuilds your statistics to add tool calls, outcomes and run timings, with a fingerprint of the complete synthetic history.
+Stats-store version 7 rebuilds your statistics to add offline pricing alongside tool calls, outcomes and run timings, with a fingerprint of the complete synthetic history.
 Codes are allocated monotonically, retained after deletion and never reused.
 Fork-copy IDs (`msg_` + 26 characters + `_` + digits) never count, even after
 rewrites or deletion of their origin. Nested steps roll into their owning session

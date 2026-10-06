@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const steps = sqliteTable("step", {
   id: text().primaryKey(),
@@ -15,6 +15,8 @@ export const steps = sqliteTable("step", {
   cacheWrite: integer("cache_write"),
   output: integer(),
   reasoning: integer(),
+  recordedCost: real("recorded_cost"),
+  estimatedCost: real("estimated_cost"),
   provider: integer(),
   model: integer(),
   variant: integer().notNull(),
@@ -23,6 +25,19 @@ export const steps = sqliteTable("step", {
   sessionCode: integer("session_code").notNull(),
   subagent: integer(),
   revision: integer().notNull(),
+});
+
+export const pricingCatalog = sqliteTable("pricing_catalog", {
+  id: integer().primaryKey(),
+  source: text().notNull(),
+  stamp: integer(),
+  updatedAt: integer("updated_at").notNull(),
+  digest: text(),
+});
+export const modelPrices = sqliteTable("model_price", {
+  id: text().primaryKey(),
+  name: text().notNull(),
+  price: text(),
 });
 
 export const prompts = sqliteTable("prompt", {

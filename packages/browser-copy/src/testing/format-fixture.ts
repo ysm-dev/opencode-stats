@@ -22,6 +22,8 @@ export const formatFixture = () =>
         completed: 345,
         error: 10,
         failed: 1,
+        recordedCost: 0,
+        estimatedCost: 1.25,
         interrupted: 0,
       },
       {

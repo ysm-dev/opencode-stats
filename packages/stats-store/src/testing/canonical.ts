@@ -24,6 +24,8 @@ export function canonicalCopy(copy: StoreCopy) {
       error: identity(step.error ?? null),
       failed: step.failed,
       interrupted: step.interrupted,
+      recordedCost: step.recordedCost,
+      estimatedCost: step.estimatedCost,
       ...mapStepDimensions((dimension) => identity(step[dimension])),
     })),
     prompts: copy.prompts.map((prompt) => ({

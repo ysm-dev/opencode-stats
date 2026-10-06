@@ -26,6 +26,7 @@ export type SyntheticMessage = {
   readonly variant?: string;
   readonly agent?: string;
   readonly tools?: readonly SyntheticTool[];
+  readonly cost?: number;
 };
 
 export function syntheticDatabase(filename: string) {
@@ -52,6 +53,13 @@ export function syntheticDatabase(filename: string) {
     }
   };
   return {
+    catalog(value: string | null, updatedAt = 1) {
+      if (value === null) db.prepare("DELETE FROM kv WHERE key='models-dev:catalog'").run();
+      else
+        db.prepare(
+          "INSERT INTO kv(key,value,time_created,time_updated) VALUES ('models-dev:catalog',?,0,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,time_updated=excluded.time_updated",
+        ).run(value, updatedAt);
+    },
     session(
       id: string,
       parent: string | null = null,
@@ -77,6 +85,7 @@ export function syntheticDatabase(filename: string) {
           { type: "text", text: message.content ?? "SYNTHETIC PRIVATE CONTENT" },
           ...(message.tools ?? []).map(toolContent),
         ],
+        cost: message.cost,
         error:
           message.error === undefined
             ? undefined

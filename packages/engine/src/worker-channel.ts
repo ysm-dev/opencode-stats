@@ -48,6 +48,7 @@ function stateFor(
     response: "",
     cacheHitRate: "",
     tools: "",
+    cost: "",
     caption: "",
   };
   if (previous) {
@@ -62,6 +63,7 @@ function stateFor(
       amounts.metrics.cacheHitRate,
       before.metrics.cacheHitRate,
     );
+    comparison.cost = measuredChange(amounts.metrics.cost.estimated, before.metrics.cost.estimated);
     comparison.caption = `Previous period · ${periodLabel(previous, locale)} · through ${clockLabel(previous.end, timeZone, locale)}`;
   }
   return {

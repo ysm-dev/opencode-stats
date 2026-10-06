@@ -55,6 +55,7 @@ const State = Schema.Union([
       response: Schema.String,
       cacheHitRate: Schema.String,
       tools: Schema.String,
+      cost: Schema.String,
       caption: Schema.String,
     }),
     tokens: Tokens,

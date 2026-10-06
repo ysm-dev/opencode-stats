@@ -6,6 +6,8 @@ import type { SourceFact, SourceReader, SourceSession, SourceProject } from "./s
 import { makeDimensions, owningSession, saveDetails, stepAttribution } from "./dimensions.ts";
 import { replacePrompts } from "./write-prompts.ts";
 import { replaceTools } from "./write-tools.ts";
+import type { StepPricer } from "./pricing.ts";
+import { mapTokenFields } from "@opencode-stats/browser-copy";
 
 type Snapshot = Effect.Success<ReturnType<SourceReader["read"]>>;
 const keys = [
@@ -21,6 +23,8 @@ const keys = [
   "cacheWrite",
   "output",
   "reasoning",
+  "recordedCost",
+  "estimatedCost",
   "provider",
   "model",
   "variant",
@@ -36,6 +40,7 @@ const replaceFacts = Effect.fnUntraced(function* (
   now: number,
   byId: ReadonlyMap<string, SourceSession>,
   code: ReturnType<Effect.Success<ReturnType<typeof makeDimensions>>>,
+  pricer: StepPricer,
 ) {
   const db = yield* Database;
   const old = yield* db.select().from(steps).where(eq(steps.session, id));
@@ -43,10 +48,16 @@ const replaceFacts = Effect.fnUntraced(function* (
   const session = byId.get(id);
   const owner = session ? owningSession(session, byId) : id;
   for (const fact of facts) {
-    const attributed = yield* stepAttribution(fact, code);
+    const priced = yield* pricer(
+      fact.provider,
+      fact.model,
+      mapTokenFields((kind) => fact[kind]),
+    );
+    const attributed = yield* stepAttribution(fact, code, priced.name);
     const row = {
       ...fact,
       ...attributed,
+      estimatedCost: priced.estimatedCost,
       error: yield* code("error", fact.error),
       failed: Number(fact.error !== null && fact.error !== "aborted"),
       interrupted: Number(fact.error === "aborted"),
@@ -81,6 +92,7 @@ export const commitUnit = Effect.fnUntraced(function* (
   projects: ReadonlyArray<SourceProject>,
   registry: Effect.Success<ReturnType<typeof makeDimensions>>,
   refreshDetails: boolean,
+  pricer: StepPricer,
 ) {
   const db = yield* Database;
   yield* db.$client.withTransaction(
@@ -98,14 +110,14 @@ export const commitUnit = Effect.fnUntraced(function* (
       if (snapshots)
         for (const snapshot of snapshots) {
           if (!snapshot.session) {
-            yield* replaceFacts(snapshot.id, [], revision, now, inventory, code);
+            yield* replaceFacts(snapshot.id, [], revision, now, inventory, code, pricer);
             yield* replaceTools(snapshot.id, [], revision, now, code);
             yield* replacePrompts(snapshot.id, [], [], revision, now, inventory, code);
             yield* db.delete(sessions).where(eq(sessions.id, snapshot.id));
             continue;
           }
           const session = snapshot.session;
-          yield* replaceFacts(session.id, snapshot.facts, revision, now, inventory, code);
+          yield* replaceFacts(session.id, snapshot.facts, revision, now, inventory, code, pricer);
           yield* replaceTools(session.id, snapshot.tools, revision, now, code);
           yield* replacePrompts(
             session.id,
@@ -123,7 +135,7 @@ export const commitUnit = Effect.fnUntraced(function* (
         }
       if (removed)
         for (const id of removed) {
-          yield* replaceFacts(id, [], revision, now, inventory, code);
+          yield* replaceFacts(id, [], revision, now, inventory, code, pricer);
           yield* replaceTools(id, [], revision, now, code);
           yield* replacePrompts(id, [], [], revision, now, inventory, code);
           yield* db.delete(sessions).where(eq(sessions.id, id));

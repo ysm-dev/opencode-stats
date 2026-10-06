@@ -78,6 +78,7 @@ type DimensionWriter = ReturnType<Effect.Success<ReturnType<typeof makeDimension
 export const stepAttribution = Effect.fnUntraced(function* (
   step: SourceFact | undefined,
   code: DimensionWriter,
+  modelName?: string,
 ) {
   const provider = step?.provider ?? null;
   const model = step?.model ?? null;
@@ -86,6 +87,7 @@ export const stepAttribution = Effect.fnUntraced(function* (
     model: yield* code(
       "model",
       provider !== null && model !== null ? `${provider}/${model}` : null,
+      modelName,
     ),
     variant: yield* code("variant", step?.variant ?? null),
     agent: yield* code("agent", step?.agent ?? null),

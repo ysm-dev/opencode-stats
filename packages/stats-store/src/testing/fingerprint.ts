@@ -1,7 +1,27 @@
 import type { syntheticDatabase } from "./index.ts";
+import { cachedCatalog, rate, tier } from "./pricing.ts";
 export const fiveTokens = { input: 11, cache: { read: 22, write: 33 }, output: 44, reasoning: 55 };
 
 export function fingerprintFixture(writer: ReturnType<typeof syntheticDatabase>) {
+  writer.catalog(
+    cachedCatalog(
+      {
+        "synthetic-provider": {
+          name: "Synthetic Provider",
+          models: {
+            "synthetic-model": {
+              name: "Synthetic Model",
+              cost: { ...rate(), tiers: [tier(65, 2)], context_over_200k: rate(99) },
+              experimental: { modes: { pro: { cost: rate(3) } } },
+            },
+          },
+        },
+        other: { models: { model: { cost: rate(0, 0, 0, 0) } } },
+      },
+      100,
+      "fingerprint-catalog",
+    ),
+  );
   writer.session("ses-fingerprint");
   writer.message({
     id: "msg-five",
@@ -38,6 +58,7 @@ export function fingerprintFixture(writer: ReturnType<typeof syntheticDatabase>)
       { id: "running", name: "read", status: "running", ran: 1190 },
       { id: "streaming", name: "read", status: "streaming" },
     ],
+    cost: 0.25,
   });
   writer.message({
     id: "msg-missing",
@@ -126,5 +147,15 @@ export function fingerprintFixture(writer: ReturnType<typeof syntheticDatabase>)
     seq: 8,
     start: 8500,
     type: "user",
+  });
+  writer.session("ses-pricing-mode");
+  writer.message({
+    id: "step-mode",
+    session: "ses-pricing-mode",
+    seq: 0,
+    start: 9000,
+    model: "synthetic-model-pro",
+    tokens: { ...fiveTokens, input: 1 },
+    cost: 0,
   });
 }

@@ -12,6 +12,8 @@ export const countedSteps = (facts: ReadonlyArray<typeof steps.$inferSelect>) =>
     error: row.error,
     failed: row.failed,
     interrupted: row.interrupted,
+    recordedCost: row.recordedCost,
+    estimatedCost: row.estimatedCost,
     ...mapTokenFields((kind) => row[kind]),
     provider: row.provider,
     model: row.model,

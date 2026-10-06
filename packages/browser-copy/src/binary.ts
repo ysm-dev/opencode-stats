@@ -15,12 +15,12 @@ import {
 } from "./facts.ts";
 import { checkedLength, decodeStrings, encodeStrings } from "./strings.ts";
 
-export const formatVersion = 5;
+export const formatVersion = 6;
 const headerLength = 128;
 const columns = stepFields;
 const magic = 0x5354434f;
 
-// Format 5: little endian, 128-byte header, then Float64 fact columns and strings.
+// Format 6: little endian, 128-byte header, then Float64 fact columns and strings.
 // Header: magic/u32, version/u32, generation/36 ASCII bytes, kind/u32,
 // fromRevision/f64, revision/f64, historyCompleteFrom/f64, rows/u32, bytes/u32.
 // Then strings bytes/u32, tombstone count/u32, name count/u32, reserved/u32.
@@ -172,6 +172,10 @@ function validateColumns(steps: StepColumns): void {
     }
   }
   for (const dimension of stepDimensions) validateCodes(steps[dimension]);
+  for (const costs of [steps.recordedCost, steps.estimatedCost])
+    for (const value of costs)
+      if (!Number.isNaN(value) && (!Number.isFinite(value) || value < 0))
+        throw new Error("Invalid step cost");
 }
 
 function validatePromptColumns(prompts: PromptColumns): void {

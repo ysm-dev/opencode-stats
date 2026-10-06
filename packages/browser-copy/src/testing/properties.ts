@@ -18,6 +18,8 @@ const tokenStep = fc.record({
   error: optionalCode,
   failed: fc.integer({ min: 0, max: 1 }),
   interrupted: fc.integer({ min: 0, max: 1 }),
+  recordedCost: fc.option(fc.double({ min: 0, max: 1000000, noNaN: true }), { nil: null }),
+  estimatedCost: fc.option(fc.double({ min: 0, max: 1000000, noNaN: true }), { nil: null }),
 });
 export const syntheticSteps = fc.array(tokenStep, { maxLength: 100 });
 const dimensionStep = fc.record({
