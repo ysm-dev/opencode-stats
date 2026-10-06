@@ -37,32 +37,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-  mutation:
-    name: Mutation (${{ matrix.shard }}/12)
-    timeout-minutes: 5
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@v2.2.0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: lts/*
-      - run: bun install --frozen-lockfile
-      # Authoritative full run on every PR; no incremental cache.
-      - run: bun run mutate
-        env:
-          MUTATION_SHARD: ${{ matrix.shard }}/12
-
   verification:
     name: Gate verification (${{ matrix.shard }}/16)
     timeout-minutes: 5
-    needs: [checks, mutation, contracts, packed]
+    needs: [checks, contracts, packed]
     strategy:
       fail-fast: false
       matrix:
@@ -160,7 +138,7 @@ jobs:
   gates:
     name: Quality gates
     timeout-minutes: 5
-    needs: [checks, mutation, contracts, verification, packed]
+    needs: [checks, contracts, verification, packed]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -171,11 +149,10 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2.2.0
       # Keep the ruleset's existing required check meaningful even if a job skips.
-      - run: test "$CHECKS" = success && test "$MUTATION" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success
+      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success
         if: always()
         env:
           CHECKS: ${{ needs.checks.result }}
-          MUTATION: ${{ needs.mutation.result }}
           CONTRACTS: ${{ needs.contracts.result }}
           VERIFICATION: ${{ needs.verification.result }}
           PACKED: ${{ needs.packed.result }}

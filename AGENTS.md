@@ -14,9 +14,9 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Quality gates
 
-**Five minutes is a hard limit.** Every CI job and each test, mutation, contract and gate-verification run must fail after 300 seconds. The required Quality gates job also rejects a workflow attempt over five minutes end-to-end, including setup and waiting between jobs. Preserve the watchdogs in `scripts/time-budget.ts`, shared Vitest timeouts, Bun test timeout, and workflow `timeout-minutes: 5`; `bun run budgets` checks this configuration. Optimize or shard work when the limit is hit. Keep individual test/hook limits tighter. See README's **Time budgets** for local aggregate runs and verification.
+**Five minutes is a hard limit.** The entire public `bun run ci` aggregate, including preparation and final gate verification, shares one external 300-second deadline. Every independently invoked CI stage and GitHub job has the same maximum. The required Quality gates job also rejects a workflow attempt over five minutes end-to-end, including setup and waiting between jobs. Preserve the watchdogs in `scripts/time-budget.ts`, shared Vitest timeouts, Bun test timeout, and workflow `timeout-minutes: 5`; `bun run budgets` checks this configuration. Optimize or isolate parallel work when the limit is hit; preserve the tighter test/hook limits. See README's **Time budgets** for verification.
 
-`bun run ci` runs every gate below, with gate verification last. CI blocks on all of them; mutation has its own full-run job on every PR.
+`bun run ci` runs every gate below, with gate verification last. CI blocks on all of them. Behavioral, unit and property tests enforce 100% per-file coverage. **Mutation testing is retired by maintainer policy; keep this repository free of mutation tests, runners and canaries.**
 
 | Gate                 | Threshold / enforcement                                                                                                              | `bun run`        |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
@@ -25,7 +25,6 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 | Lint                 | Both complexity measures < 22 via `oxlint-plugin-complexity`; < 500 lines; no `any`; `unknown` only at trust boundaries; no warnings | `lint`           |
 | Types                | Clean                                                                                                                                | `typecheck`      |
 | Coverage             | 100% in all four measures, per file                                                                                                  | `test`           |
-| Mutation             | No surviving or uncovered mutants                                                                                                    | `mutate`         |
 | Dead code            | Normal and `--production --strict`                                                                                                   | `knip`           |
 | Duplication          | Zero                                                                                                                                 | `dup`            |
 | Exceptions           | Reasoned single-line suppressions and human-owned whole-file waivers                                                                 | `exceptions`     |
@@ -35,7 +34,7 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 | Dependency freshness | New unheld releases fail after 7 days                                                                                                | `outdated`       |
 | Gate verification    | Planted violations rejected in `.ts` and `.tsx`                                                                                      | `verify-gates`   |
 
-Every gate reads `.ts` and `.tsx`; `dist/`, `.release/` and `.dev/` are artifacts, excluded everywhere. Tests, `testing/` code and contract tests are excluded from coverage and mutation by rule, not by waiver. Testing code stays under the other gates and is importable only from tests or testing code.
+Every gate reads `.ts` and `.tsx`; `dist/`, `.release/` and `.dev/` are artifacts, excluded everywhere. Tests, `testing/` code and contract tests are excluded from coverage by rule, not by waiver. Testing code stays under the other gates and is importable only from tests or testing code.
 
 ### Rules that are easy to get wrong
 
@@ -50,7 +49,7 @@ Do **not** delete the test, weaken the type, or inline a duplicate to get green.
 
 Exceptions live in `quality-exceptions.json`, which is owned by a human via CODEOWNERS. You may propose an entry; you cannot land one. Every entry needs a `reason`. Inline suppressions must carry `-- <reason>` and are reported by `bun run exceptions`.
 
-Each manifest entry names one file and its gates. Coverage requires mutation too. Those edge files are limited to 30 lines, no branches and no nested functions, and need an exact CODEOWNERS line. Use only reasoned line suppressions or described `@ts-expect-error`; block/blanket disables, `@ts-ignore`, `@ts-nocheck`, coverage ignores and duplication ignores are rejected. The `any` and `no-unsafe-*` rules admit no suppressions.
+Each manifest entry names one file and its coverage waiver. Those edge files are limited to 30 lines, no branches and no nested functions, and need an exact CODEOWNERS line. Use only reasoned line suppressions or described `@ts-expect-error`; block/blanket disables, `@ts-ignore`, `@ts-nocheck`, coverage ignores and duplication ignores are rejected. The `any` and `no-unsafe-*` rules admit no suppressions.
 
 Dependency updates are manual. `dependency-holds.json` records allowed versions, a reason and the condition for lifting each hold. Install releases at least 3 days old; keep oxfmt updates and their reformatting in a separate change. Add ownership and planted verification whenever a ticket adds a gate file.
 

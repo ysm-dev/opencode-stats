@@ -6,7 +6,6 @@
     "**/dist/**",
     "**/.release/**",
     "**/.dev/**",
-    "**/.stryker-tmp/**",
     ".agents/**",
     "scripts/**/*.mjs",
     "fixtures/**"
