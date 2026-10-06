@@ -61,52 +61,66 @@ export const preferencesServer = async () => {
     });
     const port = await temporaryPort();
     const origin = `http://127.0.0.1:${port}`;
-    const child = spawn(
-      "bun",
-      [
-        "--no-env-file",
-        "--no-install",
-        join(directory, "node_modules/opencode-stats/bin.js"),
-        "--no-open",
-        "--port",
-        String(port),
-        "--db",
-        database,
-      ],
-      {
-        cwd: directory,
-        env: {
-          ...process.env,
-          ...Object.fromEntries(
-            ["HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"].map((name) => [
-              name,
-              directory,
-            ]),
-          ),
+    const start = async () => {
+      const child = spawn(
+        "bun",
+        [
+          "--no-env-file",
+          "--no-install",
+          join(directory, "node_modules/opencode-stats/bin.js"),
+          "--no-open",
+          "--port",
+          String(port),
+          "--db",
+          database,
+        ],
+        {
+          cwd: directory,
+          env: {
+            ...process.env,
+            ...Object.fromEntries(
+              ["HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"].map((name) => [
+                name,
+                directory,
+              ]),
+            ),
+          },
         },
-      },
-    );
-    const captured = capture(child);
-    disposeProcess = async () => {
-      child.kill("SIGINT");
-      try {
-        await vi.waitFor(() => expect(child.exitCode ?? child.signalCode).not.toBeNull(), {
-          timeout: 3000,
-        });
-      } finally {
-        if (child.exitCode === null && child.signalCode === null && child.pid)
-          killProcessTree(child.pid);
-        await captured.closed;
-      }
+      );
+      const captured = capture(child);
+      disposeProcess = async () => {
+        child.kill("SIGINT");
+        try {
+          await vi.waitFor(() => expect(child.exitCode ?? child.signalCode).not.toBeNull(), {
+            timeout: 3000,
+          });
+        } finally {
+          if (child.exitCode === null && child.signalCode === null && child.pid)
+            killProcessTree(child.pid);
+          await captured.closed;
+        }
+      };
+      await vi.waitFor(
+        () => expect(captured.transcript.output).toContain("Press Ctrl+C to stop."),
+        {
+          timeout: 10000,
+        },
+      );
     };
-    await vi.waitFor(() => expect(captured.transcript.output).toContain("Press Ctrl+C to stop."), {
-      timeout: 10000,
-    });
+    await start();
     const html = await readFile(
       join(directory, "node_modules/opencode-stats/dashboard/index.html"),
       "utf8",
     );
-    return { origin, html, writer, close, [Symbol.asyncDispose]: close };
+    return {
+      origin,
+      html,
+      writer,
+      stop: () => disposeProcess!(),
+      start,
+      close,
+      [Symbol.asyncDispose]: close,
+    };
   } catch (error) {
     await close();
     throw error;

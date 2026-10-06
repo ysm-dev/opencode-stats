@@ -39,6 +39,17 @@ body {
   align-items: center;
   gap: 8px;
   margin-block: 8px;
+  padding: 4px 8px;
+  min-height: 28px;
+}
+.live-status[data-updating="false"] .live-dot {
+  background: var(--dashboard-muted-deep);
+}
+.update-status[data-warning="true"] {
+  color: var(--dashboard-warning-base);
+}
+.update-status button {
+  text-decoration: underline;
 }
 .live-dot {
   width: 8px;

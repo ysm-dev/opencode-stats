@@ -5,9 +5,10 @@ import {
   type EngineAction,
   type EngineState,
   type RequestOutcome,
+  type EngineSignal,
 } from "./protocol.ts";
 
-export function createPageClient(port: ChannelPort) {
+export function createPageClient(port: ChannelPort, reload: () => void) {
   let nextId = 0;
   let closed = false;
   let pending: { id: number; resolve: (result: RequestOutcome) => void } | undefined;
@@ -15,6 +16,10 @@ export function createPageClient(port: ChannelPort) {
   const decodeAnswer = Schema.decodeUnknownSync(Answer);
   const receive = (event: MessageEvent): void => {
     const answer = decodeAnswer(event.data);
+    if ("reload" in answer) {
+      reload();
+      return;
+    }
     if (answer.id === 0) {
       if (pending) return;
     } else {
@@ -26,6 +31,9 @@ export function createPageClient(port: ChannelPort) {
   };
   port.addEventListener("message", receive);
   return {
+    signal(signal: EngineSignal): void {
+      if (!closed) port.postMessage(signal);
+    },
     subscribe(listener: (state: EngineState) => void): () => void {
       listeners.add(listener);
       return () => {

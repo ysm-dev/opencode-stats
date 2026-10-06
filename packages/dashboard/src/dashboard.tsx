@@ -24,6 +24,7 @@ import type { EngineState, createPageClient } from "@opencode-stats/engine";
 type PageClient = ReturnType<typeof createPageClient>;
 type CompletePage = Extract<EngineState, { screen: "dashboard" }>;
 const PageState = createContext<Accessor<CompletePage>>();
+const PageActions = createContext<PageClient>();
 
 const Overview = () => {
   const state = useContext(PageState)!;
@@ -32,6 +33,7 @@ const Overview = () => {
       <header>
         <h1 tabIndex={-1}>Overview</h1>
         <p>{state().rangeLabel}</p>
+        <UpdateStatus />
       </header>
       <section
         aria-labelledby="tokens"
@@ -47,11 +49,47 @@ const Overview = () => {
 
 const LiveStatus = () => {
   const state = useContext(PageState)!;
+  const client = useContext(PageActions)!;
   return (
-    <span class="live-status" data-generation={state().generation} data-revision={state().revision}>
+    <button
+      type="button"
+      class="live-status"
+      data-generation={state().generation}
+      data-revision={state().revision}
+      data-updating={!state().paused && !state().statusLine}
+      aria-label={
+        state().paused
+          ? "Paused · Resume live updates"
+          : `${state().liveLabel} · Pause live updates`
+      }
+      onClick={() => client.signal({ kind: "paused", paused: !state().paused })}
+    >
       <span class="live-dot" aria-hidden="true" />
       {state().liveLabel}
-    </span>
+    </button>
+  );
+};
+
+const UpdateStatus = () => {
+  const state = useContext(PageState)!;
+  const client = useContext(PageActions)!;
+  return (
+    <>
+      <Show when={state().statusLine}>
+        <p class="update-status" data-warning={!state().paused}>
+          {state().statusLine}
+          <Show when={state().paused}>
+            {" · "}
+            <button type="button" onClick={() => client.signal({ kind: "paused", paused: false })}>
+              Resume
+            </button>
+          </Show>
+        </p>
+      </Show>
+      <span class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {state().announcement}
+      </span>
+    </>
   );
 };
 
@@ -132,6 +170,15 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
     if (painted) setState(next);
   });
   onMount(() => {
+    const visibility = () => props.client.signal({ kind: "visibility", visible: !document.hidden });
+    const focus = () => props.client.signal({ kind: "focus" });
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("focus", focus);
+    visibility();
+    onCleanup(() => {
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("focus", focus);
+    });
     void Promise.all([
       props.ready,
       props.client.request({ kind: "address", address: window.location.href }),
@@ -151,9 +198,11 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
     props.client.dispose();
   });
   return (
-    <Show when={state()}>
-      {(complete) => <CompleteDashboard state={complete()} router={router} />}
-    </Show>
+    <PageActions.Provider value={props.client}>
+      <Show when={state()}>
+        {(complete) => <CompleteDashboard state={complete()} router={router} />}
+      </Show>
+    </PageActions.Provider>
   );
 };
 

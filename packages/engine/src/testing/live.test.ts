@@ -189,19 +189,19 @@ it.each([1, 3])(
   },
 );
 
-it("keeps the prior complete copy after a changes request fails, then follows a later announcement", async () => {
+it("keeps the prior complete copy after a stream closes, then retries when focused", async () => {
   const server = inMemoryDashboardServer(syntheticCopy([step(1)]));
   const engine = inThreadEngine(server.fetch);
   try {
     await engine.client.request({ kind: "all-time" });
     await vi.waitFor(() => expect(server.requests).toBe(2));
-    server.drop();
+    await server.drop();
     server.commit(syntheticCopy([step(2)], { revision: 2 }));
-    await vi.waitFor(() => expect(server.requests).toBe(3));
     expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
       state: { revision: 1, tokens: referenceTokens([step(1)]) },
     });
     server.resume();
+    engine.client.signal({ kind: "focus" });
     const painted = nextRevision(engine, 3);
     server.commit(syntheticCopy([step(3)], { revision: 3 }));
     expect((await painted).tokens).toEqual(referenceTokens([step(3)]));

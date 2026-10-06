@@ -10,7 +10,11 @@ import {
 } from "@opencode-stats/browser-copy/api";
 import { decode } from "@opencode-stats/browser-copy";
 
-export type EngineNetwork = { readonly baseUrl: string; readonly fetch: typeof globalThis.fetch };
+export type EngineNetwork = {
+  readonly baseUrl: string;
+  readonly fetch: typeof globalThis.fetch;
+  readonly release: string;
+};
 
 const fetchCopy = Effect.fnUntraced(function* (baseUrl: string, cursor?: CopyCursor) {
   const client = yield* HttpApiClient.make(BrowserCopyApi, { baseUrl });
@@ -33,7 +37,12 @@ export function loadCopy(network: EngineNetwork, cursor?: CopyCursor, signal?: A
   );
 }
 
-export function followCopy(network: EngineNetwork, announce: (event: LiveAnnouncement) => void) {
+export function followCopy(
+  network: EngineNetwork,
+  announce: (event: LiveAnnouncement) => void,
+  disconnected: () => void,
+) {
+  let stopped = false;
   const fiber = Effect.runFork(
     Effect.gen(function* () {
       const client = yield* HttpApiClient.make(BrowserCopyApi, { baseUrl: network.baseUrl });
@@ -43,7 +52,15 @@ export function followCopy(network: EngineNetwork, announce: (event: LiveAnnounc
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, network.fetch),
       Effect.catch(() => Effect.void),
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (!stopped) disconnected();
+        }),
+      ),
     ),
   );
-  return () => Effect.runPromise(Fiber.interrupt(fiber));
+  return () => {
+    stopped = true;
+    return Effect.runPromise(Fiber.interrupt(fiber));
+  };
 }

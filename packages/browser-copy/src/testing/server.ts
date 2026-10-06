@@ -3,8 +3,9 @@ import * as Layer from "effect/Layer";
 import * as HttpRouter from "effect/http/HttpRouter";
 import * as HttpServer from "effect/http/HttpServer";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
+import * as Stream from "effect/Stream";
 import { BrowserCopyApi, createLiveFeed } from "../api.ts";
-import { encode } from "../binary.ts";
+import { encode, formatVersion } from "../binary.ts";
 import { tokenKinds, type BrowserCopy, type Step } from "../facts.ts";
 import { syntheticCopy } from "./synthetic.ts";
 
@@ -68,7 +69,9 @@ export function inMemoryDashboardServer(
   let current = copy;
   const snapshots = new Map([[copy.revision, copy]]);
   let nextChanges: BrowserCopy | undefined;
-  const feed = createLiveFeed(() => current, "test-release");
+  let feed = createLiveFeed(() => current, "test-release");
+  let versions = { release: "test-release", format: formatVersion };
+  let streams = 0;
   const addresses: string[] = [];
   const handlers = HttpApiBuilder.group(BrowserCopyApi, "browserCopy", (h) =>
     h
@@ -90,7 +93,19 @@ export function inMemoryDashboardServer(
           return new Uint8Array(encode(result));
         }),
       )
-      .handle("live", () => Effect.succeed(feed.stream)),
+      .handle("live", () =>
+        Effect.sync(() => {
+          streams++;
+          return feed.stream.pipe(
+            Stream.map((event) => ("format" in event ? { ...event, ...versions } : event)),
+            Stream.ensuring(
+              Effect.sync(() => {
+                streams--;
+              }),
+            ),
+          );
+        }),
+      ),
   );
   const routes = HttpApiBuilder.layer(BrowserCopyApi).pipe(
     Layer.provide(handlers),
@@ -128,10 +143,16 @@ export function inMemoryDashboardServer(
     get requests() {
       return requests;
     },
+    get streams() {
+      return streams;
+    },
     drop: () => {
       online = false;
+      return feed.close();
     },
-    resume: () => {
+    resume: (next = versions) => {
+      versions = next;
+      feed = createLiveFeed(() => current, versions.release);
       online = true;
     },
   };

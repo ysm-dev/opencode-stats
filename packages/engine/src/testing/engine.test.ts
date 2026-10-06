@@ -12,6 +12,9 @@ const initial = {
   generation: "01234567-89ab-cdef-0123-456789abcdef",
   revision: 1,
   liveLabel: "Live",
+  paused: false,
+  statusLine: "",
+  announcement: "",
 };
 function loadingEngine() {
   const started = Promise.withResolvers<void>();

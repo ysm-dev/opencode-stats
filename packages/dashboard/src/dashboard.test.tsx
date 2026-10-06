@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dashboard, mountDashboard } from "./dashboard.tsx";
-import { inThreadEngine } from "@opencode-stats/engine/testing";
+import { inThreadEngine, manualClock } from "@opencode-stats/engine/testing";
 import { inMemoryDashboardServer, syntheticCopy } from "@opencode-stats/browser-copy/testing";
 
 const accessible = async (container: HTMLElement) => {
@@ -43,6 +43,56 @@ afterEach(() => {
 });
 
 describe("Overview", () => {
+  it("announces connection transitions without live numbers and supports both Resume controls", async () => {
+    const clock = manualClock();
+    const server = inMemoryDashboardServer(syntheticCopy([]));
+    const engine = inThreadEngine(server.fetch, queueMicrotask, clock);
+    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    const user = userEvent.setup();
+    try {
+      await view.findByRole("heading", { name: "Overview" });
+      await vi.waitFor(() => expect(server.streams).toBe(1));
+      await server.drop();
+      await vi.waitFor(() => expect(server.streams).toBe(0));
+      clock.advance(5);
+      const warning = "Not updating since 14:02 · the dashboard server isn't running";
+      await vi.waitFor(() => expect(view.getByRole("status").textContent).toBe(warning));
+      const announcement = view.getByRole("status");
+      const changes: string[] = [];
+      const observer = new MutationObserver(() => changes.push(announcement.textContent!));
+      observer.observe(announcement, { childList: true, characterData: true, subtree: true });
+      clock.advance(1);
+      await Promise.resolve();
+      expect(changes).toEqual([]);
+      server.resume();
+      window.dispatchEvent(new Event("focus"));
+      await vi.waitFor(() => expect(announcement.textContent).toBe("Up to date again"));
+      expect(changes).toEqual(["Up to date again"]);
+      expect(view.container.querySelector(".update-status")).toBeNull();
+      const live = view.getByRole("button", { name: /Pause live updates/u });
+      await user.click(live);
+      expect(view.getByRole("button", { name: "Paused · Resume live updates" })).toBe(live);
+      expect(view.container.querySelector(".update-status")?.textContent).toBe(
+        "Paused at 14:02 · Resume",
+      );
+      clock.advance(60);
+      expect(view.container.querySelector(".update-status")?.textContent).toBe(
+        "Paused at 14:02 · Resume",
+      );
+      await user.click(view.getByRole("button", { name: "Resume", exact: true }));
+      await vi.waitFor(() => expect(view.container.querySelector(".update-status")).toBeNull());
+      await user.click(live);
+      await user.click(live);
+      await vi.waitFor(() => expect(view.container.querySelector(".update-status")).toBeNull());
+      expect(view.getByRole("region", { name: "Tokens" }).closest("[aria-live]")).toBeNull();
+      observer.disconnect();
+      await accessible(view.container);
+    } finally {
+      cleanup();
+      await engine.dispose();
+      await server.dispose();
+    }
+  });
   it("paints live facts atomically without replacing controls or dropping Settings focus", async () => {
     const first = { start: 1, input: 1, cacheRead: 0, cacheWrite: 0, output: 2, reasoning: null };
     const server = inMemoryDashboardServer(syntheticCopy([first]));

@@ -3,6 +3,7 @@ import solid from "vite-plugin-solid";
 import tailwind from "@tailwindcss/vite";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
+import manifest from "../opencode-stats/package.json" with { type: "json" };
 
 const require = createRequire(import.meta.url);
 
@@ -27,6 +28,7 @@ const buildStartup = async () => {
 };
 
 export default defineConfig({
+  define: { __STATS_RELEASE__: JSON.stringify(manifest.version) },
   // The published UI's CSS imports Tailwind from its own path, outside the workspace under Bun's global store.
   resolve: {
     alias: {

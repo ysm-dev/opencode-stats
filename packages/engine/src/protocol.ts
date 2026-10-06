@@ -22,6 +22,9 @@ const State = Schema.Union([
     generation: Schema.String,
     revision: Schema.Int,
     liveLabel: Schema.String,
+    paused: Schema.Boolean,
+    statusLine: Schema.String,
+    announcement: Schema.String,
   }),
   Schema.Struct({
     screen: Schema.Literal("problem"),
@@ -33,10 +36,20 @@ export const Request = Schema.Struct({
   id: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   action: Action,
 });
-export const Answer = Schema.Struct({
-  id: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-  state: State,
-});
+export const Signal = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("visibility"), visible: Schema.Boolean }),
+  Schema.Struct({ kind: Schema.Literal("paused"), paused: Schema.Boolean }),
+  Schema.Struct({ kind: Schema.Literal("focus") }),
+]);
+export type EngineSignal = typeof Signal.Type;
+export const Message = Schema.Union([Request, Signal]);
+export const Answer = Schema.Union([
+  Schema.Struct({ reload: Schema.Literal(true) }),
+  Schema.Struct({
+    id: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+    state: State,
+  }),
+]);
 export type EngineRequest = typeof Request.Type;
 export type RequestOutcome =
   | { readonly kind: "paint"; readonly state: EngineState }

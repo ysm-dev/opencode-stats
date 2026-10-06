@@ -17,6 +17,7 @@ const work: Readonly<Record<string, Work>> = {
   "lifecycle.test.ts": [20, []],
   "preferences-setup.test.ts": [12, []],
   "live.test.ts": [4, ["chromium"]],
+  "recovery.test.ts": [15, ["chromium"]],
   "native.test.ts": [1, []],
   "notices.test.ts": [1, []],
 };
