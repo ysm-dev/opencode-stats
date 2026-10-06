@@ -113,7 +113,9 @@ try {
         ? stages.filter((step) => step !== "tests" || stage === "tests")
         : [...stages.slice(0, stages.indexOf(stage) + 1), "OpenCode"];
     assert.deepEqual(observed.toSorted(), expected.toSorted());
-    assert.ok(!observed.includes("browser") || observed.indexOf("OS") < observed.indexOf("browser"));
+    assert.ok(
+      !observed.includes("browser") || observed.indexOf("OS") < observed.indexOf("browser"),
+    );
     const workers = fs.readFileSync(pids, "utf8").trim().split("\n").map(Number);
     assert.equal(workers.length, 2, `${stage}: detached workload was not reached`);
     assert.deepEqual(workers.filter(running), [], `${stage}: owned preparation workers survived`);

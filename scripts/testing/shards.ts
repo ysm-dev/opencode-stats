@@ -34,14 +34,17 @@ verifyMatrix("verification", "Gate verification", "VERIFICATION_SHARD", 16);
 const jobs = object(workflow["jobs"]);
 const packed = object(jobs["packed"]);
 const packedMatrix = object(object(packed["strategy"])["matrix"]);
-assert.deepEqual(packedMatrix["os"], ["ubuntu-latest", "macos-latest", "windows-latest"]);
+assert.deepEqual(packedMatrix["os"], ["macos-latest", "windows-latest"]);
 assert.deepEqual(
   packedMatrix["include"],
-  ["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
-    os: "macos-15-intel",
-    shard: selector,
-    ...(selector === "1/4" || selector === "4/4" ? { browser: "chromium" } : {}),
-  })),
+  [
+    ...["1/2", "2/2"].map((selector) => ({ os: "ubuntu-latest", shard: selector })),
+    ...["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
+      os: "macos-15-intel",
+      shard: selector,
+      ...(selector === "1/4" || selector === "4/4" ? { browser: "chromium" } : {}),
+    })),
+  ],
 );
 const packedSteps = packed["steps"];
 assert.ok(Array.isArray(packedSteps));
@@ -52,16 +55,23 @@ assert.ok(
       "bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers=1', matrix.shard) || '' }}",
   ),
 );
-const intel = object(jobs["intel"]);
-assert.equal(intel["name"], "Packed tarball (macos-15-intel)");
-assert.deepEqual(intel["needs"], ["packed"]);
-assert.equal(intel["if"], "always()");
-assert.deepEqual(intel["steps"], [
-  { run: 'test "$PACKED" = success', env: { PACKED: "${{ needs.packed.result }}" } },
-]);
+for (const [name, os] of [
+  ["intel", "macos-15-intel"],
+  ["linux", "ubuntu-latest"],
+] as const) {
+  const aggregate = object(jobs[name]);
+  assert.equal(aggregate["name"], `Packed tarball (${os})`);
+  assert.deepEqual(aggregate["needs"], ["packed"]);
+  assert.equal(aggregate["if"], "always()");
+  assert.deepEqual(aggregate["steps"], [
+    { run: 'test "$PACKED" = success', env: { PACKED: "${{ needs.packed.result }}" } },
+  ]);
+}
 assert.deepEqual(object(jobs["verification"])["needs"], ["checks", "contracts", "packed"]);
 const gateNeeds = object(jobs["gates"])["needs"];
-assert.ok(Array.isArray(gateNeeds) && gateNeeds.includes("packed") && gateNeeds.includes("intel"));
+assert.ok(
+  Array.isArray(gateNeeds) && ["packed", "intel", "linux"].every((name) => gateNeeds.includes(name)),
+);
 
 const canaries = [...checks()];
 verifyPartition(

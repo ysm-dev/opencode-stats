@@ -84,8 +84,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
         include:
+          - os: ubuntu-latest
+            shard: 1/2
+          - os: ubuntu-latest
+            shard: 2/2
           - os: macos-15-intel
             shard: 1/4
             browser: chromium
@@ -118,7 +122,7 @@ jobs:
       - run: bun run bundle:check
       # e2e provisions Chromium shell + WebKit and Linux OS prerequisites inside
       # its watchdog. Setup, artifact waits and tests also share this job/attempt cap.
-      # Isolate Intel's browser/process workloads; Vitest partitions the complete
+      # Isolate browser/process workloads; Vitest partitions the complete
       # suite, with one file worker per runner and existing per-file concurrency.
       - run: bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers=1', matrix.shard) || '' }}
         env:
@@ -126,6 +130,17 @@ jobs:
 
   intel:
     name: Packed tarball (macos-15-intel)
+    timeout-minutes: 5
+    needs: [packed]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "$PACKED" = success
+        env:
+          PACKED: ${{ needs.packed.result }}
+
+  linux:
+    name: Packed tarball (ubuntu-latest)
     timeout-minutes: 5
     needs: [packed]
     if: always()
@@ -163,7 +178,7 @@ jobs:
   gates:
     name: Quality gates
     timeout-minutes: 5
-    needs: [checks, contracts, verification, packed, intel]
+    needs: [checks, contracts, verification, packed, intel, linux]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -174,7 +189,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2.2.0
       # Keep the ruleset's existing required check meaningful even if a job skips.
-      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success && test "$INTEL" = success
+      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success && test "$INTEL" = success && test "$LINUX" = success
         if: always()
         env:
           CHECKS: ${{ needs.checks.result }}
@@ -182,6 +197,7 @@ jobs:
           VERIFICATION: ${{ needs.verification.result }}
           PACKED: ${{ needs.packed.result }}
           INTEL: ${{ needs.intel.result }}
+          LINUX: ${{ needs.linux.result }}
       # Attempt-specific start time includes setup, queueing between jobs and all
       # matrix shards, including advisory jobs. A per-job timeout alone cannot.
       - name: Enforce five-minute end-to-end budget
