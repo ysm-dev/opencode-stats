@@ -61,6 +61,7 @@ export function selectE2e(args: readonly string[]): string[] {
   });
   const files = e2eFiles();
   if (values.shard === undefined) return files;
+  if (typeof values.shard !== "string") throw new Error("Invalid shard: expected index/count");
   shard([], values.shard);
   const [index, count] = values.shard.split("/").map(Number);
   return partitionE2e(files, count!)[index! - 1]!;
