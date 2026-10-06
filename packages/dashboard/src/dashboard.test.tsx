@@ -28,6 +28,9 @@ const waitingForFonts = (steps: Parameters<typeof syntheticCopy>[0] = []) => {
   return { fonts, server, engine, view };
 };
 
+const dashboardView = (engine: ReturnType<typeof inThreadEngine>) =>
+  render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
   vi.stubGlobal("matchMedia", () => ({
@@ -47,7 +50,7 @@ describe("Overview", () => {
     const clock = manualClock();
     const server = inMemoryDashboardServer(syntheticCopy([]));
     const engine = inThreadEngine(server.fetch, queueMicrotask, clock);
-    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    const view = dashboardView(engine);
     const user = userEvent.setup();
     try {
       await view.findByRole("heading", { name: "Overview" });
@@ -98,7 +101,7 @@ describe("Overview", () => {
     const first = { start: 1, input: 1, cacheRead: 0, cacheWrite: 0, output: 2, reasoning: null };
     const server = inMemoryDashboardServer(syntheticCopy([first]));
     const engine = inThreadEngine(server.fetch);
-    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    const view = dashboardView(engine);
     const user = userEvent.setup();
     try {
       await view.findByRole("heading", { name: "Overview" });
@@ -229,7 +232,7 @@ describe("Overview", () => {
     const server = inMemoryDashboardServer(syntheticCopy([]));
     await server.drop();
     const engine = inThreadEngine(server.fetch);
-    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    const view = dashboardView(engine);
     try {
       expect(await view.findByRole("heading", { name: "Can't load the dashboard" })).toBeTruthy();
       expect(view.queryByRole("navigation")).toBeNull();
@@ -245,7 +248,7 @@ describe("Overview", () => {
     const load = deferred();
     const server = inMemoryDashboardServer(syntheticCopy([]), () => load.promise);
     const engine = inThreadEngine(server.fetch);
-    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    const view = dashboardView(engine);
     try {
       await vi.waitFor(() => expect(server.requests).toBe(1));
       if (outcome === "closed") engine.client.dispose();
