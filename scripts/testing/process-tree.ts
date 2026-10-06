@@ -69,6 +69,7 @@ export async function verifyProcessCleanup(): Promise<void> {
   try {
     for (const mode of ["command", "vitest", "coordinator"]) {
       const pidsFile = join(folder, `${mode}.pids`);
+      let transcript = "";
       try {
         const options = {
           capture: true,
@@ -94,6 +95,7 @@ export async function verifyProcessCleanup(): Promise<void> {
             10_000,
             options,
           );
+          transcript = result.output;
           assert.notEqual(result.status, 0);
           assert.match(result.output, /Five-minute test-run time budget exceeded/u);
         }
@@ -102,7 +104,19 @@ export async function verifyProcessCleanup(): Promise<void> {
           pids.length >= 3,
           `${mode}: fixture did not create its worker and detached descendants`,
         );
-        assert.deepEqual(pids.filter(running), [], `${mode}: workers survived the deadline`);
+        const survivors = pids.filter(running);
+        const states = survivors.map((pid) => ({
+          pid,
+          state: spawnSync("ps", ["-p", String(pid), "-o", "pid=,ppid=,stat="], {
+            encoding: "utf8",
+            timeout: 1000,
+          }).stdout,
+        }));
+        assert.deepEqual(
+          survivors,
+          [],
+          `${mode}: workers survived the deadline; observed=${JSON.stringify(states)}\n${transcript}`,
+        );
       } catch (error) {
         failures.push(`${mode}: ${String(error)}`);
       } finally {

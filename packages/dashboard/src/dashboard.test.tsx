@@ -20,6 +20,14 @@ const deferred = () => {
   return { promise, resolve };
 };
 
+const waitingForFonts = (steps: Parameters<typeof syntheticCopy>[0] = []) => {
+  const fonts = deferred();
+  const server = inMemoryDashboardServer(syntheticCopy(steps));
+  const engine = inThreadEngine(server.fetch);
+  const view = render(() => <Dashboard client={engine.client} ready={fonts.promise} />);
+  return { fonts, server, engine, view };
+};
+
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
   vi.stubGlobal("matchMedia", () => ({
@@ -64,11 +72,8 @@ describe("Overview", () => {
   });
 
   it("keeps live updates behind the font barrier and paints only the newest complete copy", async () => {
-    const fonts = deferred();
     const first = { start: 1, input: 1, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0 };
-    const server = inMemoryDashboardServer(syntheticCopy([first]));
-    const engine = inThreadEngine(server.fetch);
-    const view = render(() => <Dashboard client={engine.client} ready={fonts.promise} />);
+    const { fonts, server, engine, view } = waitingForFonts([first]);
     try {
       await vi.waitFor(() => expect(engine.answers).toHaveLength(1));
       server.commit(syntheticCopy([{ ...first, input: 7 }], { revision: 2 }));
@@ -87,10 +92,7 @@ describe("Overview", () => {
   });
 
   it("does not navigate or paint when unmounted before its ready barrier resolves", async () => {
-    const fonts = deferred();
-    const server = inMemoryDashboardServer(syntheticCopy([]));
-    const engine = inThreadEngine(server.fetch);
-    const view = render(() => <Dashboard client={engine.client} ready={fonts.promise} />);
+    const { fonts, server, engine, view } = waitingForFonts();
     try {
       await vi.waitFor(() => expect(engine.answers).toHaveLength(1));
       view.unmount();

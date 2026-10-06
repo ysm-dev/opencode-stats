@@ -93,6 +93,10 @@ it.each(["closed", "rejected", "stalled", "reporter"])(
       if (failure === "rejected")
         evaluation.mockRejectedValue(new Error("synthetic capture failure"));
       if (failure === "stalled") evaluation.mockImplementation(() => new Promise<never>(() => {}));
+      if (failure === "reporter") {
+        const captured = await page.evaluate(() => window.preferenceEvidence.snapshot());
+        evaluation.mockResolvedValue(captured);
+      }
       await expect(
         evidence.action("controlled-original", async () => {
           throw original;

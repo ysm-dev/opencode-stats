@@ -189,20 +189,6 @@ it.each([1, 3])(
   },
 );
 
-it("rejects changes served as an initial whole copy", async () => {
-  const server = inMemoryDashboardServer(syntheticCopy([step(9)], { kind: "changes" }));
-  const engine = inThreadEngine(server.fetch);
-  try {
-    expect(await engine.client.request({ kind: "all-time" })).toEqual({
-      kind: "paint",
-      state: { screen: "problem", reason: "copy-unavailable" },
-    });
-  } finally {
-    await engine.dispose();
-    await server.dispose();
-  }
-});
-
 it("keeps the prior complete copy after a changes request fails, then follows a later announcement", async () => {
   const server = inMemoryDashboardServer(syntheticCopy([step(1)]));
   const engine = inThreadEngine(server.fetch);

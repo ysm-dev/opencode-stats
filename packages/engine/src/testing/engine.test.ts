@@ -147,9 +147,19 @@ it("replaces an unanswered request, emits only the newest complete state and kee
   }
 });
 
-it("shows a complete problem screen when the dashboard server is unavailable", async () => {
-  const server = inMemoryDashboardServer(syntheticCopy([]));
-  server.drop();
+it.each([
+  { reason: "the dashboard server is unavailable", copy: syntheticCopy([]), offline: true },
+  {
+    reason: "the initial response contains changes",
+    copy: syntheticCopy(
+      [{ start: 1, input: 9, cacheRead: null, cacheWrite: 0, output: 2, reasoning: 0 }],
+      { kind: "changes" },
+    ),
+    offline: false,
+  },
+])("shows a complete problem screen when $reason", async ({ copy, offline }) => {
+  const server = inMemoryDashboardServer(copy);
+  if (offline) server.drop();
   const engine = inThreadEngine(server.fetch);
   try {
     expect(await engine.client.request({ kind: "all-time" })).toEqual({
