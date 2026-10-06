@@ -19,7 +19,7 @@ import {
   type TimeRange,
 } from "./ranges.ts";
 import { changeLabel, periodLabel, rangeLabel, clockLabel } from "./time-labels.ts";
-import { parseFilters, filterAddress, toggleFilter, type Filter } from "./filters.ts";
+import { parseFilters, filterAddress, toggleFilter, removeFilter, type Filter } from "./filters.ts";
 
 function stateFor(
   range: TimeRange | undefined,
@@ -76,7 +76,9 @@ export function connectEngine(
   let active: EngineRequest | undefined;
   let range: TimeRange | undefined = "30d";
   let filters: readonly Filter[] = [];
-  let filterChange: Extract<EngineAction, { kind: "filter" | "clear-filters" }> | undefined;
+  let filterChange:
+    | Extract<EngineAction, { kind: "filter" | "remove-filter" | "clear-filters" }>
+    | undefined;
   let filterAnnouncement = "";
   const selectRange = (action: EngineAction) => {
     filterChange = undefined;
@@ -90,8 +92,17 @@ export function connectEngine(
       } catch {
         range = undefined;
       }
-    } else if (action.kind === "filter" || action.kind === "clear-filters") {
-      filters = action.kind === "clear-filters" ? [] : toggleFilter(filters, action);
+    } else if (
+      action.kind === "filter" ||
+      action.kind === "remove-filter" ||
+      action.kind === "clear-filters"
+    ) {
+      filters =
+        action.kind === "clear-filters"
+          ? []
+          : action.kind === "remove-filter"
+            ? removeFilter(filters, action)
+            : toggleFilter(filters, action);
       filterChange = action;
     } else if (action.kind === "shift")
       range = shiftRange(range ?? "30d", action.direction, now, timeZone);

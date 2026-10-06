@@ -126,12 +126,7 @@ export function createFacts(clock: EngineClock) {
       await checkpoint();
     }
     if (!(await applyDimensions(next, copy, checkpoint, signal))) return false;
-    const sessions = await placeSessions(
-      HashMap.values(next.facts),
-      next.sessions,
-      checkpoint,
-      signal,
-    );
+    const sessions = await placeSessions(HashMap.values(next.facts), checkpoint, signal);
     if (signal.aborted) return false;
     // Persistent maps leave the prior complete copy available throughout every slice.
     snapshot = next;
@@ -166,10 +161,7 @@ export function createFacts(clock: EngineClock) {
       placed =
         filters.length === 0
           ? placements
-          : matchingPlacements(
-              matchingFacts(HashMap.values(snapshot.facts), compiled),
-              snapshot.sessions,
-            );
+          : matchingPlacements(matchingFacts(HashMap.values(snapshot.facts), compiled));
       filteredPlacements.set(key, placed);
     }
     const count = (map: Map<number, number>) =>

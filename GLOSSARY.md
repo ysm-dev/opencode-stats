@@ -100,10 +100,12 @@ _Avoid_: refresh, sync (sync keeps a stats store current), push, reload
 
 **Session**:
 A conversation in OpenCode started by its user rather than by a subagent, forks included. The steps of its subagent sessions, however deeply nested, also belong to it.
+It is placed at the first of those steps matching the filters, over all history.
 _Avoid_: conversation, chat, thread, root session
 
 **Subagent session**:
 A conversation a subagent started from within a session or another subagent session. Counted apart from sessions.
+It is placed at its own first step matching the filters, over all history; a nested subagent's steps do not place it.
 _Avoid_: child session, subtask, task
 
 **Fork**:

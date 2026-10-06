@@ -5,7 +5,7 @@ import type {
   SessionFact,
 } from "@opencode-stats/browser-copy";
 import type { EngineState } from "../index.ts";
-import { referenceTokens } from "./reference.ts";
+import { referenceTokens, referenceSessionPlacements } from "./reference.ts";
 
 type State = Extract<EngineState, { screen: "dashboard" }>;
 type Row = Step & Partial<StepDimensions>;
@@ -36,17 +36,9 @@ export function referenceFilters(
   };
   const inRange = (start: number) => start >= period.start && start < period.end;
   const matching = rows.filter((row) => matches(row));
-  const placed = sessions.filter((session) => {
-    const descendants = new Set([session.code]);
-    for (let depth = 0; depth < sessions.length; depth++) {
-      for (const child of sessions)
-        if (child.parent !== null && descendants.has(child.parent)) descendants.add(child.code);
-    }
-    const starts = matching
-      .filter((row) => row.session === session.code || descendants.has(row.subagent ?? NaN))
-      .map((row) => row.start);
-    return starts.length > 0 && inRange(Math.min(...starts));
-  });
+  const placed = referenceSessionPlacements(matching, sessions)
+    .filter((placement) => inRange(placement.start))
+    .map((placement) => placement.session);
   return {
     tokens: referenceTokens(matching.filter((row) => inRange(row.start))),
     sessions: {

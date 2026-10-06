@@ -124,7 +124,7 @@ export const FilterChips = () => {
   const remove = (key: string) => {
     const filter = find(key);
     void client.request({
-      kind: "filter",
+      kind: "remove-filter",
       dimension: filter.dimension,
       id: filter.id,
       announce: true,

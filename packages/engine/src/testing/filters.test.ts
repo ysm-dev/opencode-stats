@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import * as fc from "fast-check";
+import { mapSessionFields } from "@opencode-stats/browser-copy";
 import { syntheticCopy, propertyParameters } from "@opencode-stats/browser-copy/testing";
 import { rangeFixture } from "./range-fixture.ts";
 import { filterSteps, filterMetadata, filterNames, filterSessions } from "./filter-fixture.ts";
@@ -133,6 +134,67 @@ it("places sessions at the first matching step in all history, reuses that place
   expect(state.tokens.total).toBe(0);
 });
 
+it("counts only a nested subagent's own matching steps while its root rolls up all descendants, independently of the range", async () => {
+  const rows = [
+    { ...filterSteps[0]!, start: Date.parse("2026-10-01T12:00Z"), subagent: 201 },
+    { ...filterSteps[1]!, start: Date.parse("2026-10-07T12:00Z"), subagent: 202 },
+  ];
+  const sessions = [
+    filterSessions[0]!,
+    filterSessions[1]!,
+    { code: 202, parent: 201, session: 200, project: 100, fork: null },
+    { code: 203, parent: 202, session: 200, project: 100, fork: null },
+  ];
+  const metadata = {
+    ...filterMetadata,
+    sessions: mapSessionFields((field) =>
+      Float64Array.from(sessions, (session) => session[field] ?? NaN),
+    ),
+  };
+  const f = rangeFixture(rows, undefined, undefined, undefined, metadata);
+  let state = await f.request({ kind: "preset", preset: "today" });
+  expect(state.sessions).toEqual({ total: 0, subagents: 1 });
+  const selected = { dimension: "model", id: "provider-1/model-1" } as const;
+  state = await f.request({ kind: "filter", ...selected });
+  // R → A → B → empty C: only B used this model. R includes B; A and C do not.
+  expect(state.sessions).toEqual({ total: 1, subagents: 1 });
+  const reference = referenceFilters(rows, filterNames, [selected], state.period, sessions);
+  expect(reference.sessions).toEqual({ total: 1, subagents: 1 });
+  expect(state.tokens.total).toBe(20);
+  expect((await f.request({ kind: "all-time" })).sessions).toEqual({ total: 1, subagents: 1 });
+  state = await f.request({ kind: "address", address: "/?range=all" });
+  expect(state.sessions).toEqual({ total: 1, subagents: 2 });
+  state = await f.request({
+    kind: "address",
+    address: "/?range=fixed&from=2026-10-01&to=2026-10-01&f.model=provider-1%2Fmodel-1",
+  });
+  expect(state.sessions).toEqual({ total: 0, subagents: 0 });
+});
+
+it("makes explicit removal idempotent without disturbing other values or dimensions", async () => {
+  const f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
+  await f.request({
+    kind: "address",
+    address: "/?range=all&f.model=provider-0%2Fmodel-6&f.model=provider-1%2Fmodel-5&f.agent=build",
+  });
+  const removal = {
+    kind: "remove-filter",
+    dimension: "model",
+    id: "provider-0/model-6",
+    announce: true,
+  } as const;
+  const first = await f.request(removal);
+  const second = await f.request(removal);
+  expect(second).toEqual(first);
+  expect(second.tokens.total).toBe(600);
+  expect(second.filters).toEqual([
+    { dimension: "model", id: "provider-1/model-5", name: "Model 5" },
+    { dimension: "agent", id: "build", name: "build" },
+  ]);
+  expect(second.filterAnnouncement).toBe("Filter removed: model Model 6");
+  expect((await f.request({ ...removal, announce: false })).filterAnnouncement).toBe("");
+});
+
 it("keeps selections stable across incremental recoding, deleted metadata and a replacement generation", async () => {
   const f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
   await f.request({
@@ -163,7 +225,12 @@ it("keeps selections stable across incremental recoding, deleted metadata and a 
   );
   f.server.commit(
     syntheticCopy(
-      filterSteps.map((step) => ({ ...step, project: step.project + 10, session: 210 })),
+      filterSteps.map((step) => ({
+        ...step,
+        project: step.project + 10,
+        session: step.session + 10,
+        subagent: step.subagent === null ? null : step.subagent + 10,
+      })),
       {
         ...filterMetadata,
         generation: "11234567-89ab-cdef-0123-456789abcdef",
@@ -174,14 +241,12 @@ it("keeps selections stable across incremental recoding, deleted metadata and a 
             : name,
         ),
         projects: new Float64Array([110, 111]),
-        sessions: {
-          ...filterMetadata.sessions,
-          code: new Float64Array([210]),
-          session: new Float64Array([210]),
-          parent: new Float64Array([NaN]),
-          project: new Float64Array([110]),
-          fork: new Float64Array([NaN]),
-        },
+        sessions: mapSessionFields((field) =>
+          Float64Array.from(filterSessions, (session) => {
+            const value = session[field];
+            return value === null ? NaN : value + 10;
+          }),
+        ),
       },
     ),
   );

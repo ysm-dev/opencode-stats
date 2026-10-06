@@ -25,35 +25,24 @@ export function referenceTokens(steps: readonly Step[]) {
   };
 }
 
-// Descendant search, rather than the engine's per-step ancestor walk.
+// Independently select each known session's rows, rather than updating the
+// engine's per-step maps. Ownership is already counted into the facts (#13).
+export function referenceSessionPlacements(
+  steps: readonly (Step & Partial<StepDimensions>)[],
+  sessions: readonly SessionFact[],
+) {
+  return sessions.flatMap((session) => {
+    const field = session.session === session.code ? "session" : "subagent";
+    const starts = steps.filter((step) => step[field] === session.code).map((step) => step.start);
+    return starts.length ? [{ session, start: Math.min(...starts) }] : [];
+  });
+}
+
 export function referenceSessions(
   steps: readonly (Step & Partial<StepDimensions>)[],
   sessions: readonly SessionFact[],
 ) {
-  const placement = (session: SessionFact) => {
-    const descendants = new Set([session.code]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const child of sessions) {
-        if (
-          child.parent !== null &&
-          descendants.has(child.parent) &&
-          !descendants.has(child.code)
-        ) {
-          descendants.add(child.code);
-          changed = true;
-        }
-      }
-    }
-    const matching = steps.filter(
-      (step) =>
-        step.session === session.code ||
-        (step.subagent !== null && step.subagent !== undefined && descendants.has(step.subagent)),
-    );
-    return matching.length ? Math.min(...matching.map((step) => step.start)) : null;
-  };
-  const placed = sessions.filter((session) => placement(session) !== null);
+  const placed = referenceSessionPlacements(steps, sessions).map((placement) => placement.session);
   return {
     total: placed.filter((session) => session.session === session.code).length,
     subagents: placed.filter((session) => session.session !== session.code).length,

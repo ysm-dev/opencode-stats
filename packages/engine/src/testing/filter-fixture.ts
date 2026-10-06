@@ -29,10 +29,12 @@ export const filterNames: readonly DimensionName[] = [
   ...["build", "plan"].map((name, i) => ({ dimension: "agent", code: 20 + i, id: name, name })),
   { dimension: "session", code: 200, id: "session-root", name: "Synthetic session" },
   { dimension: "session", code: 201, id: "session-child", name: "Synthetic subagent" },
+  { dimension: "session", code: 202, id: "session-grandchild", name: "Synthetic nested subagent" },
 ];
 export const filterSessions: readonly SessionFact[] = [
   { code: 200, parent: null, session: 200, project: 100, fork: null },
   { code: 201, parent: 200, session: 200, project: 100, fork: null },
+  { code: 202, parent: 201, session: 200, project: 100, fork: null },
 ];
 export const filterSteps = Array.from({ length: 14 }, (_, i) => ({
   start: Date.parse(i < 7 ? "2026-10-01T12:00Z" : "2026-10-07T12:00Z"),
@@ -45,7 +47,7 @@ export const filterSteps = Array.from({ length: 14 }, (_, i) => ({
   variant: 10 + (i % 2),
   agent: 20 + (i % 2),
   session: 200,
-  subagent: i % 7 > 3 ? 201 : null,
+  subagent: i % 7 > 4 ? 202 : i % 7 === 4 ? 201 : null,
 }));
 export const filterMetadata = {
   names: filterNames,

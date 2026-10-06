@@ -34,7 +34,7 @@ const copyFor = (steps: Parameters<typeof syntheticCopy>[0], facts = sessions, r
     projects: new Float64Array([9]),
   });
 
-it("places a session and every nested subagent at their first descendant step, counts a fork once, and ignores empty sessions", async () => {
+it("rolls descendant steps up to their session, places each subagent at its own first step, counts a fork once, and ignores empty sessions", async () => {
   const steps = [step(50, 0, 2), step(10, 0, 2), step(20, 0, 1), step(30, 3, null)];
   const server = inMemoryDashboardServer(copyFor(steps));
   const engine = inThreadEngine(server.fetch);
@@ -94,16 +94,18 @@ it("equals the row-oriented reference for generated first-step placements and ne
   );
 });
 
-it("terminates cyclic imported parent links and tolerates an absent parent fact", async () => {
+it("uses counted ownership without traversing cyclic or missing imported parent links", async () => {
   const malformed = [
     { code: 1, parent: 2, session: 0, project: 9, fork: null },
     { code: 2, parent: 1, session: 0, project: 9, fork: null },
   ];
-  const server = inMemoryDashboardServer(copyFor([step(1, 0, 1), step(2, 3, 4)], malformed));
+  const server = inMemoryDashboardServer(
+    copyFor([step(1, 0, 1), step(2, 3, 4), step(3, 3, 3)], malformed),
+  );
   const engine = inThreadEngine(server.fetch);
   try {
     expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
-      state: { sessions: { total: 2, subagents: 3 } },
+      state: { sessions: { total: 2, subagents: 2 } },
     });
   } finally {
     await engine.dispose();
@@ -111,13 +113,13 @@ it("terminates cyclic imported parent links and tolerates an absent parent fact"
   }
 });
 
-it.each(["metadata", "ancestor", "placements"])(
+it.each(["metadata", "subagent", "placements"])(
   "discards a canceled %s slice without painting a partial Sessions headline",
   async (phase) => {
     const server = inMemoryDashboardServer(syntheticCopy([]));
     let work = 0;
     let slices = 0;
-    const rows = [step(1, 0, phase === "ancestor" ? 2 : null), step(2, 0, null)];
+    const rows = [step(1, 0, phase === "subagent" ? 2 : null), step(2, 0, null)];
     const copy = copyFor(rows, sessions.slice(0, 3), 2);
     const beforePlacement = rows.length + copy.sessions.code.length + copy.projects.length;
     const stopAt = phase === "metadata" ? rows.length + 1 : beforePlacement + 1;

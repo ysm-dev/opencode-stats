@@ -8,7 +8,7 @@ const Action = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("preset"), preset: Preset }),
   Schema.Struct({ kind: Schema.Literal("shift"), direction: Schema.Literals([-1, 1]) }),
   Schema.Struct({
-    kind: Schema.Literal("filter"),
+    kind: Schema.Literals(["filter", "remove-filter"]),
     dimension: FilterDimension,
     id: Schema.String,
     announce: Schema.optional(Schema.Boolean),

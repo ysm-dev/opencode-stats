@@ -73,9 +73,12 @@ export function* matchingFacts<Fact extends Readonly<Record<FilterDimension, num
   for (const fact of facts) if (matchesFilters(fact, filters)) yield fact;
 }
 
+export const removeFilter = (filters: readonly Filter[], filter: Filter): readonly Filter[] =>
+  filters.filter((value) => value.dimension !== filter.dimension || value.id !== filter.id);
+
 export const toggleFilter = (filters: readonly Filter[], filter: Filter): readonly Filter[] =>
   filters.some((value) => value.dimension === filter.dimension && value.id === filter.id)
-    ? filters.filter((value) => value.dimension !== filter.dimension || value.id !== filter.id)
+    ? removeFilter(filters, filter)
     : [...filters, filter];
 
 export const filterName = (filter: Filter, names: readonly DimensionName[]) =>

@@ -213,6 +213,80 @@ it("recovers focused deleted checklist rows at the same complete live paint, wit
   expect(f.announcement()).toBe("");
 });
 
+it.each([
+  {
+    removed: "Model 6",
+    kept: "Model 5",
+    amount: "660",
+    ids: ["provider-0/model-6", "provider-1/model-5"],
+  },
+  {
+    removed: "Model 5",
+    kept: "Model 6",
+    amount: "770",
+    ids: ["provider-0/model-6", "provider-1/model-5"],
+  },
+  { removed: "Model 6", kept: "", amount: "3,080", ids: ["provider-0/model-6"] },
+])(
+  "removes $removed idempotently after delayed double activation and moves focus only at the whole final paint",
+  async ({ removed, kept, amount, ids }) => {
+    const params = new URLSearchParams({ range: "all" });
+    for (const id of ids) params.append("f.model", id);
+    window.history.replaceState(null, "", `/?${params}`);
+    let waiting = false;
+    const replies: (() => void)[] = [];
+    const f = filtersDashboard((answer) => {
+      if (waiting) replies.push(answer);
+      else queueMicrotask(answer);
+    });
+    const chip = await f.view.findByRole("button", { name: `Remove Model filter · ${removed}` });
+    const checkbox = f.view.getByRole("checkbox", { name: removed }) as HTMLInputElement;
+    const destination = kept
+      ? f.view.getByRole("button", { name: `Remove Model filter · ${kept}` })
+      : f.view.getByRole("heading", { name: "Active filters" });
+    await vi.waitFor(() => expect(f.server.streams).toBe(1));
+    const before = { tokens: f.number(), address: window.location.search };
+    const requests = f.server.requests;
+    const announced: string[] = [];
+    const observer = new MutationObserver(() => announced.push(f.announcement()));
+    observer.observe(f.view.container.querySelector(".filter-announcement")!, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+    onTestFinished(() => observer.disconnect());
+    waiting = true;
+    await f.user.dblClick(chip);
+    await vi.waitFor(() => expect(replies).toHaveLength(2));
+    expect(checkbox.checked).toBe(true);
+    expect(chip.isConnected).toBe(true);
+    expect(document.activeElement).toBe(chip);
+    expect(f.announcement()).toBe("");
+    replies.shift()!();
+    expect({ tokens: f.number(), address: window.location.search }).toEqual(before);
+    expect(chip.isConnected).toBe(true);
+    expect(document.activeElement).toBe(chip);
+    replies.shift()!();
+    await vi.waitFor(() => expect(chip.isConnected).toBe(false));
+    expect(f.number()).toBe(amount);
+    expect(checkbox.checked).toBe(false);
+    expect(document.activeElement).toBe(destination);
+    expect(new URL(window.location.href).searchParams.getAll("f.model")).toEqual(
+      ids.filter((id) => !id.endsWith(`model-${removed.slice(-1)}`)),
+    );
+    expect(f.announcement()).toBe(`Filter removed: model ${removed}`);
+    await vi.waitFor(() => expect(announced).toEqual([`Filter removed: model ${removed}`]));
+    expect(
+      new Set(
+        [...f.view.container.querySelectorAll("[data-range]")].map((region) =>
+          region.getAttribute("data-range"),
+        ),
+      ).size,
+    ).toBe(1);
+    expect(f.server.requests).toBe(requests);
+  },
+);
+
 it("holds native checkbox ticks, chips, amounts and the address at the prior complete state until the worker answer arrives", async () => {
   let hold = false;
   const deliveries: (() => void)[] = [];
