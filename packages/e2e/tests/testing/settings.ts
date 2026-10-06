@@ -27,7 +27,7 @@ export const testSettings = (engine: BrowserType, name: string) => {
         { theme: id, colour: scheme },
       );
       const page = await context.newPage();
-      await page.goto(server.origin);
+      await page.goto(`${server.origin}/?range=all`);
       await page.getByRole("heading", { name: "Overview" }).waitFor();
       await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
       for (const [width, height] of [

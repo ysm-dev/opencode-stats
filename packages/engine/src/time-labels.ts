@@ -14,10 +14,11 @@ export const clockLabel = (instant: number, timeZone: string, locale: string) =>
     minute: "2-digit",
     hourCycle: new Intl.DateTimeFormat(locale, { hour: "numeric" }).resolvedOptions().hourCycle,
   }).format(instant);
-export const dateLabel = (date: string, timeZone: string, locale: string) => {
-  const instant = midnight(date, timeZone);
+const dateLabel = (date: string, locale: string) => {
+  // This is a date label, not an instant: even a skipped local date keeps its name.
+  const instant = midnight(date, "UTC");
   const options: Intl.DateTimeFormatOptions = {
-    timeZone,
+    timeZone: "UTC",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -31,10 +32,10 @@ export const dateLabel = (date: string, timeZone: string, locale: string) => {
     .map((part) => english.find((field) => field.type === part.type)!.value)
     .join(" ");
 };
-export const periodLabel = (period: Period, timeZone: string, locale: string) =>
-  `${dateLabel(period.from, timeZone, locale)} – ${dateLabel(period.to, timeZone, locale)}`;
-export const rangeLabel = (range: TimeRange, period: Period, timeZone: string, locale: string) =>
-  typeof range === "string" ? presetLabels[range] : periodLabel(period, timeZone, locale);
+export const periodLabel = (period: Period, locale: string) =>
+  `${dateLabel(period.from, locale)} – ${dateLabel(period.to, locale)}`;
+export const rangeLabel = (range: TimeRange, period: Period, locale: string) =>
+  typeof range === "string" ? presetLabels[range] : periodLabel(period, locale);
 export const changeLabel = (current: number, previous: number) => {
   if (previous === 0) return "";
   const percent = ((current - previous) / previous) * 100;

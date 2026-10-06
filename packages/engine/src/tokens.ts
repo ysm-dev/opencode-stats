@@ -147,7 +147,7 @@ export function createFacts(clock: EngineClock) {
     const count = (map: Map<number, number>) =>
       [...map.values()].filter((start) => start >= period.start && start < period.end).length;
     return {
-      tokens: dayTotals(snapshot.days, period, timeZone),
+      tokens: dayTotals(snapshot.days, period),
       sessions: { total: count(placements.roots), subagents: count(placements.subagents) },
     };
   };

@@ -20,7 +20,7 @@ it("paints packed live edits and deletes within two seconds, whole and without r
   page.on("request", (request) => {
     if (request.isNavigationRequest()) navigations++;
   });
-  await page.goto(fixture.server.origin);
+  await page.goto(`${fixture.server.origin}/?range=all`);
   await page.getByRole("region", { name: "Tokens" }).getByText("987", { exact: true }).waitFor();
   await page.getByRole("link", { name: "Skip to page" }).focus();
   await page.keyboard.press("Enter");

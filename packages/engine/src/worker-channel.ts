@@ -13,7 +13,6 @@ import {
   parseRange,
   resolveRange,
   previousPeriod,
-  normalizeRange,
   shiftRange,
   rangeAddress,
   presets,
@@ -38,19 +37,19 @@ function stateFor(
     const before = live.query(previous, timeZone);
     comparison.tokens = changeLabel(amounts.tokens.total, before.tokens.total);
     comparison.sessions = changeLabel(amounts.sessions.total, before.sessions.total);
-    comparison.caption = `Previous period · ${periodLabel(previous, timeZone, locale)} · through ${clockLabel(previous.end, timeZone, locale)}`;
+    comparison.caption = `Previous period · ${periodLabel(previous, locale)} · through ${clockLabel(previous.end, timeZone, locale)}`;
   }
   return {
     screen: "dashboard",
     address: rangeAddress(range),
-    rangeLabel: rangeLabel(range, period, timeZone, locale),
+    rangeLabel: rangeLabel(range, period, locale),
     range: {
       preset:
         typeof range === "string"
           ? range
           : (presets.find((key) => (key === "today" ? 1 : Number.parseInt(key)) === period.days) ??
             "30d"),
-      fixedLabel: typeof range === "string" ? "" : periodLabel(period, timeZone, locale),
+      fixedLabel: typeof range === "string" ? "" : periodLabel(period, locale),
       canShiftBack: range !== "all",
       canShiftForward: rangeAddress(shiftRange(range, 1, now, timeZone)) !== rangeAddress(range),
     },
@@ -87,8 +86,6 @@ export function connectEngine(
   };
   const paint = () => {
     if (!active || !live.visible()) return;
-    const { now, timeZone } = live.time();
-    if (range !== undefined) range = normalizeRange(range, now, timeZone);
     const id = pending?.id ?? 0;
     pending = undefined;
     port.postMessage({ id, state: stateFor(range, live) });

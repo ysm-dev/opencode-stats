@@ -112,14 +112,13 @@ export function previousPeriod(
   const to = addDates(period.to, -period.days);
   const start = midnight(from, timeZone);
   if (start < history) return null;
+  const end = midnight(addDates(to, 1), timeZone);
+  const running = period.end < midnight(addDates(period.to, 1), timeZone);
   return {
     from,
     to,
     days: period.days,
     start,
-    end: Math.min(
-      midnight(addDates(to, 1), timeZone),
-      start + Math.max(0, period.end - period.start),
-    ),
+    end: running ? Math.min(end, start + Math.max(0, period.end - period.start)) : end,
   };
 }

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dashboard, mountDashboard } from "./dashboard.tsx";
 import { inThreadEngine, manualClock } from "@opencode-stats/engine/testing";
 import { inMemoryDashboardServer, syntheticCopy } from "@opencode-stats/browser-copy/testing";
+import { dashboardEnvironment } from "./testing/environment.ts";
 
 const accessible = async (container: HTMLElement) => {
   const results = await axe.run(container, { rules: { "color-contrast": { enabled: false } } });
@@ -32,13 +33,7 @@ const dashboardView = (engine: ReturnType<typeof inThreadEngine>) =>
   render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
 
 beforeEach(() => {
-  window.history.replaceState(null, "", "/?range=all");
-  vi.stubGlobal("matchMedia", () => ({
-    matches: false,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  }));
-  vi.stubGlobal("scrollTo", () => {});
+  dashboardEnvironment("/?range=all");
 });
 afterEach(() => {
   cleanup();

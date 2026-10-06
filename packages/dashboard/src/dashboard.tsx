@@ -37,7 +37,16 @@ const RangeControls = () => {
   const client = useContext(PageActions)!;
   const selectPreset = (event: Event & { currentTarget: HTMLSelectElement }) => {
     const preset = presets.find((value) => value === event.currentTarget.value)!;
+    event.currentTarget.value = state().range.preset;
     void client.request({ kind: "preset", preset });
+  };
+  const nextRange = () => {
+    document.getElementById("time-range")!.focus();
+    void client.request({ kind: "shift", direction: 1 });
+  };
+  const removeFixed = () => {
+    document.getElementById("time-range")!.focus();
+    void client.request({ kind: "preset", preset: state().range.preset });
   };
   return (
     <div class="range-control" aria-label="Time range" role="group" data-range={state().address}>
@@ -61,7 +70,7 @@ const RangeControls = () => {
         type="button"
         aria-label="Next range"
         disabled={!state().range.canShiftForward}
-        onClick={() => void client.request({ kind: "shift", direction: 1 })}
+        onClick={nextRange}
       >
         ›
       </button>
@@ -70,7 +79,7 @@ const RangeControls = () => {
           class="fixed-range"
           type="button"
           aria-label={`Remove fixed range · ${state().range.fixedLabel}`}
-          onClick={() => void client.request({ kind: "preset", preset: state().range.preset })}
+          onClick={removeFixed}
         >
           {state().range.fixedLabel} ×
         </button>

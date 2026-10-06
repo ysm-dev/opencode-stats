@@ -49,7 +49,7 @@ it.each(browsers)(
       await evidence.action("installed-preferences", async () => {
         page.on("pageerror", (error) => errors.push(error.message));
         evidence.mark("first-navigation", "started");
-        await page.goto(server.origin, { waitUntil: "commit" });
+        await page.goto(`${server.origin}/?range=all`, { waitUntil: "commit" });
         evidence.mark("first-navigation", "completed");
         await page.waitForFunction(() => document.documentElement.dataset["theme"] === "matrix");
         expect(await page.locator("#root").textContent()).toBe("");
@@ -206,7 +206,7 @@ it.each(browsers)(
       }),
     );
     const page = await context.newPage();
-    await page.goto(server.origin);
+    await page.goto(`${server.origin}/?range=all`);
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     expect(await page.getByText("Your browser keeps preferences only for this tab.").count()).toBe(
       1,

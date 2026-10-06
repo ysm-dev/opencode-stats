@@ -263,3 +263,24 @@ h2 {
 .previous-period {
   color: var(--dashboard-muted-base);
 }
+.range-control button,
+.range-control select {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--dashboard-edge-base);
+  border-radius: 4px;
+  background: var(--dashboard-base);
+  color: var(--dashboard-text-base);
+}
+.fixed-range {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+@media (pointer: coarse) {
+  .range-control button,
+  .range-control select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

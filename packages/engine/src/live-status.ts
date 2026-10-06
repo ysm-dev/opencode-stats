@@ -6,6 +6,7 @@ export function createLiveStatus(clock: EngineClock) {
   let lastWrite: number | undefined;
   let disconnectedAt: number | undefined;
   let pausedAt: number | undefined;
+  let pausedClock = "";
   let resuming = false;
   let warning = false;
   let announcement = "";
@@ -15,7 +16,7 @@ export function createLiveStatus(clock: EngineClock) {
       return {
         paused: true,
         liveLabel: "Paused",
-        statusLine: `Paused at ${time(pausedAt)}`,
+        statusLine: `Paused at ${pausedClock}`,
         announcement,
       };
     const statusLine = stale
@@ -56,6 +57,7 @@ export function createLiveStatus(clock: EngineClock) {
     },
     pause: () => {
       pausedAt = clock.now();
+      pausedClock = time(pausedAt);
       resuming = false;
     },
     retry: () => {

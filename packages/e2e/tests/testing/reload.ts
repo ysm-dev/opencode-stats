@@ -19,7 +19,7 @@ export async function checkReload(
 ) {
   const page = await browser.newPage();
   try {
-    await page.goto(origin);
+    await page.goto(`${origin}/?range=all`);
     await page.getByRole("region", { name: "Tokens" }).getByText("15", { exact: true }).waitFor();
     writer.message({
       id: "msg-installed",

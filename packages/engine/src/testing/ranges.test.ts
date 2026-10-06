@@ -111,6 +111,24 @@ it("clamps elapsed comparisons at the previous DST day's own end", async () => {
   expect(state.comparison.caption).toContain("through 00:00");
 });
 
+it("compares complete fixed days with the complete previous day even when DST makes their durations differ", async () => {
+  const f = rangeFixture(
+    [
+      rangeStep(Date.parse("2026-10-01")),
+      rangeStep(Date.parse("2026-11-02T04:30Z"), 100),
+      rangeStep(Date.parse("2026-11-02T12:00Z"), 103),
+    ],
+    "2026-11-03T12:00Z",
+    "America/New_York",
+  );
+  const state = await f.request({
+    kind: "address",
+    address: "/?range=fixed&from=2026-11-02&to=2026-11-02",
+  });
+  expect(state.comparison.tokens).toBe("↑ 3%");
+  expect(state.comparison.caption).toContain("1 Nov 2026");
+});
+
 it("allows a fixed range spanning today while disallowing a shift whose start is after today", async () => {
   const f = rangeFixture([rangeStep(Date.parse("2026-10-01"))]);
   const state = await f.request({
@@ -122,6 +140,32 @@ it("allows a fixed range spanning today while disallowing a shift whose start is
   expect(state.range.preset).toBe("30d");
   expect(await f.request({ kind: "shift", direction: 1 })).toEqual(state);
 });
+
+it("can shift a non-preset span onto today even when its end falls in the future", async () => {
+  const f = rangeFixture();
+  await f.request({ kind: "address", address: "/?range=fixed&from=2026-10-03&to=2026-10-06" });
+  const state = await f.request({ kind: "shift", direction: 1 });
+  expect(state).toMatchObject({
+    address: "/?range=fixed&from=2026-10-07&to=2026-10-10",
+    period: { from: "2026-10-07", to: "2026-10-10", end: Date.parse("2026-10-07T14:02Z") },
+    range: { canShiftForward: false },
+  });
+});
+
+it.each([
+  [966, "↓ 3.4%"],
+  [0, "↓ 100%"],
+] as const)(
+  "formats a %i-token headline comparison without colour semantics",
+  async (input, expected) => {
+    const f = rangeFixture([
+      rangeStep(Date.parse("2026-10-01")),
+      rangeStep(Date.parse("2026-10-06T12:00Z"), 1000),
+      rangeStep(Date.parse("2026-10-07T12:00Z"), input),
+    ]);
+    expect((await f.request({ kind: "preset", preset: "today" })).comparison.tokens).toBe(expected);
+  },
+);
 
 it("places sessions across all history, never at their first step in the selected range", async () => {
   const f = rangeFixture(
@@ -210,6 +254,14 @@ it("matches a row-oriented range reference for each preset and generated IANA zo
           const history = rows.length ? Math.min(...rows.map((row) => row.start)) : start;
           expect(state.period.start).toBe(preset === "all" ? history : start);
           expect(state.tokens).toEqual(referenceRangeTokens(rows, state.period.start, now));
+          if (preset !== "all") {
+            const shifted = await f.request({ kind: "shift", direction: -1 });
+            const previousStart = referenceMidnight(referenceAdd(state.period.from, -days), zone);
+            const previousEnd = referenceMidnight(state.period.from, zone);
+            expect(shifted.period).toMatchObject({ start: previousStart, end: previousEnd });
+            expect(shifted.tokens).toEqual(referenceRangeTokens(rows, previousStart, previousEnd));
+            expect((await f.request({ kind: "shift", direction: 1 })).address).toBe(state.address);
+          }
         }
         await f.engine.dispose();
         await f.server.dispose();

@@ -33,6 +33,10 @@ it.each([
       expect(buckets[2]!.label).toContain("01:00:00.000-05:00");
       expect(calendarBuckets(buckets[2]!.start + 12345, end, zone, "hour")[0]).toEqual(buckets[2]);
     }
+    if (zone === "Australia/Lord_Howe" && hours === 25) {
+      expect(buckets[2]!.label).toContain("01:30:00.000+10:30");
+      expect(calendarBuckets(buckets[2]!.start + 900000, end, zone, "hour")[0]).toEqual(buckets[2]);
+    }
   },
 );
 

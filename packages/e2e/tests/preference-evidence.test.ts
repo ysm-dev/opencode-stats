@@ -8,7 +8,7 @@ it("captures a controlled installed-page action failure without replacing its er
   await using fixture = await preferencesBrowser(chromium);
   const page = await fixture.context.newPage();
   await using evidence = await preferenceEvidence(page);
-  await evidence.action("first-navigation", () => page.goto(fixture.server.origin));
+  await evidence.action("first-navigation", () => page.goto(`${fixture.server.origin}/?range=all`));
   await page.getByRole("heading", { name: "Overview" }).waitFor();
   await observePreferences(page);
   await evidence.action("first-settings", () =>

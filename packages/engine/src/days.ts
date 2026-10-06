@@ -6,6 +6,8 @@ import { emptyAmounts, adjust, addAmounts, totals, type Fact, type Amounts } fro
 import type { Period } from "./ranges.ts";
 
 type Day = {
+  start: number;
+  end: number;
   facts: HashMap.HashMap<string, Fact>;
   groups: HashMap.HashMap<string, { amounts: Amounts; count: number }>;
 };
@@ -20,6 +22,8 @@ export function updateDay(
 ) {
   const date = localDate(fact.start, timeZone);
   const day = Option.getOrUndefined(HashMap.get(days, date)) ?? {
+    start: midnight(date, timeZone),
+    end: midnight(addDates(date, 1), timeZone),
     facts: HashMap.empty<string, Fact>(),
     groups: HashMap.empty<string, { amounts: Amounts; count: number }>(),
   };
@@ -38,14 +42,13 @@ export function updateDay(
   const facts = direction === 1n ? HashMap.set(day.facts, id, fact) : HashMap.remove(day.facts, id);
   return HashMap.size(facts) === 0
     ? HashMap.remove(days, date)
-    : HashMap.set(days, date, { groups, facts });
+    : HashMap.set(days, date, { start: day.start, end: day.end, groups, facts });
 }
 
-export function dayTotals(days: ReturnType<typeof emptyDays>, period: Period, timeZone: string) {
+export function dayTotals(days: ReturnType<typeof emptyDays>, period: Period) {
   const amounts = emptyAmounts();
-  for (const [date, day] of days) {
-    const start = midnight(date, timeZone);
-    const end = midnight(addDates(date, 1), timeZone);
+  for (const day of HashMap.values(days)) {
+    const { start, end } = day;
     if (start >= period.end || end <= period.start) continue;
     if (start >= period.start && end <= period.end) {
       for (const group of HashMap.values(day.groups)) addAmounts(amounts, group.amounts);
