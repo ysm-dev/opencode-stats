@@ -1,6 +1,17 @@
 import * as fc from "fast-check";
 import type { SyntheticMessage, syntheticDatabase } from "./index.ts";
 
+export function historyPartitions(baseSeed: number) {
+  return Array.from({ length: 4 }, (_, partition) =>
+    Array.from({ length: 5 }, (_value, chunk) => ({
+      partition,
+      seed: baseSeed + partition,
+      path: String(chunk * 5),
+      numRuns: 5,
+    })),
+  ).flat();
+}
+
 const amount = fc.option(fc.integer({ min: 0, max: 1000 }), { nil: undefined });
 const actionArbitrary = fc.record({
   kind: fc.constantFrom("write", "revert", "delete"),
