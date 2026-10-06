@@ -1,15 +1,20 @@
 export function blockedSlices() {
-  const entered = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
+  let enter!: () => void;
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   let work = 0;
   return {
-    entered: entered.promise,
-    release: release.resolve,
+    entered: new Promise<void>((resolve) => {
+      enter = resolve;
+    }),
+    release,
     clock: {
       workNow: () => (work += 4),
       yield: () => {
-        entered.resolve();
-        return release.promise;
+        enter();
+        return waiting;
       },
     },
   };
