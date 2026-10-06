@@ -1,11 +1,13 @@
 import type { Page } from "playwright";
 import { expect } from "vitest";
+import type { preferenceEvidence } from "./preference-evidence.ts";
 
 declare global {
   interface Window {
     preferenceFrames: string[];
     preferenceSnapshot: () => string;
     preferenceNumber: HTMLElement;
+    preferenceRAF: number;
   }
 }
 
@@ -38,36 +40,48 @@ export const observePreferences = async (page: Page) => {
     };
     window.preferenceFrames = [];
     const snapshot = window.preferenceSnapshot;
-    const frame = () => {
+    const frame = (time: number) => {
       window.preferenceFrames.push(snapshot());
       if (window.preferenceFrames.length > 200) window.preferenceFrames.shift();
-      requestAnimationFrame(frame);
+      window.preferenceEvidence.frame(time);
+      window.preferenceRAF = requestAnimationFrame(frame);
     };
-    requestAnimationFrame(frame);
+    window.preferenceRAF = requestAnimationFrame(frame);
   });
 };
 
-export const wholePreferenceChange = async (page: Page, change: () => Promise<void>) => {
-  const before = await page.evaluate(() => {
-    window.preferenceFrames = [];
-    return window.preferenceSnapshot();
+export const wholePreferenceChange = async (
+  page: Page,
+  change: () => Promise<void>,
+  evidence: Awaited<ReturnType<typeof preferenceEvidence>>,
+) =>
+  evidence.action("whole-preference-change", async () => {
+    evidence.mark("snapshot-before", "started");
+    const before = await page.evaluate(() => {
+      window.preferenceFrames = [];
+      return window.preferenceSnapshot();
+    });
+    evidence.mark("snapshot-before", "completed");
+    await change();
+    evidence.mark("changed-snapshot", "started");
+    await page.waitForFunction((old) => window.preferenceSnapshot() !== old, before);
+    const after = await page.evaluate(() => window.preferenceSnapshot());
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    const frames = await page.evaluate(() => window.preferenceFrames);
+    evidence.mark("changed-snapshot", "completed");
+    evidence.mark("whole-paint-assertions", "started");
+    expect(after).not.toBe(before);
+    expect(frames.length).toBeGreaterThan(0);
+    expect(frames.every((frame) => frame === before || frame === after)).toBe(true);
+    expect(
+      await page
+        .locator(".headline-number")
+        .evaluate((element) => element === window.preferenceNumber),
+    ).toBe(true);
+    evidence.mark("whole-paint-assertions", "completed");
   });
-  await change();
-  await page.waitForFunction((old) => window.preferenceSnapshot() !== old, before);
-  const after = await page.evaluate(() => window.preferenceSnapshot());
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      ),
-  );
-  const frames = await page.evaluate(() => window.preferenceFrames);
-  expect(after).not.toBe(before);
-  expect(frames.length).toBeGreaterThan(0);
-  expect(frames.every((frame) => frame === before || frame === after)).toBe(true);
-  expect(
-    await page
-      .locator(".headline-number")
-      .evaluate((element) => element === window.preferenceNumber),
-  ).toBe(true);
-};

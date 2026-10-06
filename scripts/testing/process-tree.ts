@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -95,6 +95,65 @@ export async function verifyProcessCleanup(): Promise<void> {
     }
     assert.deepEqual(failures, []);
   } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+}
+
+export async function verifyCleanupDiagnostics(): Promise<void> {
+  if (process.platform === "win32") return;
+  const folder = mkdtempSync(resolve(".dev/cleanup-diagnostics-"));
+  const pidsFile = join(folder, "pids");
+  const child = join(folder, "child.ts");
+  const originalPath = process.env["PATH"];
+  const control = spawn("sleep", ["30"], { stdio: "ignore" });
+  writeFileSync(
+    child,
+    `import { appendFileSync } from "node:fs";
+appendFileSync(process.env["BUDGET_PID_FILE"], process.pid + "\\n");
+setInterval(() => {}, 1000);
+`,
+  );
+  writeFileSync(
+    join(folder, "ps"),
+    `#!/bin/sh
+if [ "$1" = -A ]; then echo 'PRIVATE-cleanup-sentinel' >&2; exec /bin/sleep 2; fi
+exec /bin/ps "$@"
+`,
+    { mode: 0o755 },
+  );
+  try {
+    process.env["PATH"] = `${folder}:${originalPath}`;
+    const started = performance.now();
+    await assert.rejects(
+      runTimed([process.execPath, child], 500, {
+        capture: true,
+        env: { ...process.env, BUDGET_PID_FILE: pidsFile },
+      }),
+      (error) => {
+        assert.ok(error instanceof Error);
+        assert.match(String(error), /Command cleanup failed/u);
+        assert.match(String(error), /phase=inventory/u);
+        assert.match(String(error), /code=ETIMEDOUT/u);
+        assert.match(String(error), /inventoryMs=\d+/u);
+        assert.match(String(error), /remainingMs=-?\d+/u);
+        assert.doesNotMatch(String(error), /PRIVATE-cleanup-sentinel/u);
+        assert.doesNotMatch(String(error), /exceeded its time budget/u);
+        let original = error;
+        while (original.cause instanceof Error) original = original.cause;
+        assert.ok("code" in original && original.code === "ETIMEDOUT", "Original cause was lost");
+        process.stdout.write(`Injected inventory timeout: ${String(error)}\n`);
+        return true;
+      },
+    );
+    process.env["PATH"] = originalPath;
+    assert.ok(performance.now() - started < 2000, "Diagnostic fault escaped cleanup deadline");
+    assert.equal(recorded(pidsFile).length, 1);
+    assert.deepEqual(recorded(pidsFile).filter(running), [], "Diagnostic fault left owned workers");
+    assert.ok(control.pid && running(control.pid), "Diagnostic fault killed unrelated control");
+  } finally {
+    process.env["PATH"] = originalPath;
+    stopRecorded(pidsFile);
+    control.kill("SIGKILL");
     rmSync(folder, { recursive: true, force: true });
   }
 }
