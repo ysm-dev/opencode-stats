@@ -133,7 +133,7 @@ export function syntheticDatabase(filename: string) {
         ).run(id, origin);
         db.prepare(
           "INSERT INTO session_message SELECT CASE WHEN substr(id,1,4)='msg_' AND length(id)>=30 THEN substr(id,1,30) ELSE 'msg_' || substr(id || '00000000000000000000000000',1,26) END || '_' || ?, ?, type,seq,time_created,time_updated,data FROM session_message WHERE session_id=?",
-        ).run(suffix, id, origin);
+        ).run(String(suffix), id, origin);
       });
     },
     project(id: string, worktree: string, name: string | null = null) {

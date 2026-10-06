@@ -5,7 +5,7 @@ committed copy, and returns `read()` or `read(cursor)`. Reads contain UTC step
 starts, five independently nullable token kinds, step dimensions, sessions,
 subagent sessions, projects and names, not totals or message content.
 
-Stats-store version 3 rebuilds statistics to add these facts and dimensions.
+Stats-store version 4 rebuilds statistics to add these facts and dimensions, with a fingerprint of the complete synthetic history.
 Codes are allocated monotonically, retained after deletion and never reused.
 Fork-copy IDs (`msg_` + 26 characters + `_` + digits) never count, even after
 rewrites or deletion of their origin. Nested steps roll into their owning session

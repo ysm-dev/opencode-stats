@@ -25,7 +25,7 @@ function units(inventory: ReadonlyArray<SourceSession>) {
     .toSorted((a, b) => b.latest - a.latest);
 }
 
-export const statsStoreVersion = 3;
+export const statsStoreVersion = 4;
 export const initializeStore = Effect.fnUntraced(function* (
   paths: StorePaths,
   adapter: DatabaseAdapter,
@@ -138,6 +138,8 @@ export const reconcile = Effect.fnUntraced(
         unit.sessions.filter((row) => pending.some((changed) => changed.id === row.id)),
         (session) => reader.read(session.id),
       );
+      // Later units must not restore ancestors already found missing in this pass.
+      for (const snapshot of snapshots) if (!snapshot.session) byId.delete(snapshot.id);
       const next = ordered
         .slice(index + 1)
         .find((remaining) =>
