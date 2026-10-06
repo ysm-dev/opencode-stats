@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { stripVTControlCharacters } from "node:util";
 import { chromium } from "playwright";
 import { expect, it, vi } from "vitest";
 import { capture } from "./testing/process.ts";
@@ -10,9 +11,21 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
   const child = spawn("bun", ["run", "dev"], {
     detached: true,
     // Vite decorates its URL with ANSI codes; HTTP, not terminal formatting, proves readiness.
-    env: { ...process.env, FORCE_COLOR: "1" },
+    env: {
+      ...process.env,
+      FORCE_COLOR: "1",
+      DEBUG: [process.env["DEBUG"], "vite:deps"].filter(Boolean).join(","),
+    },
   });
   const { closed } = capture(child);
+  let startupTrace = "";
+  const recordStartup = (chunk: Buffer) => {
+    startupTrace = (
+      startupTrace + `${new Date().toISOString()} ${stripVTControlCharacters(chunk.toString())}`
+    ).slice(-16000);
+  };
+  child.stdout.on("data", recordStartup);
+  child.stderr.on("data", recordStartup);
   try {
     await vi.waitFor(
       async () => {
@@ -34,6 +47,11 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
     } finally {
       await browser.close();
     }
+  } catch (cause) {
+    throw new Error(
+      `Cold source failed. Ordered Vite startup trace (last 16000 characters):\n${startupTrace}`,
+      { cause },
+    );
   } finally {
     try {
       if (process.platform === "win32") child.kill();
