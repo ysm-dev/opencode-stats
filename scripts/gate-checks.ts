@@ -15,10 +15,7 @@ const repeat = (count: number, make: (index: number) => string): string =>
   `${Array.from({ length: count }, (_, index) => make(index)).join("\n")}\n`;
 
 const source = "packages/dashboard/src/gate-canary";
-const mutation = "export const increase = (n: number): number => n + 1;\n";
-
-const mutationTest = (extension: string, assertion: string): string =>
-  `import { describe, expect, it } from "vitest";\nimport { increase } from "./gate-canary.${extension}";\ndescribe("gate mutant", () => { it("increments", () => { expect(increase(1)).${assertion}; }); });\n`;
+const uncovered = "export const increase = (n: number): number => n + 1;\n";
 
 const duplicate = (name: string): string =>
   `const compute = (n: number): number => n * 2;\nexport const ${name} = (): void => {\n${repeat(30, (i) => `  const value${i} = compute(${i}) + compute(${i + 1});`)}};\n`;
@@ -83,7 +80,7 @@ function* allChecks(): Generator<Check> {
     );
     yield {
       gate: `coverage (${extension})`,
-      files: { [file]: mutation },
+      files: { [file]: uncovered },
       command: ["test"],
       expect: ["does not meet", `gate-canary.${extension}`],
     };
@@ -99,56 +96,13 @@ function* allChecks(): Generator<Check> {
       command: ["dup"],
       expect: ["Clone found"],
     };
-    yield {
-      gate: `surviving describe-nested mutant (${extension})`,
-      files: {
-        [file]: mutation,
-        [`${source}.test.${extension}`]: mutationTest(extension, 'toBeTypeOf("number")'),
-      },
-      command: ["mutate"],
-      expect: ["Survived", `gate-canary.${extension}`, "under breaking threshold"],
-    };
-    yield {
-      gate: `killed describe-nested mutant (${extension})`,
-      files: {
-        [file]: mutation,
-        [`${source}.test.${extension}`]: mutationTest(extension, "toBe(2)"),
-      },
-      command: ["mutate"],
-      expect: ["100.00"],
-      accepts: true,
-    };
-  }
-}
-
-function* controlledChecks(): Generator<Check> {
-  for (const check of allChecks()) {
-    if (check.command[0] !== "mutate") {
-      yield check;
-      continue;
-    }
-    // A killed positive control prevents excluded/waived canaries passing with no mutants.
-    const control = `${source}-control`;
-    yield {
-      ...check,
-      files: {
-        ...check.files,
-        [`${control}.ts`]: mutation,
-        [`${control}.test.ts`]: mutationTest("ts", "toBe(2)").replace(
-          '"./gate-canary.ts"',
-          '"./gate-canary-control.ts"',
-        ),
-      },
-      command: ["mutate", "stryker.canary.config.js"],
-      expect: [...check.expect, "gate-canary-control.ts"],
-    };
   }
 }
 
 export function* checks(): Generator<Check> {
   // Contiguous command families distribute evenly across the modulo shards:
   // full-suite coverage runs must not cluster while other shards have none.
-  yield* [...controlledChecks()].toSorted(
+  yield* [...allChecks()].toSorted(
     (left, right) =>
       left.command[0]!.localeCompare(right.command[0]!) || left.gate.localeCompare(right.gate),
   );

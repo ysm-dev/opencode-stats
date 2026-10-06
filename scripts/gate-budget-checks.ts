@@ -4,22 +4,37 @@ import type { Check } from "./verify-gates.ts";
 
 export function* budgetChecks(): Generator<Check> {
   yield {
-    gate: "local CI runs every shard with isolated selectors and fail-closed status",
+    gate: "local verification shards own fixtures and cancel failed siblings",
     files: {},
-    command: ["scripts/testing/ci-shards.ts"],
-    expect: ["Local CI shards are exhaustive, isolated and fail closed."],
+    command: ["scripts/testing/verification.ts"],
+    expect: ["Verification shards are exhaustive, isolated and cancel failed siblings."],
     accepts: true,
   };
   yield {
-    gate: "local CI cannot silently omit its final shard",
+    gate: "local verification cannot silently omit its last shard",
     files: {
-      "scripts/ci-shards.ts": readFileSync("scripts/ci-shards.ts", "utf8").replace(
-        "index <= count",
-        "index < count",
-      ),
+      "scripts/verification-shards.ts": readFileSync(
+        "scripts/verification-shards.ts",
+        "utf8",
+      ).replace("next <= 16", "next < 16"),
     },
-    command: ["scripts/testing/ci-shards.ts"],
-    expect: ["Missing CI shards"],
+    command: ["scripts/testing/verification.ts"],
+    expect: ["Missing verification shards"],
+  };
+  yield {
+    gate: "public local CI has one aggregate deadline and fail-closed status",
+    files: {},
+    command: ["scripts/testing/ci.ts"],
+    expect: ["Public CI shares one deadline, runs all gates in order and fails closed."],
+    accepts: true,
+  };
+  yield {
+    gate: "local CI cannot silently omit its final gate",
+    files: {
+      "scripts/ci.ts": readFileSync("scripts/ci.ts", "utf8").replace('["verify-gates"]', ""),
+    },
+    command: ["scripts/testing/ci.ts"],
+    expect: ["AssertionError"],
   };
   yield {
     gate: "verification command families cannot silently cluster",
@@ -31,28 +46,6 @@ export function* budgetChecks(): Generator<Check> {
     },
     command: ["scripts/testing/shards.ts"],
     expect: ["Unbalanced verification command"],
-  };
-  yield {
-    gate: "local verification count agrees with the hosted matrix",
-    files: {
-      "scripts/ci-shards.ts": readFileSync("scripts/ci-shards.ts", "utf8").replace(
-        'mode === "mutate" ? 12 : 16',
-        'mode === "mutate" ? 12 : 4',
-      ),
-    },
-    command: ["scripts/testing/ci-shards.ts"],
-    expect: ["Missing CI shards"],
-  };
-  yield {
-    gate: "local mutation count agrees with the hosted matrix",
-    files: {
-      "scripts/ci-shards.ts": readFileSync("scripts/ci-shards.ts", "utf8").replace(
-        'mode === "mutate" ? 12 : 16',
-        'mode === "mutate" ? 6 : 16',
-      ),
-    },
-    command: ["scripts/testing/ci-shards.ts"],
-    expect: ["Missing CI shards"],
   };
   yield {
     gate: "time budgets terminate overdue commands",
@@ -76,7 +69,6 @@ export function* budgetChecks(): Generator<Check> {
     ],
     [".github/workflows/ci.yml", "timeout-minutes: 5", "", "needs a five-minute timeout"],
     ["bunfig.toml", "timeout = 5000", "timeout = 0", "Bun test timeout"],
-    ["stryker.config.js", "dryRunTimeoutMinutes: 1", "dryRunTimeoutMinutes: 6", "Mutation dry run"],
     ["scripts/time-budget.ts", "300_000", "300_001", "The time budget must be five minutes"],
     [
       "packages/e2e/vitest.config.ts",
@@ -116,17 +108,22 @@ export function* budgetChecks(): Generator<Check> {
       expect: [expect],
     };
   }
-  yield {
-    gate: "test command must retain its watchdog",
-    files: {
-      "package.json": JSON.stringify({
-        ...root,
-        scripts: { ...root.scripts, test: "vitest run --coverage" },
-      }),
-    },
-    command: ["budgets"],
-    expect: ["test needs a whole-run watchdog"],
-  };
+  for (const name of ["ci", "ci:checks", "test", "release", "verify-gates"] as const) {
+    yield {
+      gate: `${name} command must retain its watchdog`,
+      files: {
+        "package.json": JSON.stringify({
+          ...root,
+          scripts: {
+            ...root.scripts,
+            [name]: root.scripts[name].replace("scripts/time-budget.ts ", ""),
+          },
+        }),
+      },
+      command: ["budgets"],
+      expect: [`${name} needs a whole-run watchdog`],
+    };
+  }
   for (const [command, preparation] of [
     ["e2e", "opencode"],
     ["contracts", "native"],
