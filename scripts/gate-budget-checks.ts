@@ -144,18 +144,36 @@ export function* budgetChecks(): Generator<Check> {
     };
     yield {
       gate: `${command} preparation shares the test-run deadline`,
-      files: {
-        "scripts/time-budget.ts": readFileSync("scripts/time-budget.ts", "utf8").replace(
-          "300_000",
-          "500",
-        ),
-        [`scripts/${preparation}-prepare.ts`]:
-          'process.stdout.write("Preparation started\\n");\nsetInterval(() => {}, 1000);\n',
-      },
-      command: [command],
-      expect: ["Preparation started", "exceeded its time budget"],
+      files:
+        command === "e2e"
+          ? {}
+          : {
+              "scripts/time-budget.ts": readFileSync("scripts/time-budget.ts", "utf8").replace(
+                "300_000",
+                "500",
+              ),
+              [`scripts/${preparation}-prepare.ts`]:
+                'process.stdout.write("Preparation started\\n");\nsetInterval(() => {}, 1000);\n',
+            },
+      command: command === "e2e" ? ["scripts/testing/e2e-preparation.ts"] : [command],
+      expect:
+        command === "e2e"
+          ? ["Public e2e preparation and tests share one deadline and clean up cold workloads."]
+          : ["Preparation started", "exceeded its time budget"],
+      ...(command === "e2e" ? { accepts: true } : {}),
     };
   }
+  yield {
+    gate: "public e2e cannot silently omit browser and OS preparation",
+    files: {
+      "scripts/e2e.ts": readFileSync("scripts/e2e.ts", "utf8").replace(
+        /execFileSync\([\s\S]*?\);\n/u,
+        "",
+      ),
+    },
+    command: ["scripts/testing/e2e-preparation.ts"],
+    expect: ["public e2e lost its shared deadline"],
+  };
   for (const extension of ["ts", "tsx"]) {
     yield {
       gate: `direct Vitest invocation enforces its whole-run budget (${extension})`,

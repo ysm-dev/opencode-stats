@@ -37,8 +37,19 @@ export const runTimed = async (
   });
   let expired = false;
   let interrupted = false;
+  const cleanupFailed = Promise.withResolvers<never>();
   const stop = (): void => {
-    if (child.pid) killProcessTree(child.pid);
+    try {
+      if (child.pid) killProcessTree(child.pid);
+    } catch (error) {
+      // A timer/signal callback must not throw and then wait indefinitely for
+      // pipes retained by a child whose cleanup failed. Fail explicitly.
+      child.stdin?.destroy();
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      child.unref();
+      cleanupFailed.reject(new Error(`Command cleanup failed: ${String(error)}`, { cause: error }));
+    }
   };
   const interrupt = (): void => {
     interrupted = true;
@@ -52,10 +63,13 @@ export const runTimed = async (
     stop();
   }, milliseconds);
   try {
-    const status = await new Promise<number | null>((resolve, reject) => {
-      child.once("error", reject);
-      child.once("close", resolve);
-    });
+    const status = await Promise.race([
+      new Promise<number | null>((resolve, reject) => {
+        child.once("error", reject);
+        child.once("close", resolve);
+      }),
+      cleanupFailed.promise,
+    ]);
     if (expired || performance.now() - started >= milliseconds)
       throw new Error(`Command exceeded its time budget (${milliseconds}ms): ${command.join(" ")}`);
     if (interrupted) throw new Error("Command interrupted");
