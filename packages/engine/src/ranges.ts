@@ -76,7 +76,7 @@ export function resolveRange(
   };
 }
 
-export function normalizeRange(range: TimeRange, now: number, timeZone: string): TimeRange {
+function normalizeRange(range: TimeRange, now: number, timeZone: string): TimeRange {
   if (typeof range === "string" || range.to !== localDate(now, timeZone)) return range;
   const days = dateCount(range.from, range.to);
   return (

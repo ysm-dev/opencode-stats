@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { chromium, webkit } from "playwright";
 import { expect, it } from "vitest";
 import { filterBrowser } from "./testing/filter-fixture.ts";
-import { observeFilters, wholeFilter } from "./testing/filter-paint.ts";
+import { observeFilterFocus, observeFilters, wholeFilter } from "./testing/filter-paint.ts";
 
 const require = createRequire(import.meta.url);
 it.each([chromium, webkit])(
@@ -41,13 +41,24 @@ it.each([chromium, webkit])(
       name: "filter-provider-1/filter-model-5",
       exact: true,
     });
+    const focusProbe = await observeFilterFocus(model6);
     await model6.focus();
     await observeFilters(page);
     const requests: string[] = [];
     f.context.on("request", (request) => requests.push(request.url()));
     await wholeFilter(page, () => model6.click(), "700");
     expect(await model6.isChecked()).toBe(true);
-    expect(await model6.evaluate((input) => input === document.activeElement)).toBe(true);
+    const focusTrace = await focusProbe.evaluate(({ element, events }) => ({
+      same: document.getElementById(element.id) === element,
+      connected: element.isConnected,
+      active: document.activeElement?.id || document.activeElement?.tagName,
+      events,
+    }));
+    expect(
+      await model6.evaluate((input) => input === document.activeElement),
+      `[DEBUG-filter-focus] ${JSON.stringify(focusTrace)}`,
+    ).toBe(true);
+    await focusProbe.dispose();
     await wholeFilter(page, () => model5.click(), "1,300");
     const bookmark = page.url();
     await wholeFilter(page, () => model6.click(), "600");
