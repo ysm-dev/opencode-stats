@@ -34,10 +34,9 @@ verifyMatrix("verification", "Gate verification", "VERIFICATION_SHARD", 16);
 const jobs = object(workflow["jobs"]);
 const packed = object(jobs["packed"]);
 const packedMatrix = object(object(packed["strategy"])["matrix"]);
-assert.deepEqual(packedMatrix["os"], ["windows-latest"]);
+assert.deepEqual(packedMatrix["os"], ["macos-latest", "windows-latest"]);
 assert.deepEqual(packedMatrix["include"], [
   ...["1/2", "2/2"].map((selector) => ({ os: "ubuntu-latest", shard: selector })),
-  ...["1/2", "2/2"].map((selector) => ({ os: "macos-latest", shard: selector })),
   ...["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
     os: "macos-15-intel",
     shard: selector,
@@ -67,7 +66,6 @@ assert.ok(
   ),
 );
 for (const [name, os] of [
-  ["arm", "macos-latest"],
   ["intel", "macos-15-intel"],
   ["linux", "ubuntu-latest"],
 ] as const) {
@@ -83,7 +81,7 @@ assert.deepEqual(object(jobs["verification"])["needs"], ["checks", "contracts", 
 const gateNeeds = object(jobs["gates"])["needs"];
 assert.ok(
   Array.isArray(gateNeeds) &&
-    ["packed", "arm", "intel", "linux"].every((name) => gateNeeds.includes(name)),
+    ["packed", "intel", "linux"].every((name) => gateNeeds.includes(name)),
 );
 
 const canaries = [...checks()];

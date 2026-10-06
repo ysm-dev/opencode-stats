@@ -22,6 +22,17 @@ export function* budgetChecks(): Generator<Check> {
     expect: ["E2e must use the shared workload plan"],
   };
   yield {
+    gate: "e2e execution cannot leave costly files until last",
+    files: {
+      "scripts/e2e-sequencer.ts": readFileSync("scripts/e2e-sequencer.ts", "utf8").replace(
+        "compareE2e(left.moduleId, right.moduleId)",
+        "left.moduleId.localeCompare(right.moduleId)",
+      ),
+    },
+    command: ["scripts/testing/e2e-plan.ts"],
+    expect: ["E2e execution must use workload order"],
+  };
+  yield {
     gate: "public e2e prepares native source assets before its runtimes",
     files: {
       "scripts/e2e.ts": readFileSync("scripts/e2e.ts", "utf8").replace(

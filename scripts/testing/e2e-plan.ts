@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { e2eFiles, partitionE2e, prepareE2e, selectE2e } from "../e2e-plan.ts";
+import { compareE2e, e2eFiles, partitionE2e, prepareE2e, selectE2e } from "../e2e-plan.ts";
 
 const files = e2eFiles();
 assert.ok(files.length > 0, "No e2e files discovered");
@@ -38,9 +38,14 @@ assert.deepEqual(
     2,
   ),
   [
-    ["plugin.test.ts", "preferences-chromium.test.ts", "smoke.test.ts"],
-    ["preferences.test.ts", "preferences-webkit.test.ts"],
+    ["preferences-webkit.test.ts", "preferences-chromium.test.ts", "smoke.test.ts"],
+    ["plugin.test.ts", "preferences.test.ts"],
   ],
+);
+assert.deepEqual(
+  ["native.test.ts", "plugin.test.ts", "preferences-webkit.test.ts"].toSorted(compareE2e),
+  ["preferences-webkit.test.ts", "plugin.test.ts", "native.test.ts"],
+  "Long e2e files must run first, including without sharding",
 );
 assert.deepEqual(prepareE2e(["plugin.test.ts"]), { browsers: [], opencode: true });
 assert.deepEqual(prepareE2e(["preferences-webkit.test.ts"]), {
@@ -63,4 +68,8 @@ for (const setting of [
   "sequencer: BalancedE2eSequencer",
 ])
   assert.ok(config.includes(setting), "E2e must use the shared workload plan");
+assert.ok(
+  readFileSync("scripts/e2e-sequencer.ts", "utf8").includes("compareE2e(left.moduleId, right.moduleId)"),
+  "E2e execution must use workload order",
+);
 process.stdout.write("E2e shards are balanced, exhaustive and share preparation requirements.\n");

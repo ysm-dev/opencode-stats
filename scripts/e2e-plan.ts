@@ -7,7 +7,7 @@ type Browser = "chromium" | "webkit";
 type Work = readonly [seconds: number, browsers: readonly Browser[], opencode?: true];
 // Relative costs from hosted runs. Unknown files get conservative preparation.
 const work: Readonly<Record<string, Work>> = {
-  "preferences-webkit.test.ts": [30, ["webkit"]],
+  "preferences-webkit.test.ts": [48, ["webkit"]],
   "plugin.test.ts": [38, [], true],
   "smoke.test.ts": [22, ["chromium"], true],
   "preferences.test.ts": [34, ["chromium", "webkit"]],
@@ -23,6 +23,10 @@ const work: Readonly<Record<string, Work>> = {
   "notices.test.ts": [1, []],
 };
 const profile = (file: string): Work => work[basename(file)] ?? [30, ["chromium", "webkit"], true];
+
+export const compareE2e = (left: string, right: string): number =>
+  profile(right)[0] - profile(left)[0] ||
+  left.replaceAll("\\", "/").localeCompare(right.replaceAll("\\", "/"));
 
 export const e2ePattern = "packages/e2e/tests/**/*.test.{ts,tsx}";
 export const e2eExcludes = [
@@ -41,11 +45,7 @@ export function partitionE2e(files: readonly string[], count: number): string[][
     files: [],
     seconds: 0,
   }));
-  const ordered = files.toSorted(
-    (left, right) =>
-      profile(right)[0] - profile(left)[0] ||
-      left.replaceAll("\\", "/").localeCompare(right.replaceAll("\\", "/")),
-  );
+  const ordered = files.toSorted(compareE2e);
   for (const file of ordered) {
     const group = groups.reduce((least, next) => (next.seconds < least.seconds ? next : least));
     group.files.push(file);
