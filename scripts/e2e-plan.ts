@@ -11,7 +11,7 @@ const work: Readonly<Record<string, Work>> = {
   "plugin.test.ts": [35, [], true],
   "smoke.test.ts": [35, ["chromium"], true],
   "preferences.test.ts": [30, ["chromium", "webkit"]],
-  "preference-evidence.test.ts": [25, ["chromium"]],
+  "preference-evidence.test.ts": [10, ["chromium"]],
   "preferences-chromium.test.ts": [22, ["chromium"]],
   "source.test.ts": [20, ["chromium"]],
   "lifecycle.test.ts": [20, []],

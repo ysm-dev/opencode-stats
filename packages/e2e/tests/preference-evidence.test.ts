@@ -76,10 +76,11 @@ it("captures a controlled installed-page action failure without replacing its er
 it.each(["closed", "rejected", "stalled", "reporter"])(
   "preserves the original error and cause when diagnostic capture is %s",
   async (failure) => {
-    await using fixture = await preferencesBrowser(chromium);
-    const page = await fixture.context.newPage();
+    await using browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    page.setDefaultTimeout(3000);
     await using evidence = await preferenceEvidence(page);
-    await page.goto(fixture.server.origin);
+    await page.goto("about:blank");
     const cause = new Error("synthetic original cause");
     const original = new Error("synthetic original action", { cause });
     const stack = original.stack;
