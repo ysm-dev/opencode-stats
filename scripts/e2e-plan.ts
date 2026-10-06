@@ -7,16 +7,16 @@ type Browser = "chromium" | "webkit";
 type Work = readonly [seconds: number, browsers: readonly Browser[], opencode?: true];
 // Relative costs from hosted runs. Unknown files get conservative preparation.
 const work: Readonly<Record<string, Work>> = {
-  "preferences-webkit.test.ts": [60, ["webkit"]],
-  "plugin.test.ts": [35, [], true],
-  "smoke.test.ts": [35, ["chromium"], true],
-  "preferences.test.ts": [30, ["chromium", "webkit"]],
-  "preference-evidence.test.ts": [10, ["chromium"]],
+  "preferences-webkit.test.ts": [30, ["webkit"]],
+  "plugin.test.ts": [38, [], true],
+  "smoke.test.ts": [22, ["chromium"], true],
+  "preferences.test.ts": [34, ["chromium", "webkit"]],
+  "preference-evidence.test.ts": [9, ["chromium"]],
   "preferences-chromium.test.ts": [22, ["chromium"]],
-  "source.test.ts": [20, ["chromium"]],
+  "source.test.ts": [17, ["chromium"]],
   "lifecycle.test.ts": [20, []],
-  "preferences-setup.test.ts": [15, []],
-  "live.test.ts": [6, ["chromium"]],
+  "preferences-setup.test.ts": [12, []],
+  "live.test.ts": [4, ["chromium"]],
   "native.test.ts": [1, []],
   "notices.test.ts": [1, []],
 };
