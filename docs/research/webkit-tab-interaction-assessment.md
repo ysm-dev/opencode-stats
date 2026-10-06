@@ -156,3 +156,92 @@ Temporary probes are absent from the repository. Owned containers are named
 `opencode-stats-webkit-loop-full`; their stopped runtime currently prevents
 Docker inventory/removal. Unrelated containers and the independent Intel
 watchdog owner's files were not touched.
+
+## Retained passive failure evidence
+
+Follow-up branch `implement/webkit-failure-evidence` descends from the preserved
+documentation-only assessment above. It adds **diagnostics, not a behavioral
+fix**. The physical hosted Theme-click cause remains unestablished.
+
+`packages/e2e/tests/testing/preference-evidence.ts` instruments only the synthetic
+installed-page cold-preference case. It records ordered host phase/action times
+and page load/close/crash events, plus document visibility/focus/lifecycle events.
+The existing cold-background and whole-paint RAF callbacks supply frame samples;
+there is no added RAF loop, network request, focus call, forced click, readiness
+barrier, retry or pre-action evaluation. Samples contain Theme/colour-scheme
+trigger geometry, computed style, connection/disabled/focus state and a centre
+hit-test observation. These observations are not a replacement for Playwright's
+own actionability checks. Active focus is classified without reading text or
+arbitrary element identifiers. Content, browser-copy values, URLs, storage,
+headers and authentication are never included in the added report.
+
+The first failed action writes one `[preference-failure-evidence]` JSON line to
+stderr, then rethrows the **same original error**, retaining its stack and cause.
+There are at most 64 host records, 32 lifecycle events and eight frame samples.
+Host times are `performance.timeOrigin + performance.now()`; browser `time` and
+`rafTime` are relative to the reported browser `timeOrigin`. Use that origin to
+align the action timeline with lifecycle events and frame progress. A zero RAF
+count before the original observers start is not evidence of browser suspension.
+Compare the last sampled RAF time with the current snapshot time to see whether
+frames stopped progressing during the failed action.
+
+Failure capture and disposal evaluations each have their own 100ms reporting
+bound because Playwright evaluation otherwise has no timeout. An unavailable
+renderer yields the host timeline and an explicit `unavailable`/`pageClosed`
+result, not a fabricated browser snapshot. Capture or stderr failure cannot
+replace the original error. Disposal removes the owned listeners and cancels
+the existing observer; the owned browser context remains responsible for final
+renderer teardown if evaluation is unavailable.
+
+`packages/e2e/tests/preference-evidence.test.ts` checks this seam with an installed
+synthetic dashboard. A deliberately `aria-disabled` Theme trigger produces a
+real native 3000ms click timeout. It proves failed-action capture, original
+error/stack identity, bounded histories, no headline/URL leakage, and listener
+disposal. Separate controlled cases preserve original error/stack/cause when
+the page closes, evaluation rejects or never settles, or stderr reporting
+throws. These controls **do not reproduce or explain the hosted stable-element
+timeout**. All original 28 cases, both engines, native concurrency two, cold
+prepaint, whole-paint/data-identity, no-request, cross-tab, denied-storage and axe
+assertions remain; five diagnostics checks are added without changing any cap.
+
+### Follow-up verification and remaining proof
+
+- The focused installed-page diagnostics command passed five controls:
+  `bun run scripts/time-budget.ts bun run vitest run --config packages/e2e/vitest.config.ts packages/e2e/tests/preference-evidence.test.ts`.
+  Initial RED was the absent diagnostics module; the controlled action then
+  exposed an overly broad geometry selector, corrected to the actual
+  `role="button"` trigger. Neither RED was the physical hosted bug.
+- Public macOS `bun run e2e` passed all 33 tests (28 original + five controls),
+  test duration 33.35s. The subsequent complete public `bun run ci` independently
+  passed ordinary gates (632 tests, 100% per-file coverage), all eight real-Bun
+  contract tests, release and all 33 e2e tests (28.72s test duration).
+- **The complete aggregate failed at final gate verification.** Verification
+  shard 2/16's `manifest does not waive neighbour test (tsx)` expected the
+  planted coverage rejection, but the existing
+  `packages/stats-store/src/types.test.ts` timed out at its unchanged 5000ms cap
+  (reported 5603ms), so the expected result was absent. No cap, canary, watchdog,
+  process-tree or unrelated test was edited; this was not retried until green.
+  The earlier standalone ordinary-check attempt also rejected a new unsupported
+  suppression spelling; the final candidate uses native stderr without any new
+  suppression and passed that gate in the aggregate.
+- Logs: `webkit-failure-evidence-checks.log`,
+  `webkit-failure-evidence-macos-e2e.log`, and
+  `webkit-failure-evidence-macos-ci.log`, under the approved temporary OpenCode
+  directory used above. The last log contains the final candidate's controlled
+  checks and the exact aggregate failure; no full-CI green claim is made.
+- Read-only follow-up `orb status` reported `Running`, and Docker inventory
+  filtered to the three legacy diagnostic container names was empty. This
+  session did not restart the shared runtime, remove containers or run a new
+  Linux workload. No new clean Linux or physical hosted acceptance exists for
+  this candidate. The earlier stopped-runtime limitation explains the prior
+  interrupted preparation, not the macOS verification failure.
+- After the aggregate exited, process inventory found no matching owned
+  `webkit-failure-evidence`, `stats-preferences-` fixture or
+  `verification-WDlCWA` worker. No owned checks were left running.
+
+Latest integration was reconciled (`469eabc`, already up to date). Linux/physical
+hosted acceptance and a matching failure-time trace remain required; macOS
+checks and deliberate diagnostic controls cannot establish the missing hosted
+cause. There is no behavioral fix, push, issue closure, ruleset change or
+integration/main merge in this branch. Any subsequent handoff requires a new
+session.
