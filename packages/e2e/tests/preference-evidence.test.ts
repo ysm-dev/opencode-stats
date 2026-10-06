@@ -17,7 +17,7 @@ it("captures a controlled installed-page action failure without replacing its er
   const trigger = page.getByRole("button", { name: /^Theme / });
   await trigger.evaluate((element) => element.setAttribute("aria-disabled", "true"));
   await page
-    .getByRole("region", { name: "Tokens" })
+    .getByRole("region", { name: "Tokens", includeHidden: true })
     .locator(".headline-number")
     .evaluate((element) => {
       element.textContent = "synthetic-private-headline-not-for-diagnostics";

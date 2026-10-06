@@ -48,9 +48,9 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
     const browser = await chromium.launch({ headless: true });
     phase("browser ready");
     try {
-      // The builder's five-token fixture is 11 + 22 + 33 + 44 + 55 = 165.
+      // Five token kinds (165) plus the nested session's one output token.
       // Missing usage, zero usage, a fork copy and a user message add nothing.
-      await checkOverview(browser, "http://127.0.0.1:5173", "165", phase);
+      await checkOverview(browser, "http://127.0.0.1:5173", "166", phase);
       expect(child.exitCode).toBeNull();
       expect(child.signalCode).toBeNull();
     } finally {

@@ -150,13 +150,13 @@ it.each(browsers)(
         );
         expect(
           await page
-            .getByRole("region", { name: "Tokens" })
+            .getByRole("region", { name: "Tokens", includeHidden: true })
             .locator(".headline-number")
             .textContent(),
         ).toBe("987");
         expect(
           await second
-            .getByRole("region", { name: "Tokens" })
+            .getByRole("region", { name: "Tokens", includeHidden: true })
             .locator(".headline-number")
             .textContent(),
         ).toBe("987");

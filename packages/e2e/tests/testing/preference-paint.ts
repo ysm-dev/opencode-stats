@@ -78,9 +78,10 @@ export const wholePreferenceChange = async (
     expect(after).not.toBe(before);
     expect(frames.length).toBeGreaterThan(0);
     expect(frames.every((frame) => frame === before || frame === after)).toBe(true);
+    // Settings makes the background inert; its retained headline still has to be the same node.
     expect(
       await page
-        .getByRole("region", { name: "Tokens" })
+        .getByRole("region", { name: "Tokens", includeHidden: true })
         .locator(".headline-number")
         .evaluate((element) => element === window.preferenceNumber),
     ).toBe(true);
