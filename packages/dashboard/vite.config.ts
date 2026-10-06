@@ -1,4 +1,4 @@
-import { defineConfig, searchForWorkspaceRoot } from "vite";
+import { defineConfig, runnerImport, searchForWorkspaceRoot } from "vite";
 import solid from "vite-plugin-solid";
 import tailwind from "@tailwindcss/vite";
 import { createRequire } from "node:module";
@@ -13,7 +13,41 @@ export default defineConfig({
       tailwindcss: dirname(require.resolve("tailwindcss/package.json")),
     },
   },
-  plugins: [tailwind(), solid()],
+  plugins: [
+    tailwind(),
+    solid(),
+    {
+      name: "prepaint-preferences",
+      transformIndexHtml: {
+        order: "post",
+        handler: async () => {
+          const loaded = await runnerImport<typeof import("./src/preload.ts")>(
+            decodeURIComponent(new URL("./src/preload.ts", import.meta.url).pathname),
+            {
+              configFile: false,
+              ssr: { noExternal: ["@opencode/ui"] },
+              server: {
+                fs: {
+                  allow: [
+                    searchForWorkspaceRoot(process.cwd()),
+                    dirname(require.resolve("@opencode/ui/package.json")),
+                  ],
+                },
+              },
+            },
+          );
+          return [
+            {
+              tag: "script",
+              attrs: { id: "preferences-startup" },
+              children: await loaded.module.classicPreload(),
+              injectTo: "head-prepend",
+            },
+          ];
+        },
+      },
+    },
+  ],
   // The worker's HttpApi imports must join the initial scan, not trigger a
   // second optimization/504/full reload while the first page is loading.
   optimizeDeps: { entries: ["index.html", require.resolve("@opencode-stats/engine/worker")] },

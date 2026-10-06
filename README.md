@@ -84,7 +84,7 @@ Only `bun run release` bundles: Bun emits unminified bin/server ES modules with 
 
 For standalone mode, run `bunx opencode-stats --no-open --db <path>` (Bun ≥ 1.4.2), or pass `--port <n>`. `--db` wins over the automatic selection above. The file must exist. Its step facts are built once, with five independently nullable token kinds, into a private XDG cache; no source connection can write. macOS uses the controlled upstream SQLite library included in this same package, for arm64 and x64, with no compiler, extra installation, native-library setting or runtime download. See [stats-store](packages/stats-store/README.md) for provenance and source safety. The bin opens a browser by default and keeps the server as its foreground child until Ctrl+C. Update standalone mode with `bunx opencode-stats@latest`. Following writes and diagnostics arrive in later spec tickets.
 
-`bun run e2e` installs the existing tarball through npm with lifecycle scripts off into an otherwise empty temp folder, then checks the installed bin and Chromium. It also prepares the pinned minimum/newest-eligible OpenCode executables from `native/sqlite/test-runtime.json` and activates the tarball in isolated, password-protected `opencode serve` processes, never `--service`. Install its browser once with `bun run --cwd packages/e2e playwright install chromium`. CI bundles and tests on Bun 1.4.2: Linux and macOS block, Windows reports. `bun run bundle:check` checks Bun metafiles, rejecting non-built-in external imports and any Effect/SQLite/drizzle input in the bin and launcher.
+`bun run e2e` provisions the pinned Playwright Chromium headless shell **and WebKit**, then installs the existing tarball through npm with lifecycle scripts off into an otherwise empty temp folder. On Linux it also runs Playwright's `--with-deps` installation for the required OS libraries/fonts; use a supported distro with root or passwordless sudo available. Browser downloads, OS preparation, pinned OpenCode preparation and tests all share e2e's external 300-second deadline (and the aggregate/job/attempt deadline when called from CI). No prior browser cache or separate unbounded install is required. It activates the tarball in isolated, password-protected `opencode serve` processes, never `--service`. CI bundles and tests on Bun 1.4.2: Linux and macOS block, Windows reports. `bun run bundle:check` checks Bun metafiles, rejecting non-built-in external imports and any Effect/SQLite/drizzle input in the bin and launcher.
 
 Hooks run lint/format before commits, types/coverage before pushes, and reject non-Conventional Commit messages. CI runs gate verification last; the required **Quality gates** check succeeds only when every required job succeeds.
 
@@ -99,6 +99,26 @@ Every Vitest configuration also installs a whole-run deadline for direct invocat
 `bun run ci` has **one external 300-second deadline for the entire aggregate**, including native preparation, all source gates, contracts, release, e2e and final exhaustive verification. Stages receive only the remaining aggregate budget, not a fresh five minutes. Local verification clears inherited shard selectors and runs every canary. Hosted CI's parallel graph has the additional end-to-end limit above. When a budget fails, optimize or isolate parallel work while preserving every remaining gate.
 
 ## Design decisions worth knowing
+
+### Browser preferences
+
+Settings keeps exactly three choices at the dashboard's browser origin: the OpenCode theme,
+System/Light/Dark colour scheme, and single-key shortcuts (On by default). Another browser,
+a private window, a port change or cleared site data starts shortcuts On again. Nothing is
+written to an opencode-stats preference file or cookie. If storage is refused, the page uses
+memory and Settings says so; that memory does not survive a reload.
+
+Implementation and automated verification are recorded in `docs/preferences.md`.
+
+### Accessibility
+
+The dashboard targets WCAG 2.2 AA in every offered theme. Its own colour uses take the
+nearest passing theme-ramp colours rather than inheriting inaccessible faint text or edges.
+All 72 palettes are checked with unrounded contrast calculations; axe rejects violations
+and incomplete results. Keyboard/focus tests and packed Chromium/WebKit checks cover Settings,
+light/dark and the harder Matrix/Everforest light palettes, including narrow and short windows.
+Native browser zoom and VoiceOver with Safari/Chrome remain human release checks, not claimed
+automated screen-reader verification. Report accessibility problems as ordinary GitHub bugs.
 
 - **bun installs and runs scripts; Node runs tests.** Vitest treats bun as a package manager only, and the v8 coverage provider does not work on the bun runtime.
 - **No package exports compiled output; only a release bundles.** Workspace entries remain in each package's own `src/`; ADR 0012 permits one root release bundle into `.release/`. Nothing imports a release bundle from source.

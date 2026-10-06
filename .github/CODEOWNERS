@@ -64,3 +64,8 @@
 /packages/e2e/tests/native.test.ts @ysm-dev
 /scripts/testing/native-setup.ts @ysm-dev
 /docs/research/issue-34-ci-budget.md @ysm-dev
+/packages/dashboard/src/palette.test.ts @ysm-dev
+/packages/dashboard/src/testing/colour-vision.ts @ysm-dev
+/packages/dashboard/vite.config.ts @ysm-dev
+/packages/e2e/tests/preferences.test.ts @ysm-dev
+/packages/e2e/tests/testing/preference-paint.ts @ysm-dev

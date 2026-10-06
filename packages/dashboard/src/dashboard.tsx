@@ -1,7 +1,8 @@
 import { Show, createContext, createSignal, onCleanup, onMount, useContext } from "solid-js";
 import { render } from "solid-js/web";
 import { MetaProvider } from "@solidjs/meta";
-import { ThemeProvider } from "@opencode/ui/theme/context";
+import { PreferenceProvider } from "./preferences.tsx";
+import { Settings } from "./settings.tsx";
 import {
   Link,
   Outlet,
@@ -21,7 +22,7 @@ const Overview = () => {
   return (
     <>
       <header>
-        <h1>Overview</h1>
+        <h1 tabIndex={-1}>Overview</h1>
         <p>{state.rangeLabel}</p>
       </header>
       <section aria-labelledby="tokens">
@@ -47,7 +48,9 @@ const Shell = () => (
           Overview
         </Link>
       </nav>
-      <footer />
+      <footer>
+        <Settings />
+      </footer>
     </aside>
     <main id="main" tabIndex={-1}>
       <Outlet />
@@ -74,7 +77,7 @@ const CompleteDashboard = (props: {
   document.title = "Overview · opencode-stats";
   return (
     <MetaProvider>
-      <ThemeProvider defaultTheme="oc-2">
+      <PreferenceProvider>
         <Show
           when={props.state.screen === "dashboard" && props.state}
           fallback={
@@ -91,7 +94,7 @@ const CompleteDashboard = (props: {
             </PageState.Provider>
           )}
         </Show>
-      </ThemeProvider>
+      </PreferenceProvider>
     </MetaProvider>
   );
 };

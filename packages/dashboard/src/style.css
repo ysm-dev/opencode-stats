@@ -10,19 +10,13 @@
 }
 
 html {
-  --dashboard-background: #fafafa;
   background: var(--dashboard-background);
-}
-@media (prefers-color-scheme: dark) {
-  html {
-    --dashboard-background: #080808;
-  }
 }
 body {
   font-family: Inter, sans-serif;
   font-size: 13px;
   font-weight: 440;
-  color: var(--v2-text-text-base);
+  color: var(--dashboard-text-deep);
   margin: 0;
   min-width: 320px;
 }
@@ -52,7 +46,8 @@ nav a {
   border-radius: 4px;
 }
 main {
-  background: var(--v2-background-bg-base);
+  background: var(--dashboard-base);
+  color: var(--dashboard-text-base);
   border-radius: 8px;
   padding: 24px;
   min-width: 0;
@@ -71,13 +66,14 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 :focus-visible {
-  outline: 2px solid var(--v2-text-text-base);
+  outline: 2px solid var(--dashboard-focus-base);
   outline-offset: 2px;
 }
 .skip-link {
   position: absolute;
   transform: translateY(-200%);
-  background: var(--v2-background-bg-base);
+  background: var(--dashboard-base);
+  color: var(--dashboard-text-base);
   padding: 8px;
 }
 .skip-link:focus {
@@ -90,8 +86,143 @@ h2 {
   transition: none !important;
 }
 @media (pointer: coarse) {
-  nav a {
+  nav a,
+  button,
+  [data-component="select-v2"],
+  [data-component="switch"] {
     min-height: 44px;
+  }
+}
+.settings-gear,
+.settings-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--dashboard-edge-deep);
+  border-radius: 4px;
+  color: var(--dashboard-text-deep);
+  background: var(--dashboard-deep);
+}
+.sidebar :focus-visible {
+  outline-color: var(--dashboard-focus-deep);
+}
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--dashboard-deep);
+  display: flex;
+  justify-content: flex-end;
+}
+.settings-sheet {
+  width: min(100%, 480px);
+  max-height: 100dvh;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: var(--dashboard-base);
+  color: var(--dashboard-text-base);
+}
+.preference-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.settings-sheet [data-component="select-v2"] {
+  min-height: 28px;
+  border: 1px solid var(--dashboard-edge-base);
+  color: var(--dashboard-text-base);
+  background: var(--dashboard-base) !important;
+}
+.settings-sheet [data-component="select-v2"] [data-slot="select-v2-value-text"],
+.settings-sheet [data-component="switch"] [data-slot="switch-label"] {
+  color: var(--dashboard-text-base);
+}
+.settings-sheet [data-slot="select-v2-chevron"] {
+  color: var(--dashboard-edge-base);
+}
+.settings-sheet [data-component="select-v2"]:focus-visible {
+  outline: 2px solid var(--dashboard-focus-base) !important;
+  outline-offset: -4px !important;
+}
+.settings-done {
+  background: var(--dashboard-base);
+  color: var(--dashboard-text-base);
+  border-color: var(--dashboard-edge-base);
+}
+.storage-notice {
+  color: var(--dashboard-muted-base);
+}
+.settings-options[data-component="menu-v2-content"] {
+  z-index: 101;
+  max-height: min(320px, calc(100dvh - 32px));
+  max-width: calc(100vw - 32px);
+  overflow: auto;
+  padding: 4px;
+  background: var(--dashboard-base);
+  color: var(--dashboard-text-base);
+}
+.settings-options [data-component="menu-v2-item"] {
+  --menu-v2-fg: var(--dashboard-text-base);
+  --menu-v2-icon: var(--dashboard-selected-base);
+  --menu-v2-hover: transparent;
+  color: var(--dashboard-text-base);
+  min-height: 28px;
+}
+.settings-options [data-component="menu-v2-item"][data-highlighted] {
+  outline: 2px solid var(--dashboard-focus-base);
+  outline-offset: -4px;
+}
+.settings-options [data-slot="menu-v2-item-indicator"] {
+  color: var(--dashboard-selected-base);
+}
+.settings-options[data-component="menu-v2-content"][data-slot="select-v2-content"]
+  [data-slot="select-v2-listbox"] {
+  max-height: min(12rem, calc(var(--kb-popper-content-available-height, 100dvh) - 8px));
+}
+.settings-sheet [data-slot="switch-label"] {
+  min-height: 28px;
+  height: auto;
+}
+.settings-sheet [data-slot="switch-control"] {
+  height: 24px;
+  align-items: center;
+  border: 1px solid var(--dashboard-edge-base);
+  background: var(--dashboard-base) !important;
+}
+.settings-sheet [data-checked] [data-slot="switch-control"] {
+  background: var(--dashboard-selected-base) !important;
+}
+.settings-sheet [data-slot="switch-thumb"] {
+  background: var(--dashboard-text-base) !important;
+  border: none;
+}
+.settings-sheet [data-checked] [data-slot="switch-thumb"] {
+  background: var(--dashboard-base) !important;
+}
+.settings-sheet [data-slot="switch-input"]:focus-visible ~ [data-slot="switch-control"] {
+  outline: 2px solid var(--dashboard-focus-base) !important;
+  outline-offset: 2px !important;
+}
+.settings-sheet :focus-visible {
+  outline-offset: -4px;
+}
+@media (pointer: coarse) {
+  .settings-gear,
+  .settings-done,
+  .settings-sheet [data-component="select-v2"],
+  .settings-sheet [data-slot="switch-label"] {
+    min-height: 44px;
+  }
+  .settings-gear {
+    min-width: 44px;
   }
 }
 @media (min-width: 768px) {
