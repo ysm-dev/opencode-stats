@@ -47,7 +47,7 @@ const rangesDashboard = (deliverAnswer: (deliver: () => void) => void = queueMic
 
 const chooseRange = async (f: ReturnType<typeof rangesDashboard>, label: string) => {
   await f.user.click(f.view.getByRole("button", { name: /^Time range/ }));
-  await f.user.click(await screen.findByRole("option", { name: label, exact: true }));
+  await f.user.click(await screen.findByRole("option", { name: label }));
 };
 
 it("opens fresh on Last 30 days and paints range controls, titles, muted comparisons and captions without a request or announcement", async () => {
@@ -193,14 +193,12 @@ it("offers all published Select options, keeps repeated selections and supports 
       "Last 365 days",
       "All time",
     ]);
-    await f.user.click(screen.getByRole("option", { name: "Last 30 days", exact: true }));
+    await f.user.click(screen.getByRole("option", { name: "Last 30 days" }));
     expect(trigger.textContent).toBe("Last 30 days");
     expect(window.location.search).toBe("?range=30d");
     await f.user.click(trigger);
     await vi.waitFor(() =>
-      expect(document.activeElement).toBe(
-        screen.getByRole("option", { name: "Last 30 days", exact: true }),
-      ),
+      expect(document.activeElement).toBe(screen.getByRole("option", { name: "Last 30 days" })),
     );
     await f.user.keyboard("{Home}{Enter}");
     await vi.waitFor(() => expect(trigger.textContent).toBe("Today"));
