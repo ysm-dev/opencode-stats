@@ -86,7 +86,10 @@ it("the real channel labels every input, timer, pause/resume and visible catch-u
     address: "/?range=all&f.model=synthetic-private",
   });
   await vi.waitFor(() => expect(server.streams).toBe(1));
-  await engine.client.request({ kind: "remove-fixed", preset: "today" });
+  expect(await engine.client.request({ kind: "remove-fixed", preset: "today" })).toMatchObject({
+    kind: "paint",
+    state: { address: "/?range=today&f.model=synthetic-private", rangeLabel: "Today" },
+  });
   await clock.advance(60);
   await clock.advance(60);
   engine.client.signal({ kind: "paused", paused: true });
