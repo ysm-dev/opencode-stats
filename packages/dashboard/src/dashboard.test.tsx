@@ -79,7 +79,7 @@ describe("Overview", () => {
       expect(view.container.querySelector(".update-status")?.textContent).toBe(
         "Paused at 14:02 · Resume",
       );
-      await user.click(view.getByRole("button", { name: "Resume", exact: true }));
+      await user.click(view.getByRole("button", { name: "Resume" }));
       await vi.waitFor(() => expect(view.container.querySelector(".update-status")).toBeNull());
       await user.click(live);
       await user.click(live);

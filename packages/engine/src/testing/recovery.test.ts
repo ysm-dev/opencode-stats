@@ -201,3 +201,38 @@ it("discards sliced work on hide and does not commit or paint until the shown ca
   engine.client.signal({ kind: "visibility", visible: true });
   expect(await answer).toMatchObject({ state: { revision: 2, tokens: { total: 20 } } });
 });
+
+it.each(["failure", "hide"])(
+  "retains its complete state through a changes fetch %s",
+  async (reason) => {
+    const server = inMemoryDashboardServer(copy());
+    const response = Promise.withResolvers<Response>();
+    const entered = Promise.withResolvers<void>();
+    let block = true;
+    const engine = inThreadEngine((input, init) => {
+      if (block && new Request(input, init).url.includes("/changes?")) {
+        entered.resolve();
+        return response.promise;
+      }
+      return server.fetch(input, init);
+    });
+    onTestFinished(async () => {
+      response.resolve(new Response(null, { status: 503 }));
+      await engine.dispose();
+      await server.dispose();
+    });
+    await engine.client.request({ kind: "all-time" });
+    server.commit(copy(2));
+    await entered.promise;
+    if (reason === "hide") {
+      engine.client.signal({ kind: "visibility", visible: false });
+      await vi.waitFor(() => expect(server.streams).toBe(0));
+    }
+    response.resolve(new Response(null, { status: 503 }));
+    await vi.waitFor(() => expect(server.streams).toBe(0));
+    expect(engine.answers).toHaveLength(1);
+    block = false;
+    engine.client.signal({ kind: "visibility", visible: true });
+    await vi.waitFor(() => expect(engine.answers.at(-1)).toMatchObject({ state: { revision: 2 } }));
+  },
+);

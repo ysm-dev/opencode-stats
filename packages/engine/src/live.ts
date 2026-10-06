@@ -9,8 +9,8 @@ import { createLiveStatus } from "./live-status.ts";
 type Session = {
   controller: AbortController;
   stopStream?: () => Promise<void>;
-  work?: Promise<void>;
-  target?: CopyCursor;
+  work?: Promise<void> | undefined;
+  target?: CopyCursor | undefined;
   opening: boolean;
 };
 
@@ -113,7 +113,9 @@ export function createLiveEngine(
     if (facts.current()) openStream(current);
     else {
       current.work = apply(current)
-        .catch(() => status.disconnect())
+        .catch(() => {
+          if (session === current) status.disconnect();
+        })
         .finally(() => {
           current.work = undefined;
           if (session !== current) return;
@@ -127,7 +129,8 @@ export function createLiveEngine(
     }
   };
   const tick = () => {
-    if (JSON.stringify(status.read()) !== presented) changed();
+    if (facts.current() && !session?.opening && JSON.stringify(status.read()) !== presented)
+      changed();
     if (!session && clock.now() - lastAttempt >= 2000) connect();
   };
   const start = () => {
