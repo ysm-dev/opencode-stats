@@ -2,7 +2,14 @@ import { basename, dirname } from "node:path";
 import { eq } from "drizzle-orm";
 import * as Effect from "effect/Effect";
 import { Database } from "./database.ts";
-import { dimensionNames, sessionFacts, projectFacts, tombstones, steps } from "./schema.ts";
+import {
+  dimensionNames,
+  sessionFacts,
+  projectFacts,
+  tombstones,
+  steps,
+  prompts,
+} from "./schema.ts";
 import type { SourceSession, SourceProject, SourceFact } from "./source-reader.ts";
 
 export function owningSession(
@@ -108,16 +115,18 @@ const saveSessions = Effect.fnUntraced(function* (
       .onConflictDoUpdate({ target: sessionFacts.id, set: { ...detail, revision } });
     if (old && (old.project !== detail.project || old.session !== detail.session)) {
       // Details can change without a transcript counter. Reattribute already
-      // read steps in this same commit, before announcing the new relationships.
+      // read steps and prompts in this same commit, before announcing the new relationships.
+      const project = (yield* code("project", detail.project))!;
       yield* db
         .update(steps)
         .set({
-          project: (yield* code("project", detail.project))!,
+          project,
           sessionCode: (yield* code("session", detail.session))!,
           subagent: yield* code("session", detail.session === row.id ? null : row.id),
           revision,
         })
         .where(eq(steps.session, row.id));
+      yield* db.update(prompts).set({ project, revision }).where(eq(prompts.session, row.id));
     }
     yield* db.delete(tombstones).where(eq(tombstones.id, `session:${row.id}`));
   }
