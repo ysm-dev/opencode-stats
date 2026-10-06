@@ -14,6 +14,7 @@ const work: Readonly<Record<string, Work>> = {
   "preferences.test.ts": [27, ["chromium", "webkit"]],
   // Its first full hosted sample is pending; keep the conservative file cost.
   "ranges.test.ts": [30, ["chromium", "webkit"]],
+  "filters.test.ts": [30, ["chromium", "webkit"]],
   "preference-evidence.test.ts": [8, ["chromium"]],
   "preferences-chromium.test.ts": [37, ["chromium"]],
   "source.test.ts": [16, ["chromium"]],
