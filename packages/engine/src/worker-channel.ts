@@ -52,7 +52,7 @@ export function connectEngine(
     else {
       active = pending = message;
       if (live.current()) paint();
-      live.start();
+      else live.start();
     }
   };
   port.addEventListener("message", receive);

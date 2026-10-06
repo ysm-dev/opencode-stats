@@ -213,7 +213,7 @@ it("keeps the prior complete copy after a stream closes, then retries when focus
 
 it("still paints its complete copy when opening the live stream fails", async () => {
   const server = inMemoryDashboardServer(syntheticCopy([step(2)]), () => {
-    server.drop();
+    void server.drop();
     return Promise.resolve();
   });
   const engine = inThreadEngine(server.fetch);

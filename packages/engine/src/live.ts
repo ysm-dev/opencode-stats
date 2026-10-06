@@ -41,7 +41,7 @@ export function createLiveEngine(
     const previous = session;
     session = undefined;
     previous?.controller.abort();
-    const cleanup = Promise.all([previous?.stopStream?.(), previous?.work]).then(() => {});
+    const cleanup = Promise.all([previous?.stopStream?.(), previous?.work]).then(() => undefined);
     cleanups.add(cleanup);
     void cleanup.finally(() => cleanups.delete(cleanup));
   };
@@ -59,7 +59,7 @@ export function createLiveEngine(
     }
   };
   const catchUp = async (current: Session) => {
-    while (current.target && session === current) {
+    while (current.target) {
       const wanted = current.target;
       current.target = undefined;
       const before = facts.current();

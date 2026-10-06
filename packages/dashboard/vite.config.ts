@@ -28,7 +28,7 @@ const buildStartup = async () => {
 };
 
 export default defineConfig({
-  define: { __STATS_RELEASE__: JSON.stringify(manifest.version) },
+  define: { statsRelease: JSON.stringify(manifest.version) },
   // The published UI's CSS imports Tailwind from its own path, outside the workspace under Bun's global store.
   resolve: {
     alias: {

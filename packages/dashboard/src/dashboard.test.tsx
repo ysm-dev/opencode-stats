@@ -59,7 +59,7 @@ describe("Overview", () => {
       await vi.waitFor(() => expect(view.getByRole("status").textContent).toBe(warning));
       const announcement = view.getByRole("status");
       const changes: string[] = [];
-      const observer = new MutationObserver(() => changes.push(announcement.textContent!));
+      const observer = new MutationObserver(() => changes.push(announcement.textContent));
       observer.observe(announcement, { childList: true, characterData: true, subtree: true });
       clock.advance(1);
       await Promise.resolve();
@@ -81,6 +81,7 @@ describe("Overview", () => {
       );
       await user.click(view.getByRole("button", { name: "Resume" }));
       await vi.waitFor(() => expect(view.container.querySelector(".update-status")).toBeNull());
+      expect(document.activeElement).toBe(live);
       await user.click(live);
       await user.click(live);
       await vi.waitFor(() => expect(view.container.querySelector(".update-status")).toBeNull());
@@ -226,7 +227,7 @@ describe("Overview", () => {
   });
   it("draws the engine's complete problem screen instead of an empty Overview", async () => {
     const server = inMemoryDashboardServer(syntheticCopy([]));
-    server.drop();
+    await server.drop();
     const engine = inThreadEngine(server.fetch);
     const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
     try {

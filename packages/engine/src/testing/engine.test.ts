@@ -162,7 +162,7 @@ it.each([
   },
 ])("shows a complete problem screen when $reason", async ({ copy, offline }) => {
   const server = inMemoryDashboardServer(copy);
-  if (offline) server.drop();
+  if (offline) await server.drop();
   const engine = inThreadEngine(server.fetch);
   try {
     expect(await engine.client.request({ kind: "all-time" })).toEqual({

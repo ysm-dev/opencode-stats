@@ -12,7 +12,7 @@ const copy = (revision = 1) =>
 const fixture = () => {
   const clock = manualClock();
   const server = inMemoryDashboardServer(copy());
-  const reload = vi.fn();
+  const reload = vi.fn<() => void>();
   const engine = inThreadEngine(server.fetch, queueMicrotask, clock, reload);
   const paints: EngineState[] = [];
   engine.client.subscribe((state) => paints.push(state));
@@ -84,11 +84,6 @@ it.each(["visibility", "paused"] as const)(
     await Promise.resolve();
     expect(f.server.requests).toBe(requests);
     expect(f.paints).toHaveLength(count);
-    if (kind === "paused") {
-      expect(await f.engine.client.request({ kind: "all-time" })).toMatchObject({
-        state: { revision: 1, liveLabel: "Paused", statusLine: "Paused at 14:02" },
-      });
-    }
     const before = f.paints.length;
     f.engine.client.signal(
       kind === "visibility" ? { kind, visible: true } : { kind, paused: false },
@@ -109,6 +104,9 @@ it("keeps pause while hidden and clears it on a same-revision resume", async () 
   f.engine.client.signal({ kind: "visibility", visible: true });
   await vi.waitFor(() => expect(f.server.streams).toBe(0));
   expect(f.paints.at(-1)).toMatchObject({ paused: true });
+  expect(await f.engine.client.request({ kind: "all-time" })).toMatchObject({
+    state: { revision: 1, liveLabel: "Paused", statusLine: "Paused at 14:02" },
+  });
   f.engine.client.signal({ kind: "paused", paused: false });
   await vi.waitFor(() => expect(f.paints.at(-1)).toMatchObject({ paused: false, revision: 1 }));
 });
@@ -124,14 +122,10 @@ it.each(["format", "release"])(
       release: "next-release",
     });
     f.engine.client.signal({ kind: "focus" });
-    await vi.waitFor(() => expect(f.server.requests).toBeGreaterThanOrEqual(3));
-    if (kind === "format") await vi.waitFor(() => expect(f.reload).toHaveBeenCalledOnce());
-    else {
-      await vi.waitFor(() => expect(f.server.requests).toBe(4));
-      expect(f.reload).not.toHaveBeenCalled();
-      f.engine.client.signal({ kind: "visibility", visible: false });
-      await vi.waitFor(() => expect(f.reload).toHaveBeenCalledOnce());
-    }
+    await vi.waitFor(() => expect(f.server.requests).toBe(kind === "format" ? 3 : 4));
+    await vi.waitFor(() => expect(f.reload).toHaveBeenCalledTimes(kind === "format" ? 1 : 0));
+    f.engine.client.signal({ kind: "visibility", visible: false });
+    await vi.waitFor(() => expect(f.reload).toHaveBeenCalledOnce());
   },
 );
 
@@ -226,7 +220,7 @@ it.each(["failure", "hide"])(
     await entered.promise;
     if (reason === "hide") {
       engine.client.signal({ kind: "visibility", visible: false });
-      await vi.waitFor(() => expect(server.streams).toBe(0));
+      await Promise.resolve();
     }
     response.resolve(new Response(null, { status: 503 }));
     await vi.waitFor(() => expect(server.streams).toBe(0));

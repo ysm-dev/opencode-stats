@@ -73,6 +73,10 @@ const LiveStatus = () => {
 const UpdateStatus = () => {
   const state = useContext(PageState)!;
   const client = useContext(PageActions)!;
+  const resume = () => {
+    document.querySelector<HTMLButtonElement>(".live-status")!.focus();
+    client.signal({ kind: "paused", paused: false });
+  };
   return (
     <>
       <Show when={state().statusLine}>
@@ -80,7 +84,7 @@ const UpdateStatus = () => {
           {state().statusLine}
           <Show when={state().paused}>
             {" · "}
-            <button type="button" onClick={() => client.signal({ kind: "paused", paused: false })}>
+            <button type="button" onClick={resume}>
               Resume
             </button>
           </Show>
