@@ -1,6 +1,6 @@
 # Browser preferences — #37 implementation notes
 
-Implemented against integration `af498ff6b99163be2b6361d809ac2d5462dc2c8e` (including
+Implemented against integration `a669ec2f187bf22ec6933833ba4b9fa2cd61eb7e` (including
 #35 sync and #40 launcher reconciliation) using the
 published `@opencode/ui` 2.0.21 provider, resolvers and controls. No accessibility exception.
 
@@ -50,14 +50,18 @@ It also has negative/boundary fixtures through the same public palette seam.
 - The published select's deferred initial autofocus can overwrite an early keyboard reading.
   Its public highlight callback preserves that reading; genuine pointer input releases it.
   Native input listeners use an AbortController scoped to the covering sheet.
-- The complete foreground `bun run ci` aggregate passes: 611 tests with 100% per-file coverage,
-  all twelve exhaustive mutation partitions at 100%, all sixteen gate-verification partitions,
-  runtime contracts, release and installed-tarball checks. No new whole-file exception.
+- After the maintainer's no-mutation policy change, bounded ordinary validation passes:
+  611 behavioral tests with 100% per-file coverage, formatting, lint, types, budgets, dead-code,
+  duplication, exceptions, package shape, freshness, native runtime contracts and release.
+  No mutation command or former unbounded CI aggregate is used. No new whole-file exception.
 - Chromium and WebKit pass first stored-theme paint, denied storage, other-tab synchronization,
   system scheme changes, whole-paint/no-request/data-identity checks and Settings accessibility.
-  The packed suite has 24 passing tests; it covers OpenCode Light/Dark, Matrix Light and
+  The packed suite has 25 passing tests; it covers OpenCode Light/Dark, Matrix Light and
   Everforest Light at 320–1280 widths, short windows and zoom-equivalent viewport/density.
 - Native browser zoom and VoiceOver remain human checks; automated reflow uses equivalent
   viewport/density conditions, not a claimed Safari/Chrome toolbar-zoom or screen-reader walkthrough.
 
-The existing five-minute watchdogs and tighter test/hook limits are unchanged.
+Every validation command is bounded at five minutes, with the tighter 5-second unit/Bun,
+10-second hook and 30-second browser caps retained. The repo-wide policy implementer owns
+the new mutation-free, outer-bounded local/GitHub CI command; its integration must be reconciled
+before claiming the new aggregate's final acceptance.
