@@ -156,6 +156,22 @@ exec /usr/bin/sudo "$@"
         ),
         (error) => {
           rejection = String(error);
+          if (mode === "kill-timeout") {
+            assert.ok(error instanceof Error);
+            let original = error;
+            while (original.cause instanceof Error) original = original.cause;
+            assert.ok(
+              "syscall" in original && original.syscall === "spawnSync ps",
+              "Recovery replaced the original inventory failure",
+            );
+            assert.match(
+              rejection,
+              /phase=inventory/u,
+              "Inventory failure was replaced by recovery",
+            );
+            assert.match(rejection, /signal=SIGKILL.*code=ETIMEDOUT/u);
+            assert.match(rejection, /inventoryMs=\d+/u);
+          }
           return true;
         },
       );
