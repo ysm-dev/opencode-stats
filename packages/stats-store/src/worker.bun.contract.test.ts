@@ -45,7 +45,7 @@ test("native long-lived worker announces streaming commits and releases its writ
           const latest = yield* store.committed;
           expect(latest.steps[0]!.output).toBe(9);
           expect(latest.revision).toBe(first.revision + 1);
-          expect((yield* store.read()).steps).toEqual([...latest.steps]);
+          expect(latest.steps).toEqual((yield* store.read()).steps);
         }),
       ),
     );
