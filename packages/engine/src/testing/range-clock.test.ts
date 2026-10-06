@@ -23,7 +23,7 @@ it("passes the actual browser clock, locale and IANA zone through the complete-s
 });
 
 it.each(presets)("moves %s once at local midnight, including a 45-minute zone", async (preset) => {
-  const f = rangeFixture([], "2026-10-07T18:14:59Z", "Asia/Kathmandu");
+  await using f = rangeFixture([], "2026-10-07T18:14:59Z", "Asia/Kathmandu");
   const before = await f.request({ kind: "preset", preset });
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
   const paints = f.states.length;
@@ -40,7 +40,7 @@ it.each(presets)("moves %s once at local midnight, including a 45-minute zone", 
 });
 
 it("moves the elapsed comparison cut on a new minute, without a data write or request", async () => {
-  const f = rangeFixture([
+  await using f = rangeFixture([
     rangeStep(Date.parse("2026-10-01")),
     rangeStep(Date.parse("2026-10-06T14:01Z"), 100),
     rangeStep(Date.parse("2026-10-06T14:02:30Z"), 100),
@@ -64,7 +64,7 @@ it("moves the elapsed comparison cut on a new minute, without a data write or re
 });
 
 it("re-indexes every day's dimensions on timezone changes and pins fixed ranges to their dates", async () => {
-  const f = rangeFixture([
+  await using f = rangeFixture([
     rangeStep(Date.parse("2026-10-06T02:00Z"), 10),
     rangeStep(Date.parse("2026-10-07T01:00Z"), 20),
   ]);
@@ -106,7 +106,7 @@ it.each([
 ] as const)(
   "freezes range clocks and copies while $kind, then catches up both in one paint",
   async ({ kind, paused, statusLine }) => {
-    const f = rangeFixture(
+    await using f = rangeFixture(
       [rangeStep(Date.parse("2026-10-07T18:00Z"), 10)],
       "2026-10-07T18:14:59Z",
       "Asia/Kathmandu",
@@ -155,7 +155,7 @@ it.each([
 );
 
 it("reads the current clock on focus and range input even inside the same minute", async () => {
-  const f = rangeFixture([], "2026-10-07T14:02:00Z");
+  await using f = rangeFixture([], "2026-10-07T14:02:00Z");
   await f.request({ kind: "preset", preset: "today" });
   await f.clock.advance(0.5);
   const focused = f.states.length;
@@ -171,7 +171,7 @@ it("reads the current clock on focus and range input even inside the same minute
 });
 
 it("never converts a fixed bookmark into a live preset after travel onto its local dates", async () => {
-  const f = rangeFixture([], "2026-10-07T02:00Z");
+  await using f = rangeFixture([], "2026-10-07T02:00Z");
   const fixed = await f.request({
     kind: "address",
     address: "/?range=fixed&from=2026-10-06&to=2026-10-06",
@@ -193,7 +193,7 @@ it.each([
 ] as const)(
   "uses %s region order and clock, with English month names",
   async (locale, date, time) => {
-    const f = rangeFixture(
+    await using f = rangeFixture(
       [
         rangeStep(Date.parse("2026-09-01")),
         rangeStep(Date.parse("2026-10-06T12:00Z"), 100),

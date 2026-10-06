@@ -11,7 +11,7 @@ import {
 } from "./time-reference.ts";
 
 it("opens a fresh visit on Last 30 days and preserves preset identity on reload", async () => {
-  const f = rangeFixture();
+  await using f = rangeFixture();
   const first = await f.request({ kind: "address", address: "/" });
   expect(first).toMatchObject({
     address: "/?range=30d",
@@ -45,7 +45,7 @@ it("opens a fresh visit on Last 30 days and preserves preset identity on reload"
 it.each(presets.filter((preset) => preset !== "all"))(
   "shifts %s by its local days, clamps the next shift and returns to the live preset",
   async (preset) => {
-    const f = rangeFixture([], "2026-03-09T12:00Z", "America/New_York");
+    await using f = rangeFixture([], "2026-03-09T12:00Z", "America/New_York");
     const live = await f.request({ kind: "preset", preset });
     expect((await f.request({ kind: "shift", direction: 1 })).address).toBe(live.address);
     const fixed = await f.request({ kind: "shift", direction: -1 });
@@ -62,7 +62,7 @@ it.each(presets.filter((preset) => preset !== "all"))(
 );
 
 it("compares the same elapsed portion, hides pre-history periods and never derives a percentage from zero", async () => {
-  const f = rangeFixture([
+  await using f = rangeFixture([
     rangeStep(Date.parse("2026-10-01")),
     rangeStep(Date.parse("2026-10-06T12:00Z"), 100),
     rangeStep(Date.parse("2026-10-06T15:00Z"), 999),
@@ -95,7 +95,7 @@ it("compares the same elapsed portion, hides pre-history periods and never deriv
 });
 
 it("clamps elapsed comparisons at the previous DST day's own end", async () => {
-  const f = rangeFixture(
+  await using f = rangeFixture(
     [
       rangeStep(Date.parse("2026-03-01")),
       rangeStep(Date.parse("2026-03-08T04:59Z"), 100),
@@ -112,7 +112,7 @@ it("clamps elapsed comparisons at the previous DST day's own end", async () => {
 });
 
 it("compares complete fixed days with the complete previous day even when DST makes their durations differ", async () => {
-  const f = rangeFixture(
+  await using f = rangeFixture(
     [
       rangeStep(Date.parse("2026-10-01")),
       rangeStep(Date.parse("2026-11-02T04:30Z"), 100),
@@ -130,7 +130,7 @@ it("compares complete fixed days with the complete previous day even when DST ma
 });
 
 it("allows a fixed range spanning today while disallowing a shift whose start is after today", async () => {
-  const f = rangeFixture([rangeStep(Date.parse("2026-10-01"))]);
+  await using f = rangeFixture([rangeStep(Date.parse("2026-10-01"))]);
   const state = await f.request({
     kind: "address",
     address: "/?range=fixed&from=2026-10-06&to=2026-10-09",
@@ -142,7 +142,7 @@ it("allows a fixed range spanning today while disallowing a shift whose start is
 });
 
 it("can shift a non-preset span onto today even when its end falls in the future", async () => {
-  const f = rangeFixture();
+  await using f = rangeFixture();
   await f.request({ kind: "address", address: "/?range=fixed&from=2026-10-03&to=2026-10-06" });
   const state = await f.request({ kind: "shift", direction: 1 });
   expect(state).toMatchObject({
@@ -153,7 +153,7 @@ it("can shift a non-preset span onto today even when its end falls in the future
 });
 
 it("keeps a non-preset span fixed when shifting its end onto today", async () => {
-  const f = rangeFixture([rangeStep(Date.parse("2026-09-01"))]);
+  await using f = rangeFixture([rangeStep(Date.parse("2026-09-01"))]);
   await f.request({ kind: "address", address: "/?range=fixed&from=2026-09-30&to=2026-10-03" });
   const state = await f.request({ kind: "shift", direction: 1 });
   expect(state).toMatchObject({
@@ -170,7 +170,7 @@ it.each([
 ] as const)(
   "formats a %i-token headline comparison without colour semantics",
   async (input, expected) => {
-    const f = rangeFixture([
+    await using f = rangeFixture([
       rangeStep(Date.parse("2026-10-01")),
       rangeStep(Date.parse("2026-10-06T12:00Z"), 1000),
       rangeStep(Date.parse("2026-10-07T12:00Z"), input),
@@ -180,7 +180,7 @@ it.each([
 );
 
 it("places sessions across all history, never at their first step in the selected range", async () => {
-  const f = rangeFixture(
+  await using f = rangeFixture(
     [
       { ...rangeStep(Date.parse("2026-10-01")), session: 1, subagent: 2 },
       { ...rangeStep(Date.parse("2026-10-07T12:00Z")), session: 1, subagent: 2 },
@@ -218,7 +218,7 @@ it("adds full local days by occurring dimension combination and repairs rewrites
     { ...rangeStep(first + 2, 30), model: 1 },
     rangeStep(Date.parse("2026-10-07T10:00Z"), 40),
   ];
-  const f = rangeFixture(rows, undefined, "Asia/Kathmandu");
+  await using f = rangeFixture(rows, undefined, "Asia/Kathmandu");
   expect((await f.request({ kind: "preset", preset: "7d" })).tokens.total).toBe(100);
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
   const final = [{ ...rows[0]!, model: 2, input: 11 }, rows[3]!];
@@ -253,7 +253,7 @@ it("matches a row-oriented range reference for each preset and generated IANA zo
           ...rangeStep(now + hours * 3600000, input),
           model,
         }));
-        const f = rangeFixture(rows, undefined, zone);
+        await using f = rangeFixture(rows, undefined, zone);
         for (const preset of presets) {
           const state = await f.request({ kind: "preset", preset });
           const days = preset === "today" ? 1 : Number.parseInt(preset);
@@ -277,8 +277,6 @@ it("matches a row-oriented range reference for each preset and generated IANA zo
           expect(shifted.tokens).toEqual(referenceRangeTokens(rows, previousStart, previousEnd));
           expect((await f.request({ kind: "shift", direction: 1 })).address).toBe(state.address);
         }
-        await f.engine.dispose();
-        await f.server.dispose();
       },
     ),
     propertyParameters,
@@ -295,7 +293,7 @@ it.each([
   "?range=all&from=2026-01-01",
   "?range=fixed&from=2026-01-01&from=2026-02-01&to=2026-03-01",
 ])("rejects malformed range addresses %s at the channel boundary", async (address) => {
-  const f = rangeFixture();
+  await using f = rangeFixture();
   expect(await f.engine.client.request({ kind: "address", address: `/${address}` })).toEqual({
     kind: "paint",
     state: { screen: "problem", reason: "invalid-address" },

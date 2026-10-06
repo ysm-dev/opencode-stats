@@ -1,4 +1,3 @@
-import { onTestFinished, expect } from "vitest";
 import { syntheticCopy, inMemoryDashboardServer } from "@opencode-stats/browser-copy/testing";
 import type { EngineAction, EngineState } from "../index.ts";
 import { inThreadEngine } from "./channel.ts";
@@ -30,13 +29,12 @@ export function rangeFixture(
   });
   const states: EngineState[] = [];
   engine.client.subscribe((state) => states.push(state));
-  onTestFinished(async () => {
+  const dispose = async () => {
     await engine.dispose();
     await server.dispose();
-  });
+  };
   const request = async (action: EngineAction): Promise<CompleteState> => {
     const result = await engine.client.request(action);
-    expect(result.kind).toBe("paint");
     if (result.kind !== "paint" || result.state.screen !== "dashboard")
       throw new Error("Expected a complete range");
     return result.state;
@@ -47,6 +45,7 @@ export function rangeFixture(
     engine,
     states,
     request,
+    [Symbol.asyncDispose]: dispose,
     setZone: (nextZone: string) => {
       timeZone = nextZone;
     },

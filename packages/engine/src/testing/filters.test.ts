@@ -8,7 +8,7 @@ import { referenceFilters } from "./filter-reference.ts";
 import { filterDimensions } from "../filters.ts";
 
 it("keeps equal model labels distinct by permanent ID, including zero-token and out-of-range checklist values", async () => {
-  const f = rangeFixture(
+  await using f = rangeFixture(
     [{ ...filterSteps[0]!, input: 0, model: 8 }],
     undefined,
     undefined,
@@ -37,7 +37,7 @@ it("keeps equal model labels distinct by permanent ID, including zero-token and 
 });
 
 it("combines any-of values and all-of dimensions, ignores only each checklist's own ticks, and never fetches for filters", async () => {
-  const f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
+  await using f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
   await f.request({ kind: "all-time" });
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
   const requests = f.server.requests;
@@ -81,7 +81,7 @@ it("combines any-of values and all-of dimensions, ignores only each checklist's 
 });
 
 it("restores permanent IDs, deduplicates selections, retains unknown raw IDs, and keeps filters across every range action", async () => {
-  const f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
+  await using f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
   let state = await f.request({
     kind: "address",
     address:
@@ -118,7 +118,7 @@ it("restores permanent IDs, deduplicates selections, retains unknown raw IDs, an
 });
 
 it("places sessions at the first matching step in all history, reuses that placement across ranges, and respects all dimensions", async () => {
-  const f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
+  await using f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
   let state = await f.request({ kind: "preset", preset: "today" });
   expect(state.sessions).toEqual({ total: 0, subagents: 0 });
   state = await f.request({ kind: "filter", dimension: "model", id: "provider-0/model-0" });
@@ -151,7 +151,7 @@ it("counts only a nested subagent's own matching steps while its root rolls up a
       Float64Array.from(sessions, (session) => session[field] ?? NaN),
     ),
   };
-  const f = rangeFixture(rows, undefined, undefined, undefined, metadata);
+  await using f = rangeFixture(rows, undefined, undefined, undefined, metadata);
   let state = await f.request({ kind: "preset", preset: "today" });
   expect(state.sessions).toEqual({ total: 0, subagents: 1 });
   const selected = { dimension: "model", id: "provider-1/model-1" } as const;
@@ -172,7 +172,7 @@ it("counts only a nested subagent's own matching steps while its root rolls up a
 });
 
 it("makes explicit removal idempotent without disturbing other values or dimensions", async () => {
-  const f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
+  await using f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
   await f.request({
     kind: "address",
     address: "/?range=all&f.model=provider-0%2Fmodel-6&f.model=provider-1%2Fmodel-5&f.agent=build",
@@ -196,7 +196,7 @@ it("makes explicit removal idempotent without disturbing other values or dimensi
 });
 
 it("keeps selections stable across incremental recoding, deleted metadata and a replacement generation", async () => {
-  const f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
+  await using f = rangeFixture(filterSteps, undefined, undefined, undefined, filterMetadata);
   await f.request({
     kind: "address",
     address: "/?range=all&f.project=project-0&f.session=session-root",
@@ -280,7 +280,13 @@ it("equals the independent row reference for arbitrary multi-dimension combinati
           ...filterSteps[index]!,
           ...tokens,
         }));
-        const f = rangeFixture(rows, undefined, "America/New_York", undefined, filterMetadata);
+        await using f = rangeFixture(
+          rows,
+          undefined,
+          "America/New_York",
+          undefined,
+          filterMetadata,
+        );
         const params = new URLSearchParams({ range: fixed ? "fixed" : "30d" });
         if (fixed) {
           params.set("from", "2026-10-01");
@@ -310,8 +316,6 @@ it("equals the independent row reference for arbitrary multi-dimension combinati
           expect(value.proportion).toBeGreaterThanOrEqual(0);
           expect(value.proportion).toBeLessThanOrEqual(1);
         }
-        await f.engine.dispose();
-        await f.server.dispose();
       },
     ),
     propertyParameters,

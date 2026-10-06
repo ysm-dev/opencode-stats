@@ -60,7 +60,7 @@ for (const started of [
   "",
   "invalid",
   new Date(Date.now() - TIME_BUDGET_MS - 1000).toISOString(),
-  new Date(Date.now() + 1000).toISOString(),
+  new Date(Date.now() + TIME_BUDGET_MS).toISOString(),
 ]) {
   const result = await runTimed(["bun", "run", "scripts/ci-duration.ts", started], 5_000, {
     capture: true,
