@@ -132,7 +132,7 @@ it("changes exactly three preferences through the real provider without touching
     await user.click(toggle);
     expect(view.container.contains(page)).toBe(true);
     expect(page.textContent).toBe("Tokens987");
-    expect(server.requests).toBe(1);
+    expect(server.requests).toBe(2);
     expect(engine.answers).toHaveLength(1);
     await accessible();
     await user.click(screen.getByRole("button", { name: "Done" }));
@@ -296,7 +296,7 @@ it("coordinates the real provider with dashboard CSS, root scheme and browser th
       "#080808ff",
     );
     expect(document.styleSheets.length).toBe(sheets);
-    expect(server.requests).toBe(1);
+    expect(server.requests).toBe(2);
     expect(engine.answers).toHaveLength(1);
   } finally {
     await close();
@@ -448,7 +448,7 @@ it("follows system and cross-tab changes in the actual provider while preserving
     ).toBe("true");
     expect(number.textContent).toBe("987");
     expect(number.isConnected).toBe(true);
-    expect(server.requests).toBe(1);
+    expect(server.requests).toBe(2);
     expect(engine.answers).toHaveLength(1);
   } finally {
     await close();

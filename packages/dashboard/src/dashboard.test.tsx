@@ -1,4 +1,4 @@
-import { render, cleanup } from "@solidjs/testing-library";
+import { render, cleanup, screen } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,7 +51,7 @@ describe("Overview", () => {
       await vi.waitFor(() => expect(region.textContent).toBe("Tokens22"));
       expect(view.container.querySelector(".headline-number")).toBe(number);
       expect(document.activeElement).toBe(focused);
-      expect(view.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+      expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
       expect(view.getByText("Last write just now")).toBeTruthy();
       expect(region.getAttribute("data-revision")).toBe("2");
       expect(view.container.querySelector(".live-status")?.getAttribute("data-revision")).toBe("2");
