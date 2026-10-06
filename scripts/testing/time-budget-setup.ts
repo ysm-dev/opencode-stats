@@ -12,7 +12,7 @@ export async function startTestDeadline(
     throw new Error("Invalid test-run time budget");
   const started = performance.now();
   const watchdog = spawn(
-    process.execPath,
+    "bun",
     [
       fileURLToPath(new URL("./test-watchdog.ts", import.meta.url)),
       String(process.pid),
@@ -21,6 +21,7 @@ export async function startTestDeadline(
     {
       detached: true,
       stdio: ["ignore", "ignore", "inherit", "ipc"],
+      serialization: "json",
     },
   );
   let cancelled = false;

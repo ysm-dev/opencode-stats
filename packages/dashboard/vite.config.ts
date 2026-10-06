@@ -6,6 +6,26 @@ import { dirname } from "node:path";
 
 const require = createRequire(import.meta.url);
 
+let startup: Promise<string> | undefined;
+const buildStartup = async () => {
+  const loaded = await runnerImport<typeof import("./src/preload.ts")>(
+    decodeURIComponent(new URL("./src/preload.ts", import.meta.url).pathname),
+    {
+      configFile: false,
+      ssr: { noExternal: ["@opencode/ui"] },
+      server: {
+        fs: {
+          allow: [
+            searchForWorkspaceRoot(process.cwd()),
+            dirname(require.resolve("@opencode/ui/package.json")),
+          ],
+        },
+      },
+    },
+  );
+  return loaded.module.classicPreload();
+};
+
 export default defineConfig({
   // The published UI's CSS imports Tailwind from its own path, outside the workspace under Bun's global store.
   resolve: {
@@ -18,29 +38,21 @@ export default defineConfig({
     solid(),
     {
       name: "prepaint-preferences",
+      handleHotUpdate: () => {
+        startup = undefined;
+      },
       transformIndexHtml: {
         order: "post",
         handler: async () => {
-          const loaded = await runnerImport<typeof import("./src/preload.ts")>(
-            decodeURIComponent(new URL("./src/preload.ts", import.meta.url).pathname),
-            {
-              configFile: false,
-              ssr: { noExternal: ["@opencode/ui"] },
-              server: {
-                fs: {
-                  allow: [
-                    searchForWorkspaceRoot(process.cwd()),
-                    dirname(require.resolve("@opencode/ui/package.json")),
-                  ],
-                },
-              },
-            },
-          );
+          startup ??= buildStartup().catch((error) => {
+            startup = undefined;
+            throw error;
+          });
           return [
             {
               tag: "script",
               attrs: { id: "preferences-startup" },
-              children: await loaded.module.classicPreload(),
+              children: await startup,
               injectTo: "head-prepend",
             },
           ];
