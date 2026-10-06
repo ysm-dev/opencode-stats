@@ -35,7 +35,13 @@ const verify = async (check: Check): Promise<void> => {
       writeFileSync(path, content);
     }
     const result = await runTimed(
-      ["bun", "run", ...check.command],
+      // GitHub annotations omit rule help; verification needs the full diagnostic.
+      [
+        "bun",
+        "run",
+        ...check.command,
+        ...(check.command[0] === "lint" ? ["--format=default"] : []),
+      ],
       remainingBudget(verificationStarted),
       {
         capture: true,
