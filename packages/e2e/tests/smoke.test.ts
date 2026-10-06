@@ -183,8 +183,9 @@ describe("installed release", () => {
           expect(Array.from(copy.steps.input)).toEqual([1]);
           expect(Array.from(copy.steps.reasoning)).toEqual([5]);
           expect(readFileSync(join(folder, "synthetic.db")).equals(before)).toBe(true);
-          if (walBefore)
-            expect(readFileSync(join(folder, "synthetic.db-wal")).equals(walBefore)).toBe(true);
+          expect(
+            walBefore === null || readFileSync(join(folder, "synthetic.db-wal")).equals(walBefore),
+          ).toBe(true);
           const browser = await chromium.launch({ headless: true });
           try {
             if (scenario === "Overview") await checkOverview(browser, origin, "15");

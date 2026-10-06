@@ -40,7 +40,7 @@ jobs:
   verification:
     name: Gate verification (${{ matrix.shard }}/16)
     timeout-minutes: 5
-    needs: [checks, contracts, packed]
+    needs: [checks, contracts, packed, intel]
     strategy:
       fail-fast: false
       matrix:
@@ -78,13 +78,20 @@ jobs:
       - run: bun run contracts
 
   packed:
-    name: Packed tarball (${{ matrix.os }})
+    name: Packed tarball (${{ matrix.os }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
     timeout-minutes: 5
     needs: [package]
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: macos-15-intel
+            shard: 1/3
+          - os: macos-15-intel
+            shard: 2/3
+          - os: macos-15-intel
+            shard: 3/3
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
     steps:
@@ -107,7 +114,20 @@ jobs:
       - run: bun run bundle:check
       # e2e provisions Chromium shell + WebKit and Linux OS prerequisites inside
       # its watchdog. Setup, artifact waits and tests also share this job/attempt cap.
-      - run: bun run e2e
+      # Isolate Intel's browser/process workloads; Vitest partitions the complete
+      # suite, with one file worker per runner and existing per-file concurrency.
+      - run: bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers=1', matrix.shard) || '' }}
+
+  intel:
+    name: Packed tarball (macos-15-intel)
+    timeout-minutes: 5
+    needs: [packed]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "$PACKED" = success
+        env:
+          PACKED: ${{ needs.packed.result }}
 
   package:
     name: Complete release artifact
@@ -137,7 +157,7 @@ jobs:
   gates:
     name: Quality gates
     timeout-minutes: 5
-    needs: [checks, contracts, verification, packed]
+    needs: [checks, contracts, verification, packed, intel]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -148,13 +168,14 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2.2.0
       # Keep the ruleset's existing required check meaningful even if a job skips.
-      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success
+      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success && test "$INTEL" = success
         if: always()
         env:
           CHECKS: ${{ needs.checks.result }}
           CONTRACTS: ${{ needs.contracts.result }}
           VERIFICATION: ${{ needs.verification.result }}
           PACKED: ${{ needs.packed.result }}
+          INTEL: ${{ needs.intel.result }}
       # Attempt-specific start time includes setup, queueing between jobs and all
       # matrix shards, including advisory jobs. A per-job timeout alone cannot.
       - name: Enforce five-minute end-to-end budget

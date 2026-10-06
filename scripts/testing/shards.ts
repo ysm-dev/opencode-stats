@@ -31,6 +31,35 @@ const verifyMatrix = (name: string, label: string, variable: string, count: numb
 };
 verifyMatrix("verification", "Gate verification", "VERIFICATION_SHARD", 16);
 
+const jobs = object(workflow["jobs"]);
+const packed = object(jobs["packed"]);
+const packedMatrix = object(object(packed["strategy"])["matrix"]);
+assert.deepEqual(packedMatrix["os"], ["ubuntu-latest", "macos-latest", "windows-latest"]);
+assert.deepEqual(
+  packedMatrix["include"],
+  ["1/3", "2/3", "3/3"].map((selector) => ({ os: "macos-15-intel", shard: selector })),
+);
+const packedSteps = packed["steps"];
+assert.ok(Array.isArray(packedSteps));
+assert.ok(
+  packedSteps.some(
+    (step) =>
+      object(step)["run"] ===
+      "bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers=1', matrix.shard) || '' }}",
+  ),
+);
+const intel = object(jobs["intel"]);
+assert.equal(intel["name"], "Packed tarball (macos-15-intel)");
+assert.deepEqual(intel["needs"], ["packed"]);
+assert.equal(intel["if"], "always()");
+assert.deepEqual(intel["steps"], [
+  { run: 'test "$PACKED" = success', env: { PACKED: "${{ needs.packed.result }}" } },
+]);
+for (const name of ["verification", "gates"]) {
+  const needs = object(jobs[name])["needs"];
+  assert.ok(Array.isArray(needs) && needs.includes("packed") && needs.includes("intel"));
+}
+
 const canaries = [...checks()];
 verifyPartition(
   canaries.map((check) => check.gate),
