@@ -8,6 +8,7 @@ export const filterDimensions = [
   "variant",
   "agent",
   "session",
+  "tool",
 ] as const;
 export const FilterDimension = Schema.Literals(filterDimensions);
 export type FilterDimension = typeof FilterDimension.Type;
@@ -20,8 +21,12 @@ export const filterLabels: Record<FilterDimension, string> = {
   variant: "Variant",
   agent: "Agent",
   session: "Session",
+  tool: "Tool",
 };
 export type CompiledFilters = readonly { dimension: FilterDimension; codes: ReadonlySet<number> }[];
+type FilterFact = Readonly<Record<Exclude<FilterDimension, "tool">, number>> & {
+  readonly tool?: number;
+};
 
 export function parseFilters(address: string, baseUrl: string): readonly Filter[] {
   const params = new URL(address, baseUrl).searchParams;
@@ -58,15 +63,18 @@ export function compileFilters(
 }
 
 export const matchesFilters = (
-  fact: Readonly<Record<FilterDimension, number>>,
+  fact: FilterFact,
   filters: CompiledFilters,
   ignore?: FilterDimension,
 ) =>
   filters.every(
-    (filter) => filter.dimension === ignore || filter.codes.has(fact[filter.dimension]),
+    (filter) =>
+      filter.dimension === ignore ||
+      (filter.dimension === "tool" && !("tool" in fact)) ||
+      filter.codes.has(fact[filter.dimension]!),
   );
 
-export function* matchingFacts<Fact extends Readonly<Record<FilterDimension, number>>>(
+export function* matchingFacts<Fact extends FilterFact>(
   facts: Iterable<Fact>,
   filters: CompiledFilters,
 ) {

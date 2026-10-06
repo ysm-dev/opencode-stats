@@ -292,6 +292,25 @@ h2 {
 .filter-checklist {
   margin-block: 16px;
 }
+.tool-filter-divider {
+  border-top: 1px solid var(--dashboard-edge-deep);
+  padding-top: 12px;
+}
+.tool-outcomes {
+  display: flex;
+  gap: 1px;
+  height: 8px;
+  max-width: 240px;
+}
+.tool-outcomes [data-outcome="succeeded"] {
+  background: var(--dashboard-outcome-succeeded);
+}
+.tool-outcomes [data-outcome="failed"] {
+  background: var(--dashboard-outcome-failed);
+}
+.tool-outcomes [data-outcome="stopped"] {
+  background: var(--dashboard-outcome-stopped);
+}
 .filter-checklist h3 {
   font-size: 13px;
   margin-block: 8px;

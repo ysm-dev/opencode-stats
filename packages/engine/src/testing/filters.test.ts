@@ -96,17 +96,18 @@ it("restores permanent IDs, deduplicates selections, retains unknown raw IDs, an
   expect(state.filters).toEqual([
     { dimension: "model", id: "unknown", name: "unknown" },
     { dimension: "session", id: "deleted+session", name: "deleted+session" },
+    { dimension: "tool", id: "read", name: "read" },
   ]);
   expect(state.tokens.total).toBe(0);
   expect(state.sessions).toEqual({ total: 0, subagents: 0 });
-  expect(state.address).not.toContain("f.tool");
+  expect(state.address).toContain("f.tool=read");
   for (const action of [
     { kind: "shift", direction: -1 },
     { kind: "preset", preset: "7d" },
     { kind: "all-time" },
   ] as const) {
     state = await f.request(action);
-    expect(state.filters).toHaveLength(2);
+    expect(state.filters).toHaveLength(3);
     expect(state.tokens.total).toBe(0);
   }
   state = await f.request({ kind: "filter", dimension: "model", id: "unknown", announce: true });

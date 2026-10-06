@@ -42,9 +42,12 @@ function difference(before: BrowserCopy, after: BrowserCopy): BrowserCopy {
       tombstones: [
         ...before.ids.filter((id) => !current.has(id)),
         ...before.promptIds.filter((id) => !after.promptIds.includes(id)),
+        ...before.toolIds.filter((id) => !after.toolIds.includes(id)),
       ],
       prompts: after.prompts,
       promptIds: after.promptIds,
+      tools: after.tools,
+      toolIds: after.toolIds,
       names: after.names.filter(
         (name) =>
           !before.names.some(

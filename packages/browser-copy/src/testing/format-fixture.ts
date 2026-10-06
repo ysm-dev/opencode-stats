@@ -1,4 +1,4 @@
-import { mapSessionFields, mapPromptFields } from "../facts.ts";
+import { mapSessionFields, mapPromptFields, mapToolFields } from "../facts.ts";
 import { syntheticCopy } from "./synthetic.ts";
 
 export const formatFixture = () =>
@@ -54,6 +54,56 @@ export const formatFixture = () =>
       revision: 3,
       historyCompleteFrom: -100,
       promptIds: ["prompt-one", "prompt-unassigned"],
+      toolIds: ["tool:step-0:success", "tool:step-1:stopped", "tool:step-2:running"],
+      tools: mapToolFields((field) =>
+        Float64Array.from(
+          [
+            {
+              start: 123,
+              runStart: 200,
+              completed: 300,
+              outcome: 1,
+              tool: 12,
+              provider: 1,
+              model: 2,
+              variant: 3,
+              agent: 4,
+              project: 6,
+              session: 5,
+              subagent: 7,
+            },
+            {
+              start: 456,
+              runStart: null,
+              completed: 567,
+              outcome: 3,
+              tool: 13,
+              provider: null,
+              model: null,
+              variant: null,
+              agent: null,
+              project: 6,
+              session: 5,
+              subagent: null,
+            },
+            {
+              start: 789,
+              runStart: 789,
+              completed: null,
+              outcome: null,
+              tool: 12,
+              provider: null,
+              model: null,
+              variant: null,
+              agent: null,
+              project: 6,
+              session: 5,
+              subagent: null,
+            },
+          ],
+          (row) => row[field] ?? NaN,
+        ),
+      ),
       prompts: mapPromptFields((field) =>
         Float64Array.from(
           [
@@ -86,6 +136,8 @@ export const formatFixture = () =>
         { dimension: "agent", code: 4, id: "build", name: "build" },
         { dimension: "error", code: 10, id: "api", name: "api" },
         { dimension: "error", code: 11, id: "aborted", name: "aborted" },
+        { dimension: "tool", code: 12, id: "shell", name: "shell" },
+        { dimension: "tool", code: 13, id: "execute", name: "execute" },
       ],
     },
   );

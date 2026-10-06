@@ -38,6 +38,10 @@ describe("dashboard server program", () => {
       seq: 0,
       start: 1234,
       tokens: { input: 1, cache: { read: 2, write: 3 }, output: 4, reasoning: 5 },
+      tools: [
+        { id: "shell", name: "bash", status: "completed", ran: 1300, completed: 1500 },
+        { id: "read", name: "read", status: "running" },
+      ],
     });
     fixture.writer.message({
       id: "msg-unrecorded",
@@ -82,7 +86,17 @@ describe("dashboard server program", () => {
       expect(Array.from(copy.steps.cacheWrite)).toEqual([3, NaN]);
       expect(Array.from(copy.steps.output)).toEqual([4, NaN]);
       expect(Array.from(copy.steps.reasoning)).toEqual([5, NaN]);
+      expect(copy.toolIds).toEqual(["tool:msg-http:read", "tool:msg-http:shell"]);
+      expect([...copy.tools.start]).toEqual([1234, 1234]);
+      expect([...copy.tools.runStart]).toEqual([NaN, 1300]);
+      expect([...copy.tools.completed]).toEqual([NaN, 1500]);
+      expect([...copy.tools.outcome]).toEqual([NaN, 1]);
       const permanentId = (code: number) => copy.names.find((name) => name.code === code)!.id;
+      expect(Array.from(copy.tools.tool, permanentId)).toEqual(["read", "shell"]);
+      expect(Array.from(copy.tools.model, permanentId)).toEqual([
+        "synthetic-provider/synthetic-model",
+        "synthetic-provider/synthetic-model",
+      ]);
       expect(Array.from(copy.steps.provider, permanentId)).toEqual([
         "synthetic-provider",
         "synthetic-provider",

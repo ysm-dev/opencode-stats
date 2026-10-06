@@ -3,6 +3,7 @@ import { Preset } from "./ranges.ts";
 import { Filter, FilterDimension } from "./filters.ts";
 import { ComputeTime } from "./change.ts";
 import { StepMetrics } from "./step-metrics.ts";
+import { ToolMetrics } from "./tool-metrics.ts";
 
 const Action = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("address"), address: Schema.String }),
@@ -53,10 +54,12 @@ const State = Schema.Union([
       failed: Schema.String,
       response: Schema.String,
       cacheHitRate: Schema.String,
+      tools: Schema.String,
       caption: Schema.String,
     }),
     tokens: Tokens,
     metrics: StepMetrics,
+    tools: ToolMetrics,
     recordedFromLabel: Schema.String,
     filters: Schema.Array(Schema.Struct({ ...Filter.fields, name: Schema.String })),
     checklists: Schema.Array(

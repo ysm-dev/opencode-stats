@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
-import { metadata, steps, prompts, tombstones } from "./schema.ts";
+import { metadata, steps, prompts, tools, tombstones } from "./schema.ts";
 import { countedSteps, readDimensions } from "./read-dimensions.ts";
-import { gt } from "drizzle-orm";
+import { gt, eq, or } from "drizzle-orm";
 import { Database, type StoreRuntime } from "./database.ts";
 import { storePaths, type StoreOptions } from "./location.ts";
 import type {
@@ -10,6 +10,7 @@ import type {
   SessionFact,
   DimensionName,
   Prompt,
+  ToolCall,
 } from "@opencode-stats/browser-copy";
 import * as Cause from "effect/Cause";
 import { sqlFailure } from "./errors.ts";
@@ -22,6 +23,7 @@ export type StoreCopy = {
   readonly historyCompleteFrom: number;
   readonly steps: ReadonlyArray<Step & StepDimensions>;
   readonly prompts: ReadonlyArray<Prompt & { readonly id: string }>;
+  readonly tools: ReadonlyArray<ToolCall & { readonly id: string }>;
   readonly facts: ReadonlyArray<
     Step &
       Omit<StepDimensions, "session"> & {
@@ -83,6 +85,31 @@ export const stayInSync = Effect.fnUntraced(function* (
             .from(prompts)
             .where(changes ? gt(prompts.revision, since.revision) : undefined)
             .orderBy(prompts.session, prompts.position);
+          // A step rewrite (including a project move) re-emits its calls with the same attribution.
+          const calls = yield* db
+            .select({
+              id: tools.id,
+              start: steps.start,
+              runStart: tools.runStart,
+              completed: tools.completed,
+              outcome: tools.outcome,
+              tool: tools.tool,
+              provider: steps.provider,
+              model: steps.model,
+              variant: steps.variant,
+              agent: steps.agent,
+              project: steps.project,
+              session: steps.sessionCode,
+              subagent: steps.subagent,
+            })
+            .from(tools)
+            .innerJoin(steps, eq(tools.stepId, steps.id))
+            .where(
+              changes
+                ? or(gt(tools.revision, since.revision), gt(steps.revision, since.revision))
+                : undefined,
+            )
+            .orderBy(tools.id);
           const dimensions = yield* readDimensions(changes ? since.revision : undefined, deleted);
           return {
             kind: changes ? ("changes" as const) : ("whole" as const),
@@ -92,6 +119,7 @@ export const stayInSync = Effect.fnUntraced(function* (
             historyCompleteFrom: header.historyCompleteFrom,
             steps: countedSteps(facts),
             facts,
+            tools: calls,
             prompts: delivered.map((row) => ({
               id: row.id,
               start: row.start,

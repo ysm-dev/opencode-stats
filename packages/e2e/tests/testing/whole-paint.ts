@@ -49,6 +49,10 @@ export function installWholePaintObserver() {
           bars: [...region.querySelectorAll<HTMLElement>(".filter-bar")].map(
             (bar) => bar.style.width,
           ),
+          outcomes: [...region.querySelectorAll<HTMLElement>(".tool-outcomes span")].map((bar) => [
+            bar.dataset["outcome"],
+            bar.style.flexGrow,
+          ]),
           range: region.getAttribute("data-range"),
           updating: region.getAttribute("data-updating"),
         }),
@@ -111,6 +115,10 @@ export function installWholePaintObserver() {
       bars: [...document.querySelectorAll<HTMLElement>(".filter-bar")].map(
         (bar) => bar.style.width,
       ),
+      outcomes: [...document.querySelectorAll<HTMLElement>(".tool-outcomes span")].map((bar) => [
+        bar.dataset["outcome"],
+        bar.style.flexGrow,
+      ]),
       range: document.querySelector(".range-control")?.textContent,
       title: document.title,
       settings: document.querySelector(".settings-sheet")?.textContent,
@@ -128,8 +136,10 @@ export function installWholePaintObserver() {
   const pageComplete = (states: Set<string | null>, regions: Element[]) => {
     const dashboardComplete =
       !!document.querySelector("main h1") &&
-      document.querySelectorAll(".headline-number").length === 7 &&
-      document.querySelectorAll(".filter-checklist").length === 5 &&
+      document.querySelectorAll(".headline-number").length === 8 &&
+      document.querySelectorAll(".filter-checklist").length === 6 &&
+      !!document.querySelector(".tool-outcomes") &&
+      !!document.querySelector(".tool-filter-divider") &&
       !!document.querySelector(".range-control") &&
       !!document.querySelector(".live-status") &&
       regions.length >= 12 &&

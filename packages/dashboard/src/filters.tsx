@@ -78,7 +78,8 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
             />
             <span class="filter-value">{find(id).name}</span>
             <span class="filter-amount" id={`${rowId(props.dimension, id)}-amount`}>
-              {find(id).tokens.toLocaleString("en-US")} tokens
+              {find(id).tokens.toLocaleString("en-US")}{" "}
+              {props.dimension === "tool" ? "tool calls" : "tokens"}
             </span>
             <span
               class="filter-bar"
@@ -134,7 +135,16 @@ export const Filters = () => {
         </button>
       </div>
       <For each={state().checklists.map((list) => list.dimension)}>
-        {(dimension) => <Checklist dimension={dimension} />}
+        {(dimension) => (
+          <>
+            <Show when={dimension === "tool"}>
+              <p class="tool-filter-divider" data-state={stateMark(state())}>
+                Tool calls only
+              </p>
+            </Show>
+            <Checklist dimension={dimension} />
+          </>
+        )}
       </For>
     </section>
   );
@@ -187,7 +197,8 @@ export const FilterChips = () => {
               remove(key);
             }}
           >
-            {filterLabels[find(key).dimension]}: {find(key).name} ×
+            {find(key).dimension === "tool" ? "Tool calls" : filterLabels[find(key).dimension]}:{" "}
+            {find(key).name} ×
           </button>
         )}
       </For>

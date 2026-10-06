@@ -3,6 +3,7 @@ import {
   mapStepFields,
   mapSessionFields,
   mapPromptFields,
+  mapToolFields,
 } from "@opencode-stats/browser-copy";
 import type { StoreCopy } from "@opencode-stats/stats-store";
 
@@ -16,6 +17,8 @@ export function encodeStore(copy: StoreCopy): Uint8Array {
       historyCompleteFrom: copy.historyCompleteFrom,
       ids: copy.facts.map((fact) => fact.id),
       promptIds: copy.prompts.map((fact) => fact.id),
+      toolIds: copy.tools.map((fact) => fact.id),
+      tools: mapToolFields((field) => Float64Array.from(copy.tools, (row) => row[field] ?? NaN)),
       prompts: mapPromptFields((field) =>
         Float64Array.from(copy.prompts, (row) => row[field] ?? NaN),
       ),

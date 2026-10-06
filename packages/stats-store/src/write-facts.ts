@@ -5,6 +5,7 @@ import { metadata, steps, prompts, sessions, tombstones } from "./schema.ts";
 import type { SourceFact, SourceReader, SourceSession, SourceProject } from "./source-reader.ts";
 import { makeDimensions, owningSession, saveDetails, stepAttribution } from "./dimensions.ts";
 import { replacePrompts } from "./write-prompts.ts";
+import { replaceTools } from "./write-tools.ts";
 
 type Snapshot = Effect.Success<ReturnType<SourceReader["read"]>>;
 const keys = [
@@ -98,12 +99,14 @@ export const commitUnit = Effect.fnUntraced(function* (
         for (const snapshot of snapshots) {
           if (!snapshot.session) {
             yield* replaceFacts(snapshot.id, [], revision, now, inventory, code);
+            yield* replaceTools(snapshot.id, [], revision, now, code);
             yield* replacePrompts(snapshot.id, [], [], revision, now, inventory, code);
             yield* db.delete(sessions).where(eq(sessions.id, snapshot.id));
             continue;
           }
           const session = snapshot.session;
           yield* replaceFacts(session.id, snapshot.facts, revision, now, inventory, code);
+          yield* replaceTools(session.id, snapshot.tools, revision, now, code);
           yield* replacePrompts(
             session.id,
             snapshot.prompts,
@@ -121,6 +124,7 @@ export const commitUnit = Effect.fnUntraced(function* (
       if (removed)
         for (const id of removed) {
           yield* replaceFacts(id, [], revision, now, inventory, code);
+          yield* replaceTools(id, [], revision, now, code);
           yield* replacePrompts(id, [], [], revision, now, inventory, code);
           yield* db.delete(sessions).where(eq(sessions.id, id));
         }

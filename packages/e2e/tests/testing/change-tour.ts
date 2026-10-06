@@ -62,6 +62,27 @@ export async function changeTour(
       model: "synthetic-model-a",
       provider: "synthetic-provider",
       tokens: { input },
+      tools: [
+        {
+          id: "read",
+          name: "read",
+          status: "completed",
+          ran: tourStart - 59000,
+          completed: tourStart - 58000,
+        },
+        {
+          id: "shell",
+          name: "shell",
+          status: "error",
+          error: input < 400 ? "permission.rejected" : "tool.execution",
+        },
+        {
+          id: "execute",
+          name: "execute",
+          status: "completed",
+          nested: [{ id: "nested", name: "hidden.lookup", status: "completed" }],
+        },
+      ],
     });
   };
   const stored = (input: number) =>
@@ -95,6 +116,19 @@ export async function changeTour(
     await wholeChange(page, "filter", () => activate(checkbox));
     await wholeChange(page, "clear-filters", () =>
       activate(page.getByRole("button", { name: "Clear all" })),
+    );
+    await wholeChange(page, "filter", () =>
+      activate(
+        page
+          .getByRole("region", { name: "Tool", exact: true })
+          .getByRole("checkbox", { name: "read", exact: true }),
+      ),
+    );
+    expect(
+      await page.getByRole("button", { name: "Remove Tool filter · read" }).textContent(),
+    ).toBe("Tool calls: read ×");
+    await wholeChange(page, "remove-filter", () =>
+      activate(page.getByRole("button", { name: "Remove Tool filter · read" })),
     );
     const search = page.getByRole("searchbox", { name: "Search Model" });
     await wholeChange(page, "search", () => search.pressSequentially("a"));

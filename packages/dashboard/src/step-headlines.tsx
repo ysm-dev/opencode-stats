@@ -3,7 +3,15 @@ import { PageState } from "./page-context.ts";
 import { stateMark } from "./change-time.ts";
 
 export const PreviousNumber = (props: {
-  metric: "tokens" | "sessions" | "steps" | "prompts" | "failed" | "response" | "cacheHitRate";
+  metric:
+    | "tokens"
+    | "sessions"
+    | "steps"
+    | "prompts"
+    | "failed"
+    | "response"
+    | "cacheHitRate"
+    | "tools";
 }) => {
   const state = useContext(PageState)!;
   return (
@@ -98,6 +106,26 @@ export const StepHeadlines = () => {
         line={`context size median ${number(metrics().context.median)}`}
         metric="cacheHitRate"
       />
+      <ToolHeadline />
     </>
+  );
+};
+
+const ToolHeadline = () => {
+  const state = useContext(PageState)!;
+  const tools = () => state().tools;
+  const outcomes = ["succeeded", "failed", "stopped"] as const;
+  return (
+    <Headline id="tool-calls" title="Tool calls" value={number(tools().calls)} metric="tools">
+      <p data-state={stateMark(state())}>
+        {outcomes.map((outcome) => `${number(tools()[outcome])} ${outcome}`).join(", ")}
+        <Show when={tools().pending > 0}>{`, ${number(tools().pending)} none yet`}</Show>
+      </p>
+      <div class="tool-outcomes" aria-hidden="true" data-state={stateMark(state())}>
+        <For each={outcomes.filter((outcome) => tools()[outcome] > 0)}>
+          {(outcome) => <span data-outcome={outcome} style={{ "flex-grow": tools()[outcome] }} />}
+        </For>
+      </div>
+    </Headline>
   );
 };

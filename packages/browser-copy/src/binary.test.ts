@@ -44,7 +44,7 @@ it("rejects every truncation and extra bytes before constructing a column", () =
 
 it.each([
   [0, 0, "magic"],
-  [4, 5, "format version"],
+  [4, 6, "format version"],
   [44, 2, "reserved"],
   [72, 0xffffffff, "lengths"],
   [76, 0, "lengths"],
@@ -57,7 +57,9 @@ it.each([
   [104, 1, "lengths"],
   [108, 1, "lengths"],
   [112, 1, "lengths"],
-  [116, 1, "reserved"],
+  [116, 1, "lengths"],
+  [120, 1, "reserved"],
+  [124, 1, "reserved"],
 ])("rejects malformed header at byte %i", (offset, value, message) => {
   const bytes = encode(syntheticCopy([]));
   new DataView(bytes).setUint32(offset, value, true);
@@ -75,6 +77,7 @@ it("pins the format version to a fixed synthetic encoding", () => {
     2: "72f359659e1d6c1b6b75cceb3c247e8c8b6e56676519c9707b69bdb11185878e",
     3: "88d2bb6ab7a87f4efb60978228b9b607c3958ac8eb3fdfea6ab6e274a26ae6d6",
     4: "910e80205f85cb48955c06876b6981612f874eb7d5c5a0c03ef42f3fbac5f13b",
+    5: "0539460d2cfd667dbb8b5787acdbad34b9a55773ab107c0eced9534f581a7e26",
   };
   expect(
     createHash("sha256").update(new Uint8Array(bytes)).digest("hex"),

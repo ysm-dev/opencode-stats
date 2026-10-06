@@ -2,52 +2,56 @@
 
 The production entries use no DOM, Node or Bun types:
 
-- `@opencode-stats/browser-copy`: step, prompt, session and project facts, `encode`, `decode`, `formatVersion`.
+- `@opencode-stats/browser-copy`: step, tool-call, prompt, session and project facts, `encode`, `decode`, `formatVersion`.
 - `@opencode-stats/browser-copy/api`: Effect 4's shared `BrowserCopyApi`. Its
   `browserCopy.whole()` endpoint is `GET /api/browser-copy`, returning
   uncompressed `application/octet-stream` bytes, not JSON.
 - `@opencode-stats/browser-copy/testing`: **Node test code only**. Synthetic
   copies and arbitraries, property parameters, and an in-memory HttpApi server.
 
-## Format 4
+## Format 5
 
-One little-endian buffer has this 120-byte header, followed by Float64 columns.
+One little-endian buffer has this 128-byte header, followed by Float64 columns.
 Steps carry start, nullable stream end and completion, error code, counted failed/interrupted flags,
 five token kinds, provider, model, variant, agent, project,
 owning session and originating subagent. Prompt columns follow steps, carrying delivery
-and provider, model, variant, agent, project and session codes. Session columns carry code, parent,
+and provider, model, variant, agent, project and session codes. Tool-call columns follow prompts:
+step start, nullable run start and completion, nullable outcome, tool and the step's dimensions.
+Session columns carry code, parent,
 owning session, project and fork origin. Projects and dimension tombstones are
 code columns. Every decoded column shares the input buffer.
 
-| Byte | Field                       | Encoding                                 |
-| ---- | --------------------------- | ---------------------------------------- |
-| 0    | Magic `0x5354434f`          | Uint32                                   |
-| 4    | Format version              | Uint32                                   |
-| 8    | Generation                  | 36 ASCII bytes, lowercase UUID           |
-| 44   | Copy kind                   | Uint32: whole = 0, changes = 1           |
-| 48   | From revision               | Float64, nonnegative safe integer        |
-| 56   | Through revision            | Float64, safe integer ≥ from revision    |
-| 64   | History-complete instant    | Float64, safe integer, Unix milliseconds |
-| 72   | Step count                  | Uint32                                   |
-| 76   | Entire payload byte length  | Uint32                                   |
-| 80   | String section byte length  | Uint32                                   |
-| 84   | Step/prompt tombstone count | Uint32                                   |
-| 88   | Dimension name count        | Uint32                                   |
-| 92   | Reserved                    | Four zero bytes                          |
-| 96   | Session count               | Uint32                                   |
-| 100  | Project count               | Uint32                                   |
-| 104  | Session tombstone count     | Uint32                                   |
-| 108  | Project tombstone count     | Uint32                                   |
-| 112  | Prompt count                | Uint32                                   |
-| 116  | Reserved                    | Four zero bytes                          |
+| Byte | Field                      | Encoding                                 |
+| ---- | -------------------------- | ---------------------------------------- |
+| 0    | Magic `0x5354434f`         | Uint32                                   |
+| 4    | Format version             | Uint32                                   |
+| 8    | Generation                 | 36 ASCII bytes, lowercase UUID           |
+| 44   | Copy kind                  | Uint32: whole = 0, changes = 1           |
+| 48   | From revision              | Float64, nonnegative safe integer        |
+| 56   | Through revision           | Float64, safe integer ≥ from revision    |
+| 64   | History-complete instant   | Float64, safe integer, Unix milliseconds |
+| 72   | Step count                 | Uint32                                   |
+| 76   | Entire payload byte length | Uint32                                   |
+| 80   | String section byte length | Uint32                                   |
+| 84   | Fact tombstone count       | Uint32                                   |
+| 88   | Dimension name count       | Uint32                                   |
+| 92   | Reserved                   | Four zero bytes                          |
+| 96   | Session count              | Uint32                                   |
+| 100  | Project count              | Uint32                                   |
+| 104  | Session tombstone count    | Uint32                                   |
+| 108  | Project tombstone count    | Uint32                                   |
+| 112  | Prompt count               | Uint32                                   |
+| 116  | Tool-call count            | Uint32                                   |
+| 120  | Reserved                   | Eight zero bytes                         |
 
 Instants are safe-integer Unix milliseconds. Token amounts are nonnegative
 safe integers; NaN means unrecorded, not zero, including missing step timings and
-unassigned prompt attribution. Outcome flags are zero or one. The decoder validates the header
+unassigned prompt attribution. Step outcome flags are zero or one; tool outcomes are
+1 (succeeded), 2 (failed), 3 (stopped), or NaN (none yet). The decoder validates the header
 and exact payload/column lengths before constructing column views, then checks
 their values. The encoder also refuses invalid metadata or columns.
 
-Length-prefixed UTF-16LE strings carry step IDs, prompt IDs, step/prompt tombstones, and dimension
+Length-prefixed UTF-16LE strings carry step IDs, prompt IDs, tool-call IDs, fact tombstones, and dimension
 codes with permanent IDs and printed names. A model's permanent ID is
 `provider/model`; projects and sessions use OpenCode IDs; variants and agents use
 their names. Codes are store-local integers, never addresses. Changes contain

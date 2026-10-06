@@ -80,7 +80,7 @@ export function checklistAmounts(
   days: ReturnType<typeof emptyDays>,
   period: Period,
   filters: CompiledFilters,
-  dimension: FilterDimension,
+  dimension: Exclude<FilterDimension, "tool">,
 ) {
   const values = new Map<number, Amounts>();
   for (const group of rangeAmounts(days, period)) {

@@ -26,6 +26,22 @@ export const testWholePaintTour = (browser: BrowserType, label: string) =>
         model: "synthetic-model-a",
         provider: "synthetic-provider",
         tokens: { input: 200 },
+        tools: [
+          {
+            id: "read",
+            name: "read",
+            status: "completed",
+            ran: tourStart - 59000,
+            completed: tourStart - 58000,
+          },
+          { id: "shell", name: "bash", status: "error", error: "tool.execution" },
+          {
+            id: "execute",
+            name: "execute",
+            status: "completed",
+            nested: [{ id: "nested", name: "hidden.lookup", status: "completed" }],
+          },
+        ],
       });
       f.server.writer.session("ses-tour-before");
       f.server.writer.message({

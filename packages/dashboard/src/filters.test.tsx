@@ -37,6 +37,7 @@ it("renders native checklists below Pages, top five token amounts, proportional 
     "filter-search-model",
     "filter-search-variant",
     "filter-search-agent",
+    "filter-search-tool",
   ]);
   expect(
     f

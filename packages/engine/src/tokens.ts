@@ -3,6 +3,7 @@ import {
   mapStepFields,
   mapSessionFields,
   mapPromptFields,
+  mapToolFields,
   type BrowserCopy,
   type DimensionName,
 } from "@opencode-stats/browser-copy";
@@ -18,11 +19,13 @@ import {
   filterDimensions,
   filterName,
   matchingFacts,
+  matchesFilters,
   type Filter,
 } from "./filters.ts";
 import { localDate, midnight } from "./calendar.ts";
 import type { Period } from "./ranges.ts";
 import { stepMetrics, type PromptFact } from "./step-metrics.ts";
+import { toolMetrics, type ToolFact } from "./tool-metrics.ts";
 
 const row = (copy: BrowserCopy, index: number): Fact =>
   mapStepFields((field) => copy.steps[field][index]!);
@@ -30,6 +33,7 @@ const row = (copy: BrowserCopy, index: number): Fact =>
 const emptySnapshot = () => ({
   facts: HashMap.empty<string, Fact>(),
   prompts: HashMap.empty<string, PromptFact>(),
+  tools: HashMap.empty<string, ToolFact>(),
   names: HashMap.empty<string, DimensionName>(),
   sessions: HashMap.empty<number, Readonly<Record<(typeof sessionFields)[number], number>>>(),
   projects: HashMap.empty<number, true>(),
@@ -128,6 +132,7 @@ export function createFacts(clock: EngineClock) {
           const id = copy.tombstones[index]!;
           update(next, id);
           next.prompts = HashMap.remove(next.prompts, id);
+          next.tools = HashMap.remove(next.tools, id);
         } else if (index < rowsEnd) {
           const position = index - copy.tombstones.length;
           update(next, copy.ids[position]!, row(copy, position));
@@ -143,6 +148,15 @@ export function createFacts(clock: EngineClock) {
           next.prompts,
           id,
           mapPromptFields((field) => copy.prompts[field][index]!),
+        );
+        await checkpoint();
+      }
+      for (const [index, id] of copy.toolIds.entries()) {
+        if (signal.aborted) return false;
+        next.tools = HashMap.set(
+          next.tools,
+          id,
+          mapToolFields((field) => copy.tools[field][index]!),
         );
         await checkpoint();
       }
@@ -195,6 +209,7 @@ export function createFacts(clock: EngineClock) {
     return {
       tokens: dayTotals(snapshot.days, period, compiled),
       sessions: { total: count(placed.roots), subagents: count(placed.subagents) },
+      tools: toolMetrics(matchingFacts(HashMap.values(snapshot.tools), compiled), names(), period),
       metrics: stepMetrics(
         matchingFacts(HashMap.values(snapshot.facts), compiled),
         matchingFacts(HashMap.values(snapshot.prompts), compiled),
@@ -212,7 +227,10 @@ export function createFacts(clock: EngineClock) {
       checklists: filterDimensions
         .filter((dimension) => dimension !== "session")
         .map((dimension) => {
-          const amounts = checklistAmounts(snapshot.days, period, compiled, dimension);
+          const amounts =
+            dimension === "tool"
+              ? toolChecklist(HashMap.values(snapshot.tools), period, compiled)
+              : checklistAmounts(snapshot.days, period, compiled, dimension);
           const maximum = Math.max(0, ...amounts.values());
           const values = available
             .filter((name) => name.dimension === dimension)
@@ -241,4 +259,21 @@ export function createFacts(clock: EngineClock) {
     filterState,
     filterLabel: (filter: Filter) => filterName(filter, names()),
   };
+}
+
+function toolChecklist(
+  facts: Iterable<ToolFact>,
+  period: Period,
+  filters: ReturnType<typeof compileFilters>,
+) {
+  const amounts = new Map<number, number>();
+  for (const call of facts) {
+    if (
+      call.start >= period.start &&
+      call.start < period.end &&
+      matchesFilters(call, filters, "tool")
+    )
+      amounts.set(call.tool, (amounts.get(call.tool) ?? 0) + 1);
+  }
+  return amounts;
 }

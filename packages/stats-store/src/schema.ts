@@ -39,6 +39,17 @@ export const prompts = sqliteTable("prompt", {
   revision: integer().notNull(),
 });
 
+export const tools = sqliteTable("tool_call", {
+  id: text().primaryKey(),
+  stepId: text("step_id").notNull(),
+  session: text().notNull(),
+  tool: integer().notNull(),
+  outcome: integer(),
+  runStart: integer("run_start"),
+  completed: integer(),
+  revision: integer().notNull(),
+});
+
 export const metadata = sqliteTable("metadata", {
   id: integer().primaryKey(),
   version: integer().notNull(),

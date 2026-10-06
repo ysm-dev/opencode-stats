@@ -6,7 +6,7 @@ starts, nullable stream ends and completions, counted failed/interrupted flags a
 five independently nullable token kinds, step dimensions, delivered prompts, sessions,
 subagent sessions, projects and names, not totals or message content.
 
-Stats-store version 5 rebuilds your statistics to add prompts, errors and timings, with a fingerprint of the complete synthetic history.
+Stats-store version 6 rebuilds your statistics to add tool calls, outcomes and run timings, with a fingerprint of the complete synthetic history.
 Codes are allocated monotonically, retained after deletion and never reused.
 Fork-copy IDs (`msg_` + 26 characters + `_` + digits) never count, even after
 rewrites or deletion of their origin. Nested steps roll into their owning session

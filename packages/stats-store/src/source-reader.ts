@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Schedule from "effect/Schedule";
 import { sqlFailure } from "./errors.ts";
+import { SourceTool, toolsSql } from "./source-tools.ts";
 
 const instant = Schema.Number.check(Schema.isInt());
 const nullable = Schema.NullOr(instant);
@@ -114,16 +115,18 @@ export function sourceReader(db: NativeReader) {
     read: (id: string) =>
       attempt(() => {
         // Native synchronous calls: the snapshot ends before decoding, retries, store writes or IPC.
-        const { rows, headers, prompts } = readTransaction(db, () => ({
+        const { rows, headers, prompts, tools } = readTransaction(db, () => ({
           headers: db.all(inventorySql.replace("GROUP BY s.id", "WHERE s.id=? GROUP BY s.id"), id),
           rows: db.all(factsSql, id),
           prompts: db.all(promptsSql, id),
+          tools: db.all(toolsSql(factsSql), id),
         }));
         return {
           id,
           session: Schema.decodeUnknownSync(Schema.Array(session))(headers)[0],
           facts: Schema.decodeUnknownSync(Schema.Array(fact))(rows),
           prompts: Schema.decodeUnknownSync(Schema.Array(prompt))(prompts),
+          tools: Schema.decodeUnknownSync(Schema.Array(SourceTool))(tools),
         };
       }).pipe(
         Effect.retry({

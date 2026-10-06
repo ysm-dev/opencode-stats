@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { randomBytes } from "node:crypto";
 import { syntheticCopy } from "./synthetic.ts";
-import { mapSessionFields, mapPromptFields } from "../facts.ts";
+import { mapSessionFields, mapPromptFields, mapToolFields } from "../facts.ts";
 
 const amount = fc.option(fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER }), { nil: null });
 const code = fc.integer({ min: 0, max: 0xfffffffe });
@@ -33,6 +33,21 @@ const dimensionalSteps = fc.array(
   fc.tuple(tokenStep, dimensionStep).map(([step, dimensions]) => ({ ...step, ...dimensions })),
   { maxLength: 100 },
 );
+const toolCalls = fc.array(
+  fc
+    .tuple(
+      dimensionStep,
+      fc.record({
+        start: fc.integer({ min: -8_640_000_000_000_000, max: 8_640_000_000_000_000 }),
+        runStart: amount,
+        completed: amount,
+        tool: code,
+        outcome: fc.option(fc.constantFrom(1, 2, 3), { nil: null }),
+      }),
+    )
+    .map(([dimensions, call]) => ({ ...dimensions, ...call })),
+  { maxLength: 25 },
+);
 
 export const syntheticCopies = fc
   .tuple(
@@ -43,7 +58,15 @@ export const syntheticCopies = fc
     fc.integer({ min: -8_640_000_000_000_000, max: 8_640_000_000_000_000 }),
     fc.uniqueArray(
       fc.record({
-        dimension: fc.constantFrom("provider", "model", "variant", "agent", "session", "project"),
+        dimension: fc.constantFrom(
+          "provider",
+          "model",
+          "variant",
+          "agent",
+          "session",
+          "project",
+          "tool",
+        ),
         code,
         id: fc.string({ minLength: 1 }),
         name: fc.string(),
@@ -55,6 +78,7 @@ export const syntheticCopies = fc
       { selector: (session) => session.code },
     ),
     fc.uniqueArray(code),
+    toolCalls,
   )
   .map(
     ([
@@ -66,6 +90,7 @@ export const syntheticCopies = fc
       names,
       sessions,
       projects,
+      calls,
     ]) =>
       syntheticCopy(steps, {
         generation,
@@ -79,6 +104,8 @@ export const syntheticCopies = fc
           ),
         ),
         promptIds: steps.map((_, index) => `prompt-${index}`),
+        toolIds: calls.map((_, index) => `tool:${index}`),
+        tools: mapToolFields((field) => Float64Array.from(calls, (call) => call[field] ?? NaN)),
         sessions: mapSessionFields((field) =>
           Float64Array.from(sessions, (session) => session[field] ?? NaN),
         ),

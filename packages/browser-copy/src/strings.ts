@@ -22,7 +22,8 @@ export function encodeStrings(copy: BrowserCopy): Uint8Array {
     integer(value.length);
     parts.push(bytes);
   };
-  for (const id of [...copy.ids, ...copy.promptIds, ...copy.tombstones]) string(id);
+  for (const id of [...copy.ids, ...copy.promptIds, ...copy.toolIds, ...copy.tombstones])
+    string(id);
   for (const value of copy.names) {
     string(value.dimension);
     integer(value.code);
@@ -47,6 +48,7 @@ export function decodeStrings(
   deleted: number,
   named: number,
   prompts: number,
+  tools: number,
 ) {
   const view = new DataView(input);
   const integer = () => {
@@ -67,9 +69,11 @@ export function decodeStrings(
   const ids: string[] = [];
   const tombstones: string[] = [];
   const promptIds: string[] = [];
+  const toolIds: string[] = [];
   const names: DimensionName[] = [];
   for (let row = 0; row < rows; row++) ids.push(string());
   for (let row = 0; row < prompts; row++) promptIds.push(string());
+  for (let row = 0; row < tools; row++) toolIds.push(string());
   for (let row = 0; row < deleted; row++) tombstones.push(string());
   for (let row = 0; row < named; row++) {
     const dimension = string();
@@ -80,11 +84,11 @@ export function decodeStrings(
     names.push({ dimension, code, id, name });
   }
   if (offset !== input.byteLength) throw new Error("Invalid browser copy string lengths");
-  const identities = [...ids, ...promptIds, ...tombstones];
+  const identities = [...ids, ...promptIds, ...toolIds, ...tombstones];
   if (identities.some((id) => !id) || new Set(identities).size !== identities.length)
     throw new Error("Invalid browser copy fact IDs");
   const codes = names.map((value) => `${value.dimension}\0${value.code}`);
   if (new Set(codes).size !== codes.length)
     throw new Error("Duplicate browser copy dimension code");
-  return { ids, promptIds, tombstones, names };
+  return { ids, promptIds, toolIds, tombstones, names };
 }

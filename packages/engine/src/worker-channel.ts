@@ -47,12 +47,14 @@ function stateFor(
     failed: "",
     response: "",
     cacheHitRate: "",
+    tools: "",
     caption: "",
   };
   if (previous) {
     const before = live.query(previous, timeZone, filters);
     comparison.tokens = changeLabel(amounts.tokens.total, before.tokens.total);
     comparison.sessions = changeLabel(amounts.sessions.total, before.sessions.total);
+    comparison.tools = changeLabel(amounts.tools.calls, before.tools.calls);
     for (const key of ["steps", "prompts", "failed"] as const)
       comparison[key] = changeLabel(amounts.metrics[key], before.metrics[key]);
     comparison.response = measuredChange(amounts.metrics.response.p50, before.metrics.response.p50);

@@ -19,3 +19,4 @@ export {
   referenceHours,
 } from "./time-reference.ts";
 export { metricCopy } from "./metrics-fixture.ts";
+export { toolCopy } from "./tool-fixture.ts";

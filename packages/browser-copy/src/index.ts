@@ -10,6 +10,8 @@ export {
   mapSessionFields,
   promptFields,
   mapPromptFields,
+  toolFields,
+  mapToolFields,
 } from "./facts.ts";
 export type {
   BrowserCopy,
@@ -23,4 +25,6 @@ export type {
   SessionColumns,
   Prompt,
   PromptColumns,
+  ToolCall,
+  ToolColumns,
 } from "./facts.ts";

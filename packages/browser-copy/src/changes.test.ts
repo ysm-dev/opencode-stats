@@ -96,7 +96,7 @@ it("rejects duplicate row IDs", () => {
 
 it("validates every variable-length field before exposing columns", () => {
   const bytes = encode(syntheticCopy([step]));
-  const stringsAt = 120 + stepFields.length * 8;
+  const stringsAt = 128 + stepFields.length * 8;
   new DataView(bytes).setUint32(stringsAt, 0xffffffff, true);
   expect(() => decode(bytes)).toThrow("string lengths");
   const malformed = encode(syntheticCopy([step])).slice(0, -1);

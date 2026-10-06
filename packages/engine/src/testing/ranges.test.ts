@@ -78,6 +78,7 @@ it("compares the same elapsed portion, hides pre-history periods and never deriv
     failed: "",
     response: "",
     cacheHitRate: "",
+    tools: "",
     caption: "Previous period · 6 Oct 2026 – 6 Oct 2026 · through 14:02",
   });
   expect((await f.request({ kind: "preset", preset: "7d" })).comparison.caption).toBe("");
@@ -89,6 +90,7 @@ it("compares the same elapsed portion, hides pre-history periods and never deriv
     failed: "",
     response: "",
     cacheHitRate: "",
+    tools: "",
     caption: "",
   });
   const back = await f.request({

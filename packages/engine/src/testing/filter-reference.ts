@@ -6,10 +6,11 @@ import type {
 } from "@opencode-stats/browser-copy";
 import type { EngineState } from "../index.ts";
 import { referenceTokens, referenceSessionPlacements } from "./reference.ts";
+import type { Filter } from "../filters.ts";
 
 type State = Extract<EngineState, { screen: "dashboard" }>;
 type Row = Step & Partial<StepDimensions>;
-type Selection = readonly { dimension: keyof StepDimensions; id: string }[];
+type Selection = readonly Filter[];
 const checklistDimensions = ["project", "provider", "model", "variant", "agent"] as const;
 export function referenceFilters(
   rows: readonly Row[],
@@ -22,6 +23,7 @@ export function referenceFilters(
     const dimensions = new Set(filters.map((filter) => filter.dimension));
     return [...dimensions].every(
       (dimension) =>
+        dimension === "tool" ||
         dimension === ignore ||
         filters.some(
           (filter) =>

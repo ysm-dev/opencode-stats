@@ -12,6 +12,32 @@ export function fingerprintFixture(writer: ReturnType<typeof syntheticDatabase>)
     streamEnd: 1200,
     completed: 1300,
     error: "api.error",
+    tools: [
+      { id: "shell", name: "bash", status: "completed", ran: 1050, completed: 1100 },
+      { id: "subagent", name: "task", status: "error", error: "aborted", completed: 1200 },
+      {
+        id: "patch",
+        name: "apply_patch",
+        status: "error",
+        error: "tool.execution",
+        ran: 1050,
+        completed: 1150,
+      },
+      { id: "invalid", name: "invalid", status: "completed", completed: 1200 },
+      { id: "todo", name: "todowrite", status: "completed" },
+      { id: "mcp", name: "server.lookup", status: "error", error: "permission.rejected" },
+      { id: "plugin", name: "plugin.custom", status: "error", error: "tool.interrupted" },
+      {
+        id: "execute",
+        name: "execute",
+        status: "completed",
+        ran: 1100,
+        completed: 1100,
+        nested: [{ id: "nested", name: "hidden.lookup", status: "completed" }],
+      },
+      { id: "running", name: "read", status: "running", ran: 1190 },
+      { id: "streaming", name: "read", status: "streaming" },
+    ],
   });
   writer.message({
     id: "msg-missing",

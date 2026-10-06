@@ -118,6 +118,33 @@ export type StepColumns = { readonly start: Float64Array } & Readonly<
   Record<(typeof stepFields)[number], Float64Array>
 >;
 
+// Outcome codes: 1 succeeded, 2 failed, 3 stopped; NULL means none yet.
+export const toolFields = [
+  "start",
+  "runStart",
+  "completed",
+  "outcome",
+  "tool",
+  ...stepDimensions,
+] as const;
+export type ToolCall = Readonly<Record<(typeof toolFields)[number], number | null>> & {
+  readonly start: number;
+  readonly tool: number;
+};
+export type ToolColumns = Readonly<Record<(typeof toolFields)[number], Float64Array>>;
+export function mapToolFields<Value>(
+  read: (field: (typeof toolFields)[number]) => Value,
+): Record<(typeof toolFields)[number], Value> {
+  return {
+    start: read("start"),
+    runStart: read("runStart"),
+    completed: read("completed"),
+    outcome: read("outcome"),
+    tool: read("tool"),
+    ...mapStepDimensions(read),
+  };
+}
+
 export type BrowserCopy = {
   readonly kind: "whole" | "changes";
   readonly generation: string;
@@ -127,6 +154,8 @@ export type BrowserCopy = {
   readonly steps: StepColumns;
   readonly prompts: PromptColumns;
   readonly promptIds: readonly string[];
+  readonly tools: ToolColumns;
+  readonly toolIds: readonly string[];
   readonly sessions: SessionColumns;
   readonly projects: Float64Array;
   readonly sessionTombstones: Float64Array;

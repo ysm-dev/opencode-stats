@@ -30,6 +30,15 @@ export function canonicalCopy(copy: StoreCopy) {
       id: prompt.id,
       ...mapPromptFields((field) => (field === "start" ? prompt.start : identity(prompt[field]))),
     })),
+    tools: copy.tools.map((call) => ({
+      id: call.id,
+      start: call.start,
+      runStart: call.runStart,
+      completed: call.completed,
+      outcome: call.outcome,
+      tool: identity(call.tool),
+      ...mapStepDimensions((dimension) => identity(call[dimension])),
+    })),
     sessions: copy.sessions
       .map((session) => ({
         ...mapSessionFields((field) => identity(session[field])),

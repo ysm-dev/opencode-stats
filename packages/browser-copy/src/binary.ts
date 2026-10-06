@@ -7,23 +7,25 @@ import {
   mapSessionFields,
   promptFields,
   mapPromptFields,
+  toolFields,
+  mapToolFields,
   type BrowserCopy,
   type StepColumns,
   type PromptColumns,
 } from "./facts.ts";
 import { checkedLength, decodeStrings, encodeStrings } from "./strings.ts";
 
-export const formatVersion = 4;
-const headerLength = 120;
+export const formatVersion = 5;
+const headerLength = 128;
 const columns = stepFields;
 const magic = 0x5354434f;
 
-// Format 4: little endian, 120-byte header, then Float64 fact columns and strings.
+// Format 5: little endian, 128-byte header, then Float64 fact columns and strings.
 // Header: magic/u32, version/u32, generation/36 ASCII bytes, kind/u32,
 // fromRevision/f64, revision/f64, historyCompleteFrom/f64, rows/u32, bytes/u32.
 // Then strings bytes/u32, tombstone count/u32, name count/u32, reserved/u32.
 // At 96: session, project, session-tombstone and project-tombstone counts/u32.
-// At 112: prompt count/u32, reserved/u32. Step columns precede prompt columns,
+// At 112: prompt count/u32, tool count/u32, then two reserved/u32. Step columns precede prompt and tool columns,
 // session columns, project codes and the two tombstone columns.
 // Length-prefixed UTF-16LE strings carry row IDs, tombstones and dimension names.
 // Each column has exactly `rows` entries. NaN means an unrecorded token kind.
@@ -38,7 +40,12 @@ export function decode(input: unknown): BrowserCopy {
   if (header.getUint32(4, true) !== formatVersion)
     throw new Error("Unsupported browser copy format version");
   const kind = header.getUint32(44, true);
-  if (kind > 1 || header.getUint32(92) !== 0 || header.getUint32(116) !== 0)
+  if (
+    kind > 1 ||
+    header.getUint32(92) !== 0 ||
+    header.getUint32(120) !== 0 ||
+    header.getUint32(124) !== 0
+  )
     throw new Error("Invalid reserved header");
   const rows = header.getUint32(72, true);
   const sessionCount = header.getUint32(96, true);
@@ -46,9 +53,11 @@ export function decode(input: unknown): BrowserCopy {
   const sessionDeleted = header.getUint32(104, true);
   const projectDeleted = header.getUint32(108, true);
   const promptCount = header.getUint32(112, true);
+  const toolCount = header.getUint32(116, true);
   const stepEnd = headerLength + rows * columns.length * 8;
   const promptEnd = stepEnd + promptCount * promptFields.length * 8;
-  const sessionEnd = promptEnd + sessionCount * sessionFields.length * 8;
+  const toolEnd = promptEnd + toolCount * toolFields.length * 8;
+  const sessionEnd = toolEnd + sessionCount * sessionFields.length * 8;
   const stringOffset = sessionEnd + (projectCount + sessionDeleted + projectDeleted) * 8;
   const length = stringOffset + header.getUint32(80, true);
   if (length !== input.byteLength || header.getUint32(76, true) !== length) {
@@ -64,6 +73,7 @@ export function decode(input: unknown): BrowserCopy {
     header.getUint32(84, true),
     header.getUint32(88, true),
     promptCount,
+    toolCount,
   );
   if (kind === 0 && (fromRevision !== 0 || strings.tombstones.length > 0))
     throw new Error("Invalid whole browser copy revision range");
@@ -76,8 +86,9 @@ export function decode(input: unknown): BrowserCopy {
       new Float64Array(input, stepEnd + promptFields.indexOf(field) * promptCount * 8, promptCount),
   );
   validatePromptColumns(prompts);
+  const tools = readTools(input, promptEnd, toolCount);
   const sessionColumn = (index: number) =>
-    new Float64Array(input, promptEnd + index * sessionCount * 8, sessionCount);
+    new Float64Array(input, toolEnd + index * sessionCount * 8, sessionCount);
   const sessions = mapSessionFields((field) => sessionColumn(sessionFields.indexOf(field)));
   const projects = new Float64Array(input, sessionEnd, projectCount);
   const sessionTombstones = new Float64Array(input, sessionEnd + projectCount * 8, sessionDeleted);
@@ -100,6 +111,7 @@ export function decode(input: unknown): BrowserCopy {
     historyCompleteFrom,
     steps,
     prompts,
+    tools,
     sessions,
     projects,
     sessionTombstones,
@@ -122,6 +134,20 @@ function readRevisions(header: DataView) {
   if (!Number.isSafeInteger(historyCompleteFrom))
     throw new Error("Invalid history-complete instant");
   return { fromRevision, revision, historyCompleteFrom };
+}
+
+function readTools(input: ArrayBuffer, offset: number, count: number) {
+  const tools = mapToolFields(
+    (field) => new Float64Array(input, offset + toolFields.indexOf(field) * count * 8, count),
+  );
+  validateInstants(tools.start, false);
+  validateInstants(tools.runStart, true);
+  validateInstants(tools.completed, true);
+  validateRequiredCodes(tools.tool);
+  for (const dimension of stepDimensions) validateCodes(tools[dimension]);
+  if (tools.outcome.some((value) => !Number.isNaN(value) && ![1, 2, 3].includes(value)))
+    throw new Error("Invalid tool outcome");
+  return tools;
 }
 
 function validateGeneration(generation: string): void {
@@ -185,9 +211,11 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
   const rows = copy.steps.start.length;
   const sessionCount = copy.sessions.code.length;
   const promptCount = copy.prompts.start.length;
+  const toolCount = copy.tools.start.length;
   const values = [
     ...columns.map((field) => copy.steps[field]),
     ...promptFields.map((field) => copy.prompts[field]),
+    ...toolFields.map((field) => copy.tools[field]),
     ...sessionFields.map((field) => copy.sessions[field]),
     copy.projects,
     copy.sessionTombstones,
@@ -199,6 +227,9 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
   if (copy.ids.length !== rows) throw new Error("Inconsistent browser copy ID columns");
   if (copy.promptIds.length !== promptCount)
     throw new Error("Inconsistent browser copy prompt IDs");
+  if (copy.toolIds.length !== toolCount) throw new Error("Inconsistent browser copy tool IDs");
+  if (toolFields.some((field) => copy.tools[field].length !== toolCount))
+    throw new Error("Inconsistent browser copy tool columns");
   const strings = encodeStrings(copy);
   const length = checkedLength(stringOffset + strings.length);
   validateGeneration(copy.generation);
@@ -222,6 +253,7 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
   header.setUint32(104, copy.sessionTombstones.length, true);
   header.setUint32(108, copy.projectTombstones.length, true);
   header.setUint32(112, promptCount, true);
+  header.setUint32(116, toolCount, true);
   let offset = headerLength;
   for (const [index, column] of values.entries()) {
     if (index < columns.length && column.length !== rows)
@@ -233,8 +265,8 @@ export function encode(copy: BrowserCopy): ArrayBuffer {
     )
       throw new Error("Inconsistent browser copy prompt columns");
     if (
-      index >= columns.length + promptFields.length &&
-      index < columns.length + promptFields.length + sessionFields.length &&
+      index >= columns.length + promptFields.length + toolFields.length &&
+      index < columns.length + promptFields.length + toolFields.length + sessionFields.length &&
       column.length !== sessionCount
     )
       throw new Error("Inconsistent browser copy session columns");

@@ -25,7 +25,7 @@ function units(inventory: ReadonlyArray<SourceSession>) {
     .toSorted((a, b) => b.latest - a.latest);
 }
 
-export const statsStoreVersion = 5;
+export const statsStoreVersion = 6;
 export const initializeStore = Effect.fnUntraced(function* (
   paths: StorePaths,
   adapter: DatabaseAdapter,

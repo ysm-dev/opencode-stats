@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import schema from "../source-schema/2.0.22.json" with { type: "json" };
+import { toolContent, type SyntheticTool } from "./tools.ts";
 
 export type SyntheticMessage = {
   readonly id: string;
@@ -24,6 +25,7 @@ export type SyntheticMessage = {
   readonly model?: string;
   readonly variant?: string;
   readonly agent?: string;
+  readonly tools?: readonly SyntheticTool[];
 };
 
 export function syntheticDatabase(filename: string) {
@@ -71,7 +73,10 @@ export function syntheticDatabase(filename: string) {
       const data = JSON.stringify({
         time: { created: message.start, streamed: message.streamEnd, completed: message.completed },
         tokens: message.tokens,
-        content: [{ type: "text", text: message.content ?? "SYNTHETIC PRIVATE CONTENT" }],
+        content: [
+          { type: "text", text: message.content ?? "SYNTHETIC PRIVATE CONTENT" },
+          ...(message.tools ?? []).map(toolContent),
+        ],
         error:
           message.error === undefined
             ? undefined
