@@ -17,6 +17,42 @@ export const dateCount = (from: string, to: string) =>
 
 type CalendarBucket = { start: number; end: number; label: string };
 
+const offset = (value: DateTime.Zoned) =>
+  DateTime.toDate(value).getTime() - DateTime.toEpochMillis(value);
+
+function nextHour(cursor: DateTime.Zoned, timeZone: string) {
+  const instant = DateTime.toEpochMillis(cursor);
+  const parts = DateTime.toParts(cursor);
+  const next = instant + (60 - parts.minute) * 60000 - parts.second * 1000 - parts.millisecond;
+  const currentOffset = offset(cursor);
+  if (offset(zoned(next, timeZone)) === currentOffset) return zoned(next, timeZone);
+  // A transition can precede the next whole hour (Chatham changes at :45).
+  // Locate it using Effect's actual offsets, without converting wall times.
+  let low = instant + 1;
+  let high = next;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (offset(zoned(middle, timeZone)) === currentOffset) low = middle + 1;
+    else high = middle;
+  }
+  return zoned(low, timeZone);
+}
+
+const nextCalendarBoundary = (
+  cursor: DateTime.Zoned,
+  timeZone: string,
+  unit: "day" | "week" | "month",
+) => {
+  // Advance the date, not the resolved wall time: a missing midnight might
+  // resolve to 01:00, but tomorrow's midnight must be resolved independently.
+  const date = DateTime.makeUnsafe(DateTime.formatIsoDate(cursor));
+  const next = DateTime.add(
+    date,
+    unit === "day" ? { days: 1 } : unit === "week" ? { weeks: 1 } : { months: 1 },
+  );
+  return zoned(midnight(DateTime.formatIsoDate(next), timeZone), timeZone);
+};
+
 // Hours advance to the next local clock boundary, retaining both occurrences
 // of a repeated hour. A fractional DST jump introduces a partial hour.
 export function calendarBuckets(
@@ -35,12 +71,7 @@ export function calendarBuckets(
   while (DateTime.toEpochMillis(cursor) < end) {
     const instant = DateTime.toEpochMillis(cursor);
     const next =
-      unit === "hour"
-        ? zoned(instant + (60 - DateTime.toParts(cursor).minute) * 60000, timeZone)
-        : DateTime.add(
-            cursor,
-            unit === "day" ? { days: 1 } : unit === "week" ? { weeks: 1 } : { months: 1 },
-          );
+      unit === "hour" ? nextHour(cursor, timeZone) : nextCalendarBoundary(cursor, timeZone, unit);
     if (DateTime.toEpochMillis(next) > start)
       buckets.push({
         start: instant,

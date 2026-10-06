@@ -76,3 +76,53 @@ it("starts weeks on Monday and advances weeks and months in the local calendar",
   ]);
   expect(calendarBuckets(end, start, zone, "day")).toEqual([]);
 });
+
+it.each([
+  ["2026-09-27", "02:00:00.000+12:45", "03:45:00.000+13:45", 24],
+  ["2026-04-05", "03:00:00.000+13:45", "02:45:00.000+12:45", 26],
+] as const)(
+  "splits Chatham's %s fractional-wall transition at its exact instant",
+  (date, before, after, count) => {
+    const zone = "Pacific/Chatham";
+    const start = referenceMidnight(date, zone);
+    const end = referenceMidnight(referenceAdd(date, 1), zone);
+    const buckets = calendarBuckets(start, end, zone, "hour");
+    expect(buckets).toHaveLength(count);
+    expect(buckets.map(({ start, end }) => ({ start, end }))).toEqual(
+      referenceHours(start, end, zone),
+    );
+    const preceding = buckets.findIndex((bucket) => bucket.label.includes(before));
+    expect(preceding).toBeGreaterThanOrEqual(0);
+    expect(buckets[preceding + 1]!.label).toContain(after);
+    expect(buckets[preceding]!.end).toBe(buckets[preceding + 1]!.start);
+    expect(calendarBuckets(buckets[preceding + 1]!.start + 12345, end, zone, "hour")[0]).toEqual(
+      buckets[preceding + 1],
+    );
+  },
+);
+
+it.each([
+  ["America/Santiago", "day", ["2026-09-06", "2026-09-07", "2026-09-08", "2026-09-09"]],
+  ["Asia/Tehran", "week", ["2021-03-22", "2021-03-29", "2021-04-05"]],
+  ["America/Asuncion", "month", ["2017-10-01", "2017-11-01", "2017-12-01"]],
+] as const)(
+  "resolves each %s %s boundary independently after a missing midnight",
+  (zone, unit, dates) => {
+    const end = referenceMidnight(dates.at(-1)!, zone);
+    const expected = dates.slice(0, -1).map((date, index) => ({
+      label: date,
+      start: referenceMidnight(date, zone),
+      end: referenceMidnight(dates[index + 1]!, zone),
+    }));
+    const start = expected[0]!.start;
+    expect(
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: zone,
+        hour: "2-digit",
+        hourCycle: "h23",
+      }).format(start),
+    ).toBe("01");
+    expect(calendarBuckets(start, end, zone, unit)).toEqual(expected);
+    expect(calendarBuckets(expected[1]!.start, end, zone, unit)).toEqual(expected.slice(1));
+  },
+);
