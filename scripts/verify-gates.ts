@@ -5,6 +5,7 @@ import { checks } from "./gate-checks.ts";
 import { freshnessChecks } from "./gate-freshness-checks.ts";
 import { shard } from "./shard.ts";
 import { remainingBudget, runTimed } from "./time-budget.ts";
+import { verifyShards } from "./verification-shards.ts";
 
 const verificationStarted = performance.now();
 
@@ -57,6 +58,9 @@ const verify = async (check: Check): Promise<void> => {
   }
 };
 
-for (const check of shard([...checks()], process.env["VERIFICATION_SHARD"])) await verify(check);
-for await (const check of freshnessChecks()) await verify(check);
+if (process.env["VERIFICATION_SHARD"] === undefined) await verifyShards();
+else {
+  for (const check of shard([...checks()], process.env["VERIFICATION_SHARD"])) await verify(check);
+  for await (const check of freshnessChecks()) await verify(check);
+}
 remainingBudget(verificationStarted);

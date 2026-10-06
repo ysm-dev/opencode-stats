@@ -16,6 +16,10 @@ const success = await runTimed(["bun", "-e", "process.stdout.write('finished')"]
 assert.deepEqual(success, { status: 0, output: "finished" });
 await assert.rejects(runTimed(["gate-canary-command-does-not-exist"]));
 await assert.rejects(runTimed([]), /Expected a command/u);
+await assert.rejects(
+  runTimed(["bun", "--version"], 5_000, { signal: AbortSignal.abort() }),
+  /Command interrupted/u,
+);
 if (process.platform !== "win32") {
   await assert.rejects(
     runTimed(
@@ -52,7 +56,12 @@ try {
 } finally {
   rmSync(folder, { recursive: true, force: true });
 }
-for (const started of ["invalid", new Date(Date.now() - TIME_BUDGET_MS - 1000).toISOString()]) {
+for (const started of [
+  "",
+  "invalid",
+  new Date(Date.now() - TIME_BUDGET_MS - 1000).toISOString(),
+  new Date(Date.now() + 1000).toISOString(),
+]) {
   const result = await runTimed(["bun", "run", "scripts/ci-duration.ts", started], 5_000, {
     capture: true,
   });
