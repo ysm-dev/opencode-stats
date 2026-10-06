@@ -4,6 +4,17 @@ import type { Check } from "./verify-gates.ts";
 
 export function* budgetChecks(): Generator<Check> {
   yield {
+    gate: "platform proofs cannot omit an operating system",
+    files: {
+      ".github/workflows/ci.yml": readFileSync(".github/workflows/ci.yml", "utf8").replace(
+        "${{ !matrix.shard || startsWith(matrix.shard, '1/') }}",
+        "false",
+      ),
+    },
+    command: ["scripts/testing/shards.ts"],
+    expect: ["Platform proofs must run on every platform's first shard"],
+  };
+  yield {
     gate: "local verification shards own fixtures and cancel failed siblings",
     files: {},
     command: ["scripts/testing/verification.ts"],
@@ -40,7 +51,7 @@ export function* budgetChecks(): Generator<Check> {
     gate: "verification command families cannot silently cluster",
     files: {
       "scripts/gate-checks.ts": readFileSync("scripts/gate-checks.ts", "utf8").replace(
-        "left.command[0]!.localeCompare(right.command[0]!) || left.gate.localeCompare(right.gate)",
+        'left.command.join(" ").localeCompare(right.command.join(" "))',
         "0",
       ),
     },

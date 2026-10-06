@@ -114,12 +114,15 @@ jobs:
           node-version: lts/*
       - run: bun install --frozen-lockfile
       - run: bun run scripts/testing/time-budgets.ts
+        if: ${{ !matrix.shard || startsWith(matrix.shard, '1/') }}
       - uses: actions/download-artifact@v8.0.1
         with:
           name: complete-release
           path: .release/
       - run: bun run contracts
+        if: ${{ !matrix.shard || startsWith(matrix.shard, '1/') }}
       - run: bun run bundle:check
+        if: ${{ !matrix.shard || startsWith(matrix.shard, '1/') }}
       # e2e provisions Chromium shell + WebKit and Linux OS prerequisites inside
       # its watchdog. Setup, artifact waits and tests also share this job/attempt cap.
       # Isolate browser/process workloads; Vitest partitions the complete

@@ -45,6 +45,19 @@ assert.deepEqual(packedMatrix["include"], [
 ]);
 const packedSteps = packed["steps"];
 assert.ok(Array.isArray(packedSteps));
+for (const command of [
+  "bun run scripts/testing/time-budgets.ts",
+  "bun run contracts",
+  "bun run bundle:check",
+]) {
+  const proofs = packedSteps.filter((step) => object(step)["run"] === command);
+  assert.equal(proofs.length, 1, `Missing platform proof: ${command}`);
+  assert.equal(
+    object(proofs[0])["if"],
+    "${{ !matrix.shard || startsWith(matrix.shard, '1/') }}",
+    "Platform proofs must run on every platform's first shard",
+  );
+}
 assert.ok(
   packedSteps.some(
     (step) =>
@@ -87,6 +100,14 @@ for (const command of new Set(canaries.map((check) => check.command[0]))) {
     `Unbalanced verification command ${command}`,
   );
 }
+const completeRuns = Array.from(
+  { length: 16 },
+  (_, index) =>
+    shard(canaries, `${index + 1}/16`).filter(
+      (check) => check.command.length === 1 && check.command[0] === "test",
+    ).length,
+);
+assert.ok(Math.max(...completeRuns) <= 1, "Unbalanced verification command: full test suites");
 
 const items = Array.from({ length: 227 }, (_, index) => String(index));
 assert.deepEqual(shard(items, undefined), items);

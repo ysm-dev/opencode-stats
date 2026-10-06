@@ -100,10 +100,11 @@ function* allChecks(): Generator<Check> {
 }
 
 export function* checks(): Generator<Check> {
-  // Contiguous command families distribute evenly across the modulo shards:
-  // full-suite coverage runs must not cluster while other shards have none.
+  // Keep complete commands contiguous: targeted tests must not split the full
+  // coverage runs into clusters on the modulo shards.
   yield* [...allChecks()].toSorted(
     (left, right) =>
-      left.command[0]!.localeCompare(right.command[0]!) || left.gate.localeCompare(right.gate),
+      left.command.join(" ").localeCompare(right.command.join(" ")) ||
+      left.gate.localeCompare(right.gate),
   );
 }
