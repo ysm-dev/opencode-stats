@@ -1,13 +1,21 @@
 import { spawn } from "node:child_process";
 import { stripVTControlCharacters } from "node:util";
 import { chromium } from "playwright";
-import { expect, it, vi } from "vitest";
+import { expect, it, onTestFailed, vi } from "vitest";
 import { capture } from "./testing/process.ts";
 import { checkOverview } from "./testing/dashboard.ts";
 import { coldSourceCache } from "./testing/source-cache.ts";
 
 it("bun run dev serves the same worker-driven Overview from source on synthetic history", async () => {
+  const phases: string[] = [];
+  const phase = (event: string) => phases.push(`${new Date().toISOString()} ${event}`);
+  let startupTrace = "";
+  onTestFailed(() => {
+    process.stderr.write(`[DEBUG-issue27-source] ${phases.join("\n")}\n${startupTrace}\n`);
+  });
+  phase("cold cache");
   const restoreCache = await coldSourceCache();
+  phase("starting source server");
   const child = spawn("bun", ["run", "dev"], {
     detached: true,
     // Vite decorates its URL with ANSI codes; HTTP, not terminal formatting, proves readiness.
@@ -18,7 +26,6 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
     },
   });
   const { closed } = capture(child);
-  let startupTrace = "";
   const recordStartup = (chunk: Buffer) => {
     startupTrace = (
       startupTrace + `${new Date().toISOString()} ${stripVTControlCharacters(chunk.toString())}`
@@ -37,14 +44,17 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
       },
       { timeout: 10000 },
     );
+    phase("source API ready");
     const browser = await chromium.launch({ headless: true });
+    phase("browser ready");
     try {
       // The builder's five-token fixture is 11 + 22 + 33 + 44 + 55 = 165.
       // Missing usage, zero usage, a fork copy and a user message add nothing.
-      await checkOverview(browser, "http://127.0.0.1:5173", "165");
+      await checkOverview(browser, "http://127.0.0.1:5173", "165", phase);
       expect(child.exitCode).toBeNull();
       expect(child.signalCode).toBeNull();
     } finally {
+      phase("closing browser");
       await browser.close();
     }
   } catch (cause) {
@@ -53,6 +63,7 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
       { cause },
     );
   } finally {
+    phase("stopping source server");
     try {
       if (process.platform === "win32") child.kill();
       else {

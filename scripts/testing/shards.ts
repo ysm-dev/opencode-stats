@@ -35,17 +35,14 @@ const jobs = object(workflow["jobs"]);
 const packed = object(jobs["packed"]);
 const packedMatrix = object(object(packed["strategy"])["matrix"]);
 assert.deepEqual(packedMatrix["os"], ["macos-latest", "windows-latest"]);
-assert.deepEqual(
-  packedMatrix["include"],
-  [
-    ...["1/2", "2/2"].map((selector) => ({ os: "ubuntu-latest", shard: selector })),
-    ...["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
-      os: "macos-15-intel",
-      shard: selector,
-      ...(selector === "1/4" || selector === "4/4" ? { browser: "chromium" } : {}),
-    })),
-  ],
-);
+assert.deepEqual(packedMatrix["include"], [
+  ...["1/2", "2/2"].map((selector) => ({ os: "ubuntu-latest", shard: selector })),
+  ...["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
+    os: "macos-15-intel",
+    shard: selector,
+    ...(selector === "1/4" || selector === "4/4" ? { browser: "chromium" } : {}),
+  })),
+]);
 const packedSteps = packed["steps"];
 assert.ok(Array.isArray(packedSteps));
 assert.ok(

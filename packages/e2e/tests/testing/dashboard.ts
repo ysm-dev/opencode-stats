@@ -80,7 +80,13 @@ function observeLoad(context: BrowserContext, page: Page) {
   };
 }
 
-async function checkViewport(browser: Browser, origin: string, total: string, width: number) {
+async function checkViewport(
+  browser: Browser,
+  origin: string,
+  total: string,
+  width: number,
+  phase: (event: string) => void,
+) {
   const context = await browser.newContext({
     viewport: { width, height: 720 },
     hasTouch: width === 360,
@@ -124,7 +130,9 @@ async function checkViewport(browser: Browser, origin: string, total: string, wi
         await route.continue();
       });
       try {
+        phase(`${width} ${asset} navigation`);
         await page.goto(origin, { waitUntil: "commit" });
+        phase(`${width} ${asset} committed`);
         await vi.waitFor(
           () => {
             if (!blocked)
@@ -132,6 +140,7 @@ async function checkViewport(browser: Browser, origin: string, total: string, wi
           },
           { timeout: 10000 },
         );
+        phase(`${width} ${asset} blocked`);
         const blank =
           asset === "style"
             ? await page.locator("#root").textContent()
@@ -154,6 +163,7 @@ async function checkViewport(browser: Browser, origin: string, total: string, wi
         .getByRole("region", { name: "Tokens" })
         .getByText(total, { exact: true })
         .waitFor({ timeout: 10000 });
+      phase(`${width} ${asset} loaded`);
       await page.evaluate(
         () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
       );
@@ -185,6 +195,7 @@ async function checkViewport(browser: Browser, origin: string, total: string, wi
       await context.unroute(blockedAssets[asset]);
     }
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    phase(`${width} accessibility`);
     const accessibility = await page.evaluate(() => window.axe.run());
     expect(accessibility.violations).toEqual([]);
     expect(accessibility.incomplete).toEqual([]);
@@ -201,6 +212,11 @@ async function checkViewport(browser: Browser, origin: string, total: string, wi
   }
 }
 
-export async function checkOverview(browser: Browser, origin: string, total: string) {
-  for (const width of [360, 1280]) await checkViewport(browser, origin, total, width);
+export async function checkOverview(
+  browser: Browser,
+  origin: string,
+  total: string,
+  phase: (event: string) => void = () => {},
+) {
+  for (const width of [360, 1280]) await checkViewport(browser, origin, total, width, phase);
 }
