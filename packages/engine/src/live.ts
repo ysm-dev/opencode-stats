@@ -33,7 +33,7 @@ export function createLiveEngine(
   let session: Session | undefined;
   let visible = true;
   let paused = false;
-  let started = false;
+  let hasStarted = false;
   let closed = false;
   let replaceRelease = false;
   let stopClock: (() => void) | undefined;
@@ -50,7 +50,7 @@ export function createLiveEngine(
     return true;
   };
   const cleanups = new Set<Promise<void>>();
-  const enabled = () => started && visible && !paused && !closed;
+  const enabled = () => hasStarted && visible && !paused && !closed;
   const changed = (kind: ChangeKind, priorWork = 0) => {
     const started = clock.workNow();
     if (!paused) updateTime(true);
@@ -198,7 +198,7 @@ export function createLiveEngine(
     });
   };
   const start = () => {
-    started = true;
+    hasStarted = true;
     if (!enabled()) return;
     stopClock ??= clock.everySecond(tick);
     if (!stopBoundary) boundary();

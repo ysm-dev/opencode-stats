@@ -1,5 +1,6 @@
 import * as Schema from "effect/Schema";
 import type { ChangeTime } from "./change.ts";
+import { readPostClock } from "./post-clock.ts";
 import {
   Answer,
   type ChannelPort,
@@ -8,9 +9,11 @@ import {
   type RequestOutcome,
   type EngineSignal,
 } from "./protocol.ts";
+type CompleteAnswer = Extract<typeof Answer.Type, { state: EngineState }>;
 
 export function createPageClient(port: ChannelPort, reload: () => void) {
   let nextId = 0;
+  let paintedSequence = 0;
   let closed = false;
   let pending:
     | { id: number; input: number; started: number; resolve: (result: RequestOutcome) => void }
@@ -19,15 +22,19 @@ export function createPageClient(port: ChannelPort, reload: () => void) {
   let signalStarted = 0;
   const listeners = new Set<(state: EngineState, timing: ChangeTime) => void>();
   const decodeAnswer = Schema.decodeUnknownSync(Answer);
-  const receive = (event: MessageEvent): void => {
-    const started = performance.now();
-    const answer = decodeAnswer(event.data);
-    if ("reload" in answer) {
-      reload();
+  const complete = (answer: CompleteAnswer, started: number, pageWork: number): void => {
+    if (closed || answer.sequence <= paintedSequence) return;
+    const pageStarted = performance.now();
+    const posted = readPostClock(answer.posted);
+    if (posted === undefined) {
+      // A receiver can run concurrently before the sender returns from its
+      // single postMessage. Yield without charging that cross-thread wait.
+      const work = pageWork + performance.now() - pageStarted;
+      setTimeout(() => complete(answer, started, work), 0);
       return;
     }
     let input = signalInput;
-    let inputStarted = signalStarted || started - answer.timing.elapsed;
+    let inputStarted = signalStarted || started - posted.elapsed;
     if (answer.id === 0) {
       if (pending) return;
     } else {
@@ -38,14 +45,26 @@ export function createPageClient(port: ChannelPort, reload: () => void) {
       pending = undefined;
     }
     signalInput = signalStarted = 0;
+    paintedSequence = answer.sequence;
     const timing = {
       ...answer.timing,
+      ...posted,
       input,
       started: inputStarted,
-      page: performance.now() - started,
+      page: pageWork + performance.now() - pageStarted,
     };
-    // Decoding and selecting a complete answer are page-thread work too.
+    // Decoding, selecting and reading completion are page-thread work too.
     for (const listener of listeners) listener(answer.state, timing);
+  };
+  const receive = (event: MessageEvent): void => {
+    const started = performance.now();
+    const answer = decodeAnswer(event.data);
+    if ("reload" in answer) {
+      reload();
+      return;
+    }
+    if (answer.id === 0 ? !!pending : pending?.id !== answer.id) return;
+    complete(answer, started, performance.now() - started);
   };
   port.addEventListener("message", receive);
   return {

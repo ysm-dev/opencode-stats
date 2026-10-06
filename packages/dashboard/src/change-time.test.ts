@@ -69,7 +69,7 @@ it("sums input, worker, page and actual rAF-to-task work, independently of the f
 
 it("never publishes replaced or unmounted complete answers that did not get a frame", () => {
   const f = clockFixture();
-  const update = vi.fn();
+  const update = vi.fn<() => void>();
   f.clock.page(
     { kind: "preset", input: 0, compute: 1, page: 0, elapsed: 0, started: 0 },
     update,

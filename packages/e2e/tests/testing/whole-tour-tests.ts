@@ -70,6 +70,38 @@ export const testWholePaintTour = (browser: BrowserType, label: string) =>
       await f.context.addInitScript(installWholePaintObserver);
       const page = await f.context.newPage();
       const workerCreated = page.waitForEvent("worker");
+      const copied = page.waitForResponse(
+        (response) => new URL(response.url()).pathname === "/api/browser-copy",
+      );
+      const fontRequested = f.context.waitForEvent("request", {
+        predicate: (request) => new URL(request.url()).pathname.endsWith(".ttf"),
+      });
+      const fontRelease = Promise.withResolvers<void>();
+      const fonts = /\.ttf$/;
+      await f.context.route(fonts, async (route) => {
+        await fontRelease.promise;
+        await route.continue();
+      });
+      try {
+        await page.goto(`${f.server.origin}/?range=all`, { waitUntil: "domcontentloaded" });
+        await fontRequested;
+        await (await copied).finished();
+        expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+        expect(await (await workerCreated).evaluate(() => crossOriginIsolated)).toBe(true);
+        // A fresh browser's first visit has no decoded font cache. Prove the
+        // required face is actually unavailable, not just a redundant preload.
+        expect(await page.evaluate(() => document.fonts.check("440 13px Inter"))).toBe(false);
+        await page.waitForFunction(() => window.wholePaint.evidence.blank > 1);
+        expect(await page.locator("#root").textContent(), "whole-paint:early-load-paint").toBe("");
+      } finally {
+        fontRelease.resolve();
+      }
+      await page.waitForFunction(
+        () => document.querySelector(".headline-number")?.textContent === "350",
+      );
+      await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
+      await paintEvidence(page);
+      await f.context.unroute(fonts);
       const requested = f.context.waitForEvent("request", {
         predicate: (request) => new URL(request.url()).pathname === "/api/browser-copy",
       });
@@ -79,36 +111,14 @@ export const testWholePaintTour = (browser: BrowserType, label: string) =>
         await route.continue();
       });
       try {
-        await page.goto(`${f.server.origin}/?range=all`, { waitUntil: "domcontentloaded" });
+        await page.reload({ waitUntil: "domcontentloaded" });
         await requested;
-        expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
-        expect(await (await workerCreated).evaluate(() => crossOriginIsolated)).toBe(true);
-        // Force observation while the actual complete-copy barrier is held.
+        // Reload still has its own complete-copy barrier, even if WebKit keeps
+        // a previously decoded font face while revalidating its preload.
         await page.waitForFunction(() => window.wholePaint.evidence.blank > 1);
         expect(await page.locator("#root").textContent(), "whole-paint:early-load-paint").toBe("");
       } finally {
         release.resolve();
-      }
-      await page.waitForFunction(
-        () => document.querySelector(".headline-number")?.textContent === "350",
-      );
-      await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
-      await paintEvidence(page);
-      const fontRequested = f.context.waitForEvent("request", {
-        predicate: (request) => new URL(request.url()).pathname.endsWith(".ttf"),
-      });
-      const fontRelease = Promise.withResolvers<void>();
-      await f.context.route(/\.ttf$/, async (route) => {
-        await fontRelease.promise;
-        await route.continue();
-      });
-      try {
-        await page.reload({ waitUntil: "domcontentloaded" });
-        await fontRequested;
-        await page.waitForFunction(() => window.wholePaint.evidence.blank > 1);
-        expect(await page.locator("#root").textContent(), "whole-paint:early-load-paint").toBe("");
-      } finally {
-        fontRelease.resolve();
       }
       await page.waitForFunction(
         () => document.querySelector(".headline-number")?.textContent === "350",

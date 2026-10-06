@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { createPostClock } from "../post-clock.ts";
 import * as fc from "fast-check";
 import type { Step } from "@opencode-stats/browser-copy";
 import {
@@ -221,6 +222,8 @@ it("still paints its complete copy when opening the live stream fails", async ()
 });
 
 it("does not let an unsolicited live paint replace an unanswered user request", async () => {
+  const posted = createPostClock();
+  posted.complete(0, 0);
   const server = inMemoryDashboardServer(syntheticCopy([]));
   const sent = Promise.withResolvers<void>();
   let deliver!: () => void;
@@ -235,8 +238,10 @@ it("does not let an unsolicited live paint replace an unanswered user request", 
     await sent.promise;
     await engine.sendToPage({
       id: 0,
+      sequence: 2,
       state: { screen: "problem", reason: "invalid-address" },
       timing: { kind: "live", compute: 0, elapsed: 0 },
+      posted: posted.data,
     });
     expect(listener).not.toHaveBeenCalled();
     deliver();
@@ -245,8 +250,10 @@ it("does not let an unsolicited live paint replace an unanswered user request", 
     unsubscribe();
     await engine.sendToPage({
       id: 0,
+      sequence: 2,
       state: { screen: "problem", reason: "invalid-address" },
       timing: { kind: "live", compute: 0, elapsed: 0 },
+      posted: posted.data,
     });
     expect(listener).toHaveBeenCalledOnce();
   } finally {

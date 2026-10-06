@@ -1,11 +1,25 @@
-import { expect, it, onTestFinished, vi } from "vitest";
+import { afterEach, expect, it, onTestFinished, vi } from "vitest";
 import { syntheticCopy, inMemoryDashboardServer } from "@opencode-stats/browser-copy/testing";
 import { createFacts } from "../tokens.ts";
 import { systemClock } from "../clock.ts";
 import { inThreadEngine, manualClock } from "./index.ts";
 import type { ChangeTime } from "../change.ts";
-import type { EngineState } from "../protocol.ts";
+import type { ChannelPort, EngineState } from "../protocol.ts";
+import { createPageClient } from "../client.ts";
+import { connectEngine } from "../worker-channel.ts";
+import { createPostClock } from "../post-clock.ts";
 import { referenceTokens } from "./reference.ts";
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+const postedTiming = (compute = 0, elapsed = 0) => {
+  const posted = createPostClock();
+  posted.complete(compute, elapsed);
+  return posted.data;
+};
 
 const step = (input: number) => ({
   start: 1,
@@ -61,10 +75,12 @@ it.each(
     await expect(
       engine.sendToPage({
         id: 0,
+        sequence: 1,
         state: { screen: "problem", reason: "copy-unavailable" },
         timing: { kind: "live", compute: 0, elapsed: 0, [field]: value },
+        posted: postedTiming(),
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(new RegExp(field));
     expect(listener).not.toHaveBeenCalled();
   },
 );
@@ -121,3 +137,160 @@ it("the real channel labels every input, timer, pause/resume and visible catch-u
   expect(JSON.stringify(timings)).not.toContain("synthetic-private");
   expect(JSON.stringify(timings)).not.toContain("generation");
 });
+
+async function timedNativeChannel(wait: number) {
+  let now = 0;
+  const native = new MessageChannel();
+  let replies = 0;
+  const server = inMemoryDashboardServer(syntheticCopy([]));
+  vi.spyOn(performance, "now").mockImplementation(() => now);
+  const wrap = (port: MessagePort, cloneWork: number, decodeWork: number): ChannelPort => {
+    const post: ChannelPort["postMessage"] = port.postMessage.bind(port);
+    return {
+      postMessage: (message) => {
+        post(message);
+        now += cloneWork;
+        if (port === native.port2) replies++;
+      },
+      addEventListener: (_type, listener) => {
+        port.addEventListener("message", (event: MessageEvent<object>) => {
+          const data = event.data;
+          // The decoder's actual input access takes work; the preceding delivery
+          // delay does not. No schema implementation or state clone is replaced.
+          Object.defineProperty(event, "data", {
+            get: () => {
+              now += decodeWork;
+              return data;
+            },
+          });
+          if (port === native.port1) now += wait;
+          listener(event);
+        });
+        port.start();
+      },
+      removeEventListener: () => {},
+    };
+  };
+  const client = createPageClient(wrap(native.port1, 2, 3), () => {});
+  const stop = connectEngine(
+    wrap(native.port2, 20, 7),
+    { baseUrl: "http://127.0.0.1:22440", fetch: server.fetch, release: "test-release" },
+    { ...systemClock, now: () => 1, timeZone: () => "UTC", workNow: () => now },
+  );
+  onTestFinished(async () => {
+    client.dispose();
+    await stop();
+    native.port1.close();
+    native.port2.close();
+    await server.dispose();
+  });
+  const timings: ChangeTime[] = [];
+  client.subscribe((_state, timing) => timings.push(timing));
+  expect(await client.request({ kind: "all-time" })).toMatchObject({ kind: "paint" });
+  expect(replies).toBe(1);
+  return timings[0]!;
+}
+
+it.each([0, 10000])(
+  "includes the real channel's decoder and single reply clone, not its %i ms wait",
+  async (wait) => {
+    expect(await timedNativeChannel(wait)).toMatchObject({ input: 2, compute: 27, page: 3 });
+  },
+);
+
+it.each(["paint", "close", "superseded", "request", "replace"])(
+  "an early receipt is completed or discarded correctly (%s)",
+  async (disposition) => {
+    vi.useFakeTimers();
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    let receive!: (event: MessageEvent) => void;
+    const port: ChannelPort = {
+      postMessage: () => {},
+      addEventListener: (_type, listener) => {
+        receive = listener;
+      },
+      removeEventListener: () => {},
+    };
+    const client = createPageClient(port, () => {});
+    onTestFinished(() => client.dispose());
+    const listener = vi.fn<(state: EngineState, timing: ChangeTime) => void>();
+    client.subscribe(listener);
+    const first = disposition === "replace" ? client.request({ kind: "all-time" }) : undefined;
+    const posted = createPostClock();
+    receive(
+      new MessageEvent("message", {
+        data: {
+          id: first ? 1 : 0,
+          sequence: 1,
+          state: { screen: "problem", reason: "copy-unavailable" },
+          timing: { kind: "live", compute: 0, elapsed: 0 },
+          posted: posted.data,
+        },
+      }),
+    );
+    expect(listener).not.toHaveBeenCalled();
+    if (disposition === "close") client.dispose();
+    if (disposition === "request" || disposition === "replace") {
+      void client.request({ kind: "all-time" });
+      if (first) expect(await first).toEqual({ kind: "replaced" });
+    }
+    if (disposition === "superseded") {
+      receive(
+        new MessageEvent("message", {
+          data: {
+            id: 0,
+            sequence: 2,
+            state: { screen: "problem", reason: "invalid-address" },
+            timing: { kind: "live", compute: 0, elapsed: 0 },
+            posted: postedTiming(14, 20),
+          },
+        }),
+      );
+    }
+    now += 10000;
+    posted.complete(12, 20);
+    await vi.runOnlyPendingTimersAsync();
+    const paints = disposition === "paint" || disposition === "superseded";
+    expect(listener).toHaveBeenCalledTimes(paints ? 1 : 0);
+    if (paints)
+      expect(listener.mock.calls[0]![1]).toMatchObject({
+        compute: disposition === "superseded" ? 14 : 12,
+        elapsed: 20,
+        page: 0,
+      });
+  },
+);
+
+const invalidPosted = () => {
+  const flag = postedTiming();
+  Atomics.store(new Int32Array(flag.buffer, 16, 1), 0, 2);
+  return [
+    new Uint8Array(20),
+    new Uint8Array(new SharedArrayBuffer(21), 1, 20),
+    new Uint8Array(new SharedArrayBuffer(16)),
+    flag,
+    ...[-1, NaN, Infinity].flatMap((value) => [postedTiming(value, 0), postedTiming(0, value)]),
+  ];
+};
+
+it.each(invalidPosted())(
+  "rejects an untrusted shared timing record %# at the public channel",
+  async (posted) => {
+    const server = inMemoryDashboardServer(syntheticCopy([]));
+    const engine = inThreadEngine(server.fetch);
+    onTestFinished(async () => {
+      await engine.dispose();
+      await server.dispose();
+    });
+    await expect(
+      engine.sendToPage({
+        id: 0,
+        sequence: 1,
+        state: { screen: "problem", reason: "copy-unavailable" },
+        timing: { kind: "live", compute: 0, elapsed: 0 },
+        posted,
+      }),
+    ).rejects.toThrow("Invalid shared post clock");
+  },
+);

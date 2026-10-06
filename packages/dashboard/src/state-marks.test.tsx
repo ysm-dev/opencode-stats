@@ -1,4 +1,4 @@
-import { cleanup, within, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, within, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from "vitest";
 import { filterCopy } from "@opencode-stats/engine/testing";
 import { dashboardEnvironment } from "./testing/environment.ts";
@@ -11,6 +11,20 @@ afterEach(() => {
 });
 const marks = () =>
   [...document.querySelectorAll("[data-state]")].map((node) => node.getAttribute("data-state"));
+
+it("times the existing CSS resize only after the complete page is mounted", async () => {
+  const f = dashboardFixture(filterCopy());
+  onTestFinished(f.close);
+  fireEvent(window, new Event("resize"));
+  await f.view.findByRole("heading", { name: "Overview" });
+  const before = marks();
+  const count = performance.getEntriesByName("opencode-stats:change:resize").length;
+  fireEvent(window, new Event("resize"));
+  await vi.waitFor(() =>
+    expect(performance.getEntriesByName("opencode-stats:change:resize")).toHaveLength(count + 1),
+  );
+  expect(marks()).toEqual(before);
+});
 
 it("each region retains its drawn answer's mark while a newer complete filter answer is delayed", async () => {
   const deliveries: Array<() => void> = [];

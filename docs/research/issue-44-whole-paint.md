@@ -1,13 +1,23 @@
 # Whole-paint enforcement (#44)
 
 The dashboard's clock measures synchronous input handling on the page thread,
-worker selection/computation and fact/index slices on the worker thread, and the
+worker decoding/selection/computation, its actual synchronous reply clone, and
+fact/index slices on the worker thread, and the
 complete page commit on the page thread. A paint starts **inside** rAF and ends in
 its MessageChannel task. These parts are summed in
 `opencode-stats:change:<kind>` User Timing measures, with numeric `input`,
 `compute`, `page`, and `paint` detail. Network, worker reply, yield and next-frame
 waits are not part of that sum. The separate input-to-paint measure is an elapsed
 rendering proxy, **not** screen presentation (the #24 measurement spike).
+
+Each reply shares a 20-byte completion record: two elapsed times and an atomic
+ready flag. The worker fills it after its single native `postMessage` returns.
+The client validates its layout and finite nonnegative contents before drawing;
+if it arrives before the sender finishes, it yields without counting that wait.
+A tab-local reply sequence rejects a completion superseded while waiting. This
+does not benchmark, guess, or serialize the complete state a second time, and
+needs no chain of timing acknowledgements. The packed tests already require
+cross-origin isolation on both channel ends.
 
 Copy diagnostics reads the same measures and emits only kind, sample count,
 nearest-rank median and p95, keeping the most recent 100 samples per kind. Timing
@@ -34,8 +44,14 @@ seam; the workflow DAG and all test, hook, stage and job caps are unchanged.
 Phone actions use native taps, desktop actions use native mouse clicks, and
 checklist search uses actual key input. Checklist expansion and single-key
 shortcut choices are covered too, beyond the issue's listed kinds.
+The tour also changes the system light/dark sensor while following System and
+crosses the existing CSS-only 768 px layout breakpoint in both directions. It
+does not add the future phone shell, height breakpoint or page-column features.
 
-The observer starts before navigation, samples every rendering frame, and checks:
+The observer starts before navigation and retains each rendering frame's last
+rAF drawing, including later callbacks and their immediate microtasks. It checks
+that immutable snapshot in a post-paint MessageChannel task, not the possibly
+already changed live DOM. Pending snapshots are queued per frame. It checks:
 
 - `whole-paint:mixed-frame`: each global region and each checklist's local marks
   agree. Actual numbers, ticks, amounts, bars, chips, controls and search values
@@ -48,9 +64,11 @@ The observer starts before navigation, samples every rendering frame, and checks
   equal the range control's drawn address after a worker action completes.
 - `whole-paint:user-change-network`: only the live stream is always allowed;
   changes-since requests are allowed only in live/resume/visible phases.
-- `whole-paint:early-load-paint`: the copy and font responses are independently
-  held while the dashboard remains blank; the first drawn frame must have all
-  current page regions and its loaded font.
+- `whole-paint:early-load-paint`: the required font is held on the fresh browser's
+  first visit, with the copy response complete and the actual face verified
+  unavailable; the copy is independently held on reload. Both waits remain blank,
+  and the first drawn frame must have all current page regions and its loaded
+  font. A cached WebKit face is not confused with a redundant preload on reload.
 - `whole-paint:animation`: native animations and nonzero computed animation or
   transition durations, including pseudo-elements, are rejected.
 
@@ -61,6 +79,10 @@ request, partial content during a held load, and an important CSS transition.
 Each must be observed and rejected by its corresponding named check in both
 engines. Gate helpers, tours, canaries and timing proof tests have exact
 CODEOWNERS lines.
+It additionally plants a late-rAF number corruption restored in a post-paint
+task: exactly one partial frame must be rejected. The same corruption restored
+in a microtask before paint must be accepted, retaining the distinction between
+unpainted intermediate DOM work and a frame a user could actually see.
 
 ## Test controls and limitations
 
@@ -104,3 +126,11 @@ The existing hosted failure in run 37538927650 supplies the original red signal:
 a valid Today minute-cut frame was outside the old two-snapshot whitelist. The
 new native three-state case is the regression seam; no local red/green claim is
 made because all gate execution is reserved for hosted Actions.
+
+Hosted run 37546332444 supplies a second red signal: removing a fixed range
+incorrectly fell through to All time on every required platform. The worker now
+dispatches `remove-fixed` with its preset, retaining the existing public-channel
+and packed-range exact assertions. That run also exposed the native switch's
+hidden input as an invalid pointer target; the tour now clicks/taps its visible
+associated label. All review regressions and repairs still need a hosted green
+run; none was run locally.

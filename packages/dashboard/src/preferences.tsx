@@ -7,7 +7,11 @@ import { changes, stateMark } from "./change-time.ts";
 
 const apply = (theme: DesktopTheme, mode: "light" | "dark") => {
   changes.appearance(
-    theme.id === document.documentElement.dataset["paletteTheme"] ? "scheme" : "theme",
+    theme.id !== document.documentElement.dataset["paletteTheme"]
+      ? "theme"
+      : localStorage.getItem("opencode-color-scheme") === "system"
+        ? "system-scheme"
+        : "scheme",
     () => {
       const palette = dashboardPalette(theme, mode === "dark");
       let style = document.getElementById("dashboard-theme");

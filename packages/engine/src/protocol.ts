@@ -107,8 +107,10 @@ export const Answer = Schema.Union([
   Schema.Struct({ reload: Schema.Literal(true) }),
   Schema.Struct({
     id: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+    sequence: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
     state: State,
     timing: ComputeTime,
+    posted: Schema.Uint8Array,
   }),
 ]);
 export type EngineRequest = typeof Request.Type;

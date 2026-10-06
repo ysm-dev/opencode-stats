@@ -12,6 +12,7 @@ type Check = (typeof wholePaintChecks)[number];
 // Installed synthetic pages only. Keep diagnostics to counters and named checks;
 // snapshots are used for comparisons, never printed in failures or reports.
 export function installWholePaintObserver() {
+  const page = document;
   const evidence = {
     failures: [] as string[],
     samples: 0,
@@ -22,11 +23,21 @@ export function installWholePaintObserver() {
   const fail = (check: string) => {
     if (!evidence.failures.includes(check)) evidence.failures.push(check);
   };
+  type Drawing = { region: Element; key: string; drawing: string };
+  let frame = {
+    failures: [] as string[],
+    drawings: [] as Drawing[],
+    drawn: false,
+    complete: false,
+  };
+  let pending = { drawing: frame };
+  const frames: Array<typeof pending> = [];
+  const flag = (check: string) => {
+    frame.failures.push(check);
+  };
   const painted = new WeakMap<Element, { key: string; drawing: string }>();
   const retainDrawing = (region: Element, key: string, drawing: string) => {
-    const before = painted.get(region);
-    if (before?.key === key && before.drawing !== drawing) fail("mixed-frame");
-    painted.set(region, { key, drawing });
+    frame.drawings.push({ region, key, drawing });
   };
   const observeRegions = (regions: Element[]) => {
     for (const region of regions) {
@@ -65,7 +76,7 @@ export function installWholePaintObserver() {
       root.dataset["paletteTheme"] !== root.dataset["theme"] ||
       root.dataset["paletteScheme"] !== root.dataset["colorScheme"]
     )
-      fail("mixed-frame");
+      flag("mixed-frame");
     const style = getComputedStyle(root);
     retainDrawing(
       root,
@@ -77,13 +88,13 @@ export function installWholePaintObserver() {
       ),
     );
     const sheet = document.querySelector<HTMLElement>(".settings-sheet");
-    if (sheet && sheet.dataset["theme"] !== root.dataset["paletteTheme"]) fail("mixed-frame");
+    if (sheet && sheet.dataset["theme"] !== root.dataset["paletteTheme"]) flag("mixed-frame");
     if (
       sheet &&
       sheet.dataset["scheme"] !== "system" &&
       sheet.dataset["scheme"] !== root.dataset["paletteScheme"]
     )
-      fail("mixed-frame");
+      flag("mixed-frame");
     if (sheet)
       retainDrawing(
         sheet,
@@ -98,7 +109,7 @@ export function installWholePaintObserver() {
       );
   };
   const snapshot = () => {
-    const root = document.documentElement;
+    const root = page.documentElement;
     const style = getComputedStyle(root);
     return JSON.stringify({
       regions: [...document.querySelectorAll("[data-state]")].map((node) => [
@@ -135,7 +146,7 @@ export function installWholePaintObserver() {
   };
   const pageComplete = (states: Set<string | null>, regions: Element[]) => {
     const dashboardComplete =
-      !!document.querySelector("main h1") &&
+      !!page.querySelector("main h1") &&
       document.querySelectorAll(".headline-number").length === 9 &&
       document.querySelectorAll(".filter-checklist").length === 6 &&
       !!document.querySelector(".tool-outcomes") &&
@@ -151,14 +162,19 @@ export function installWholePaintObserver() {
       !document.querySelector(".shell");
     return dashboardComplete || problemComplete;
   };
+  const durations = ["transitionDuration", "animationDuration"] as const;
+  const moving = (style: CSSStyleDeclaration) =>
+    durations.some((property) =>
+      style[property].split(",").some((duration) => Number.parseFloat(duration) > 0),
+    );
   const sample = () => {
-    evidence.samples++;
+    frame = { failures: [], drawings: [], drawn: false, complete: false };
     const root = document.getElementById("root");
     const drawn = !!root?.children.length;
     if (drawn) observePalette();
     const regions = [...document.querySelectorAll("[data-state]")];
     const states = new Set(regions.map((node) => node.getAttribute("data-state")));
-    if (states.size > 1) fail("mixed-frame");
+    if (states.size > 1) flag("mixed-frame");
     observeRegions(regions);
     for (const list of document.querySelectorAll(".filter-checklist")) {
       const mark = list.getAttribute("data-local-state");
@@ -167,28 +183,53 @@ export function installWholePaintObserver() {
           (node) => node.getAttribute("data-local-state") !== mark,
         )
       )
-        fail("mixed-frame");
+        flag("mixed-frame");
     }
-    if (!drawn) evidence.blank++;
-    else if (pageComplete(states, regions)) evidence.complete++;
-    else fail("early-load-paint");
-    const moving = (style: CSSStyleDeclaration) =>
-      [style.transitionDuration, style.animationDuration].some((durations) =>
-        durations.split(",").some((duration) => Number.parseFloat(duration) > 0),
-      );
-    if (document.getAnimations().length) fail("animation");
+    frame.drawn = drawn;
+    frame.complete = pageComplete(states, regions);
+    if (drawn && !frame.complete) flag("early-load-paint");
+    if (document.getAnimations().length) flag("animation");
     for (const element of document.querySelectorAll("*")) {
       if (
         [undefined, "::before", "::after"].some((pseudo) =>
           moving(getComputedStyle(element, pseudo)),
         )
       )
-        fail("animation");
+        flag("animation");
     }
-    evidence.raf = requestAnimationFrame(sample);
+    pending.drawing = frame;
+  };
+  const channel = new MessageChannel();
+  channel.port1.addEventListener("message", () => {
+    const completeFrame = frames.shift()!.drawing;
+    evidence.samples++;
+    for (const check of completeFrame.failures) fail(check);
+    for (const { region, key, drawing } of completeFrame.drawings) {
+      const before = painted.get(region);
+      if (before?.key === key && before.drawing !== drawing) fail("mixed-frame");
+      painted.set(region, { key, drawing });
+    }
+    if (!completeFrame.drawn) evidence.blank++;
+    else if (completeFrame.complete) evidence.complete++;
+  });
+  channel.port1.start();
+  // Read only at rendering callbacks, never in an input handler or a post-paint
+  // task. Retain the *last* rAF drawing, then judge that immutable snapshot after
+  // paint. Later rAF work is included; earlier unpainted intermediates are not.
+  const nativeFrame = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (run) =>
+    nativeFrame((time) => {
+      run.call(window, time);
+      queueMicrotask(sample);
+    });
+  const observeFrame = () => {
+    pending = { drawing: frame };
+    frames.push(pending);
+    channel.port2.postMessage(null);
+    evidence.raf = requestAnimationFrame(observeFrame);
   };
   window.wholePaint = { evidence, snapshot, sample };
-  evidence.raf = requestAnimationFrame(sample);
+  evidence.raf = requestAnimationFrame(observeFrame);
 }
 
 declare global {
@@ -273,7 +314,7 @@ export async function wholeChange(page: Page, kind: string, action: () => Promis
         !("paint" in input) ||
         typeof input.paint !== "number"
       )
-        throw new Error("whole-paint:invalid-clock");
+        throw new Error(`whole-paint:invalid-clock:${name}`);
       return [input.input, input.compute, input.page, input.paint];
     };
     return performance.getEntriesByName(`opencode-stats:change:${name}`).map((entry) => {

@@ -7,6 +7,8 @@ type LocalKind =
   | "settings"
   | "theme"
   | "scheme"
+  | "system-scheme"
+  | "resize"
   | "shortcuts"
   | "search"
   | "expand-checklist";
@@ -23,11 +25,12 @@ const browserTools: Tools = {
   },
   task: (run) => {
     const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
+    channel.port1.addEventListener("message", () => {
       channel.port1.close();
       channel.port2.close();
       run();
-    };
+    });
+    channel.port1.start();
     channel.port2.postMessage(null);
   },
   measure: (name, options) => {
@@ -94,7 +97,7 @@ export function createChangeClock(tools: Tools = browserTools) {
     },
     // The native provider may apply CSS in a later microtask. Attribute its own
     // palette work to the pending theme/scheme input, without counting that wait.
-    appearance: <T>(kind: "theme" | "scheme", update: () => T): T => {
+    appearance: <T>(kind: "theme" | "scheme" | "system-scheme", update: () => T): T => {
       const pending = [...localParts.keys()].findLast(
         (candidate) => candidate === "theme" || candidate === "scheme",
       );

@@ -8,6 +8,7 @@ import {
 } from "./protocol.ts";
 import type { EngineNetwork } from "./network.ts";
 import type { ChangeKind } from "./change.ts";
+import { createPostClock } from "./post-clock.ts";
 import { createLiveEngine } from "./live.ts";
 import { systemClock, type EngineClock } from "./clock.ts";
 import {
@@ -110,6 +111,7 @@ export function connectEngine(
     | undefined;
   let filterAnnouncement = "";
   let inputWork = 0;
+  let sequence = 0;
   const selectRange = (action: EngineAction) => {
     filterChange = undefined;
     filterAnnouncement = "";
@@ -122,7 +124,7 @@ export function connectEngine(
       } catch {
         range = undefined;
       }
-    } else if (action.kind === "preset") {
+    } else if (action.kind === "preset" || action.kind === "remove-fixed") {
       range = action.preset;
     } else if (
       action.kind === "filter" ||
@@ -158,24 +160,34 @@ export function connectEngine(
       }
     }
     filterChange = undefined;
+    const posted = createPostClock();
     port.postMessage({
       id,
+      sequence: ++sequence,
       state: state.screen === "dashboard" ? { ...state, filterAnnouncement } : state,
       timing: {
         kind: changeKind,
         compute: clock.workNow() - started + inputWork + work,
         elapsed: clock.workNow() - started + elapsed,
       },
+      posted: posted.data,
     });
+    posted.complete(
+      clock.workNow() - started + inputWork + work,
+      clock.workNow() - started + elapsed,
+    );
     inputWork = 0;
   };
   const live = createLiveEngine(network, clock, paint, () => port.postMessage({ reload: true }));
   const decode = Schema.decodeUnknownSync(Message);
   const receive = (event: MessageEvent) => {
+    const started = clock.workNow();
     const message = decode(event.data);
-    if ("kind" in message) live.signal(message);
-    else {
-      const started = clock.workNow();
+    if ("kind" in message) {
+      const decoded = clock.workNow() - started;
+      inputWork = (pending ? inputWork : 0) + decoded;
+      live.signal(message);
+    } else {
       active = pending = message;
       selectRange(message.action);
       inputWork = clock.workNow() - started;

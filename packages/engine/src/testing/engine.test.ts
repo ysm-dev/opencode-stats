@@ -1,5 +1,8 @@
 import { expect, it, vi } from "vitest";
 import * as fc from "fast-check";
+import * as Schema from "effect/Schema";
+import { Answer } from "../protocol.ts";
+import { readPostClock } from "../post-clock.ts";
 import type { Step } from "@opencode-stats/browser-copy";
 import {
   inMemoryDashboardServer,
@@ -135,13 +138,19 @@ it("replaces an unanswered request, emits only the newest complete state and kee
       kind: "paint",
       state: { screen: "problem", reason: "invalid-address" },
     });
-    expect(engine.answers).toEqual([
-      {
-        id: 2,
-        state: { screen: "problem", reason: "invalid-address" },
-        timing: { kind: "address", compute: expect.any(Number), elapsed: expect.any(Number) },
-      },
-    ]);
+    expect(engine.answers).toHaveLength(1);
+    const answer = Schema.decodeUnknownSync(Answer)(engine.answers[0]);
+    if (!("state" in answer)) throw new Error("Expected a complete channel answer");
+    const { timing, posted, ...reply } = answer;
+    expect(reply).toEqual({
+      id: 2,
+      sequence: 1,
+      state: { screen: "problem", reason: "invalid-address" },
+    });
+    expect(timing.kind).toBe("address");
+    expect(timing.compute).toBeGreaterThanOrEqual(0);
+    expect(timing.elapsed).toBeGreaterThanOrEqual(0);
+    expect(readPostClock(posted)?.compute).toBeGreaterThanOrEqual(timing.compute);
     expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
       kind: "paint",
       state: {

@@ -10,10 +10,10 @@ export async function installTourClock(context: BrowserContext, now: number) {
       let now = ${now};
       Date.now = () => now;
       const channel = new BroadcastChannel("synthetic-tour-clock");
-      channel.onmessage = event => {
+      channel.addEventListener("message", event => {
         if (typeof event.data !== "number" || !Number.isFinite(event.data)) return;
         now = event.data; channel.postMessage(now);
-      };
+      });
     }\n`;
     await route.fulfill({ response, body: prelude + (await response.text()) });
   });
@@ -28,11 +28,12 @@ export async function tourTime(page: Page, now: number) {
           channel.close();
           reject(new Error("whole-paint:tour-clock-unavailable"));
         }, 1000);
-        channel.onmessage = () => {
+        channel.addEventListener("message", () => {
           clearTimeout(timer);
           channel.close();
           resolve();
-        };
+        });
+        // oxlint-disable-next-line unicorn/require-post-message-target-origin -- BroadcastChannel.postMessage has no Window targetOrigin parameter.
         channel.postMessage(time);
       }),
     now,
