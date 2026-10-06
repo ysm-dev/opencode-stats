@@ -10,7 +10,7 @@ import pin from "../../../native/sqlite/test-runtime.json" with { type: "json" }
 import { opencodeExecutable } from "../../../scripts/opencode-runtime.ts";
 import { privateOpenCode } from "../../../scripts/private-opencode.ts";
 
-it.each([
+it.concurrent.each([
   [pin.minimum, "packed"],
   [pin.opencode, "packed"],
   [pin.opencode, "source"],
