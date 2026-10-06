@@ -239,16 +239,16 @@ it("removes the details of a session that disappears between build units even wh
   writer.message({ id: "new-step", session: "new", seq: 0, start: 2 });
   writer.message({ id: "old-step", session: "doomed", seq: 0, start: 1 });
   try {
-    await runWithClock((time) =>
-      Effect.gen(function* () {
-        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime, (copy) => {
-          if (copy.revision === 1) writer.deleteSession("doomed");
-        });
-        yield* time.tick;
-        expect(canonicalCopy(yield* store.read()).sessions.map((row) => row.code)).toEqual(["new"]);
-        expect((yield* store.read()).facts.map((row) => row.id)).toEqual(["new-step"]);
-      }),
+    const copy = await readBuilt(
+      { source, cacheHome: folder },
+      (commit) => {
+        if (commit.revision === 1) writer.deleteSession("doomed");
+      },
+      nodeRuntime,
     );
+    // Check the completed pass before a later poll could repair missing metadata.
+    expect(canonicalCopy(copy).sessions.map((row) => row.code)).toEqual(["new"]);
+    expect(copy.facts.map((row) => row.id)).toEqual(["new-step"]);
   } finally {
     fixture.dispose();
   }
