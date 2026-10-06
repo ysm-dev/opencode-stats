@@ -1,11 +1,5 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
-import { appendFileSync } from "node:fs";
-
-const traceCleanup = (event: string): void => {
-  const file = process.env["OPENCODE_STATS_CLEANUP_TRACE"];
-  if (file) appendFileSync(file, `${Date.now()} controller=${process.pid} ${event}\n`);
-};
 
 class CleanupFailure extends AggregateError {
   constructor(failures: Error[], context: string) {
@@ -90,7 +84,6 @@ const signal = (
 ): boolean => {
   try {
     process.kill(pid, name);
-    traceCleanup(`pid=${pid} signal=${name}`);
     return true;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ESRCH") return false;
@@ -158,7 +151,7 @@ const killOwnedTree = (pid: number, deadline: number, descendant: boolean): void
     if (!stopped) return;
     phase = "inventory";
     const inventoryStarted = performance.now();
-    const result = spawnSync("ps", ["-A", "-o", "pid=,ppid="], {
+    const result = spawnSync("pgrep", ["-P", String(pid)], {
       encoding: "utf8",
       // One shared deadline for the whole tree; reserve its final 400ms for
       // KILL and CONT, including a separate 200ms resume allowance.
@@ -166,14 +159,16 @@ const killOwnedTree = (pid: number, deadline: number, descendant: boolean): void
     });
     inventoryMs = Math.round(performance.now() - inventoryStarted);
     inventoryStatus = result.status;
-    traceCleanup(`pid=${pid} inventoryMs=${inventoryMs} status=${inventoryStatus}`);
     if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error("Cannot inventory test workers");
+    // pgrep exits 1 when the frozen parent has no children.
+    if (result.status !== 0 && result.status !== 1)
+      throw new Error("Cannot inventory test workers");
     phase = "descendants";
-    for (const row of result.stdout.trim().split("\n")) {
-      const [child, parent] = row.trim().split(/\s+/u).map(Number);
-      if (parent !== pid || child === undefined || child === process.pid) continue;
-      traceCleanup(`pid=${pid} child=${child}`);
+    for (const row of result.stdout.split("\n")) {
+      if (!row.trim()) continue;
+      const child = Number(row);
+      if (!Number.isSafeInteger(child) || child <= 0) throw new Error("Invalid child process ID");
+      if (child === process.pid) continue;
       try {
         killOwnedTree(child, deadline, true);
       } catch (error) {

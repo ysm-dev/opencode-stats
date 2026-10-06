@@ -59,17 +59,26 @@ export async function verifyProcessCleanup(): Promise<void> {
     `export default { test: { include: [${JSON.stringify(fixture.replaceAll("\\", "/"))}], globalSetup: [${JSON.stringify(setup)}] } };\n`,
   );
   const failures: string[] = [];
+  // A slow whole-system scan must not consume discovery time at every depth.
+  // The fixture still requires all detached descendants to be gone before rescue.
+  writeFileSync(
+    join(folder, "ps"),
+    '#!/bin/sh\nif [ "$1" = -A ]; then /bin/sleep 0.25; fi\nexec /bin/ps "$@"\n',
+    { mode: 0o755 },
+  );
   try {
     for (const mode of ["command", "vitest", "coordinator"]) {
       const pidsFile = join(folder, `${mode}.pids`);
-      const traceFile = join(folder, `${mode}.trace`);
       try {
         const options = {
           capture: true,
           env: {
             ...process.env,
             BUDGET_PID_FILE: pidsFile,
-            OPENCODE_STATS_CLEANUP_TRACE: traceFile,
+            PATH:
+              process.platform === "win32"
+                ? process.env["PATH"]
+                : `${folder}:${process.env["PATH"]}`,
           },
         };
         if (mode === "command") {
@@ -95,16 +104,6 @@ export async function verifyProcessCleanup(): Promise<void> {
         );
         assert.deepEqual(pids.filter(running), [], `${mode}: workers survived the deadline`);
       } catch (error) {
-        const states = recorded(pidsFile).map((pid) => ({
-          pid,
-          state: spawnSync("ps", ["-p", String(pid), "-o", "pid=,ppid=,stat="], {
-            encoding: "utf8",
-            timeout: 1000,
-          }).stdout,
-        }));
-        process.stderr.write(
-          `[DEBUG-issue27-cleanup] mode=${mode} observedAt=${Date.now()} states=${JSON.stringify(states)} trace=${existsSync(traceFile) ? readFileSync(traceFile, "utf8") : "absent"}\n`,
-        );
         failures.push(`${mode}: ${String(error)}`);
       } finally {
         // Clean up even on the intentionally red run against the old watchdog.
@@ -132,10 +131,10 @@ setInterval(() => {}, 1000);
 `,
   );
   writeFileSync(
-    join(folder, "ps"),
+    join(folder, "pgrep"),
     `#!/bin/sh
-if [ "$1" = -A ]; then echo 'PRIVATE-cleanup-sentinel' >&2; exec /bin/sleep 2; fi
-exec /bin/ps "$@"
+if [ "$1" = -P ]; then echo 'PRIVATE-cleanup-sentinel' >&2; exec /bin/sleep 2; fi
+exec /usr/bin/pgrep "$@"
 `,
     { mode: 0o755 },
   );

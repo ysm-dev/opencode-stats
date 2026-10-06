@@ -131,8 +131,8 @@ exec /usr/bin/sudo "$@"
       );
       if (timeout && mode !== "stop-timeout")
         writeFileSync(
-          join(denied, "ps"),
-          `#!/bin/sh\nif [ "$1" = -A ] && [ -f '${denied}/frozen' ]; then touch '${denied}/inventory'; exec /bin/sleep 2; fi\nexec /bin/ps "$@"\n`,
+          join(denied, "pgrep"),
+          `#!/bin/sh\nif [ "$1" = -P ] && [ -f '${denied}/frozen' ]; then touch '${denied}/inventory'; exec /bin/sleep 2; fi\nexec /usr/bin/pgrep "$@"\n`,
           { mode: 0o755 },
         );
       process.env["PATH"] = `${denied}:${originalPath}`;
@@ -161,7 +161,7 @@ exec /usr/bin/sudo "$@"
             let original = error;
             while (original.cause instanceof Error) original = original.cause;
             assert.ok(
-              "syscall" in original && original.syscall === "spawnSync ps",
+              "syscall" in original && original.syscall === "spawnSync pgrep",
               "Recovery replaced the original inventory failure",
             );
             assert.match(

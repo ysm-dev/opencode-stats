@@ -67,7 +67,8 @@ for (const [name, os] of [
 assert.deepEqual(object(jobs["verification"])["needs"], ["checks", "contracts", "packed"]);
 const gateNeeds = object(jobs["gates"])["needs"];
 assert.ok(
-  Array.isArray(gateNeeds) && ["packed", "intel", "linux"].every((name) => gateNeeds.includes(name)),
+  Array.isArray(gateNeeds) &&
+    ["packed", "intel", "linux"].every((name) => gateNeeds.includes(name)),
 );
 
 const canaries = [...checks()];
