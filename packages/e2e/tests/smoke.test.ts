@@ -8,7 +8,7 @@ import { syntheticDatabase } from "@opencode-stats/stats-store/testing";
 import { decode } from "@opencode-stats/browser-copy";
 import { chromium } from "playwright";
 import { describe, expect, it, vi } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import sqlite from "../../../native/sqlite/manifest.json" with { type: "json" };
 import { checkEmbedded } from "./testing/embedded.ts";
@@ -110,25 +110,33 @@ describe("installed release", () => {
         });
         expect(await once(node, "close")).toEqual([1, null]);
         expect(message).toBe("opencode-stats needs Bun: run `bunx opencode-stats`\n");
+        const home = join(folder, "home");
+        await mkdir(home, { mode: 0o700 });
         const missing = join(folder, "missing.db");
-        const refused = spawn(command, [...prefix, "--db", missing], {
-          cwd: folder,
-          env: {
-            ...process.env,
-            HOME: folder,
-            XDG_STATE_HOME: folder,
-            XDG_CACHE_HOME: folder,
-            XDG_DATA_HOME: folder,
-            OPENCODE_CONFIG_DIR: folder,
-          },
-        });
-        const rejected = capture(refused);
-        expect(await rejected.closed).toEqual([1, null]);
-        expect(rejected.transcript.output).toBe("");
-        expect(rejected.transcript.error).toBe(
-          `Can't find the OpenCode database: ${missing} (from \`--db\`)\nRun OpenCode once, or pass \`--db <path>\`\n`,
-        );
-        expect(existsSync(missing)).toBe(false);
+        for (const [database, displayed] of [
+          [missing, missing],
+          [join(realpathSync(home), "missing.db"), "~/missing.db"],
+        ] as const) {
+          const refused = spawn(command, [...prefix, "--db", database], {
+            cwd: folder,
+            env: {
+              ...process.env,
+              HOME: home,
+              USERPROFILE: home,
+              XDG_STATE_HOME: folder,
+              XDG_CACHE_HOME: folder,
+              XDG_DATA_HOME: folder,
+              OPENCODE_CONFIG_DIR: folder,
+            },
+          });
+          const rejected = capture(refused);
+          expect(await rejected.closed).toEqual([1, null]);
+          expect(rejected.transcript.output).toBe("");
+          expect(rejected.transcript.error).toBe(
+            `Can't find the OpenCode database: ${displayed} (from \`--db\`)\nRun OpenCode once, or pass \`--db <path>\`\n`,
+          );
+          expect(existsSync(database)).toBe(false);
+        }
         const db = syntheticDatabase(join(folder, "synthetic.db"));
         writer = db;
         db.session("ses-installed");
