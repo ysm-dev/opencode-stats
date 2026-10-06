@@ -16,7 +16,7 @@ const watchRanges = async (page: Page) =>
         ...[...document.querySelectorAll("[data-range]")].map((region) =>
           region.getAttribute("data-range"),
         ),
-        document.querySelector<HTMLSelectElement>("#time-range")!.value,
+        document.querySelector('.range-control [data-slot="select-v2-value-text"]')!.textContent,
         ...[...document.querySelectorAll(".headline-number")].map((number) => number.textContent),
         ...[...document.querySelectorAll(".previous-period")].map((caption) => caption.textContent),
         document.title,
@@ -53,7 +53,13 @@ const wholeRange = async (page: Page, action: () => Promise<void>, title: string
 it.each([chromium, webkit])(
   "paints packed ranges whole, restores history and bookmarks, and sends no user-change requests in %s",
   async (browser) => {
-    await using fixture = await preferencesBrowser(browser, { timezoneId: "UTC", locale: "en-GB" });
+    const touch = browser === webkit;
+    await using fixture = await preferencesBrowser(browser, {
+      timezoneId: "UTC",
+      locale: "en-GB",
+      hasTouch: touch,
+      viewport: { width: touch ? 360 : 1280, height: 720 },
+    });
     const now = Date.now();
     const today = Math.floor(now / 86400000) * 86400000;
     for (const [id, start, input] of [
@@ -81,11 +87,20 @@ it.each([chromium, webkit])(
     await watchRanges(page);
     const requests: string[] = [];
     fixture.context.on("request", (request) => requests.push(request.url()));
-    const select = page.getByRole("combobox", { name: "Time range" });
+    const select = page.getByRole("button", { name: /^Time range/ });
+    expect(
+      await select.evaluate((element) => Math.round(element.getBoundingClientRect().height)),
+    ).toBe(touch ? 44 : 28);
     await wholeRange(
       page,
       async () => {
-        await select.selectOption("today");
+        await select.click();
+        expect(
+          await page
+            .getByRole("option", { name: "Today", exact: true })
+            .evaluate((element) => element.getBoundingClientRect().height),
+        ).toBeGreaterThanOrEqual(touch ? 44 : 28);
+        await page.getByRole("option", { name: "Today", exact: true }).click();
       },
       "Overview · Today · opencode-stats",
     );

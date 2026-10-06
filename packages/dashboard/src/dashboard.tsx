@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import { render } from "solid-js/web";
 import { MetaProvider, Title } from "@solidjs/meta";
+import { Select } from "@opencode/ui/select";
 import { PreferenceProvider } from "./preferences.tsx";
 import { Settings } from "./settings.tsx";
 import {
@@ -35,17 +36,17 @@ const PageActions = createContext<PageClient>();
 const RangeControls = () => {
   const state = useContext(PageState)!;
   const client = useContext(PageActions)!;
-  const selectPreset = (event: Event & { currentTarget: HTMLSelectElement }) => {
-    const preset = presets.find((value) => value === event.currentTarget.value)!;
-    event.currentTarget.value = state().range.preset;
-    void client.request({ kind: "preset", preset });
+  const selectPreset = (preset: (typeof presets)[number] | null) => {
+    if (preset) void client.request({ kind: "preset", preset });
   };
+  const focusRange = () =>
+    document.querySelector<HTMLElement>('.range-control [data-component="select-v2"]')!.focus();
   const nextRange = () => {
-    document.getElementById("time-range")!.focus();
+    focusRange();
     void client.request({ kind: "shift", direction: 1 });
   };
   const removeFixed = () => {
-    document.getElementById("time-range")!.focus();
+    focusRange();
     void client.request({ kind: "preset", preset: state().range.preset });
   };
   return (
@@ -58,14 +59,18 @@ const RangeControls = () => {
       >
         ‹
       </button>
-      <label class="sr-only" for="time-range">
+      <span class="sr-only" id="time-range-label">
         Time range
-      </label>
-      <select id="time-range" value={state().range.preset} onChange={selectPreset}>
-        {presets.map((preset) => (
-          <option value={preset}>{presetLabels[preset]}</option>
-        ))}
-      </select>
+      </span>
+      <Select
+        options={[...presets]}
+        current={state().range.preset}
+        label={(preset) => presetLabels[preset]}
+        aria-labelledby="time-range-label"
+        fitViewport
+        onSelect={selectPreset}
+        contentClass="settings-options range-options"
+      />
       <button
         type="button"
         aria-label="Next range"

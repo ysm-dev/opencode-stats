@@ -166,13 +166,16 @@ h2 {
   background: var(--dashboard-base) !important;
 }
 .settings-sheet [data-component="select-v2"] [data-slot="select-v2-value-text"],
+.range-control [data-component="select-v2"] [data-slot="select-v2-value-text"],
 .settings-sheet [data-component="switch"] [data-slot="switch-label"] {
   color: var(--dashboard-text-base);
 }
-.settings-sheet [data-slot="select-v2-chevron"] {
+.settings-sheet [data-slot="select-v2-chevron"],
+.range-control [data-component="select-v2"] [data-slot="select-v2-chevron"] {
   color: var(--dashboard-edge-base);
 }
-.settings-sheet [data-component="select-v2"]:focus-visible {
+.settings-sheet [data-component="select-v2"]:focus-visible,
+.range-control [data-component="select-v2"]:focus-visible {
   outline: 2px solid var(--dashboard-focus-base) !important;
   outline-offset: -4px !important;
 }
@@ -264,13 +267,13 @@ h2 {
   color: var(--dashboard-muted-base);
 }
 .range-control button,
-.range-control select {
+.range-control [data-component="select-v2"] {
   min-height: 28px;
   min-width: 28px;
   padding: 4px 8px;
   border: 1px solid var(--dashboard-edge-base);
   border-radius: 4px;
-  background: var(--dashboard-base);
+  background: var(--dashboard-base) !important;
   color: var(--dashboard-text-base);
 }
 .fixed-range {
@@ -279,7 +282,8 @@ h2 {
 }
 @media (pointer: coarse) {
   .range-control button,
-  .range-control select {
+  .range-control [data-component="select-v2"],
+  .range-options [data-component="menu-v2-item"] {
     min-height: 44px;
     min-width: 44px;
   }

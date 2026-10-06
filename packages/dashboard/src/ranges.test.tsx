@@ -1,4 +1,4 @@
-import { render, cleanup } from "@solidjs/testing-library";
+import { render, cleanup, screen } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
@@ -15,7 +15,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const rangesDashboard = () => {
+const rangesDashboard = (deliverAnswer: (deliver: () => void) => void = queueMicrotask) => {
   const step = (date: string, input: number, session: number) => ({
     start: Date.parse(date),
     input,
@@ -34,7 +34,7 @@ const rangesDashboard = () => {
     ]),
   );
   const clock = manualClock();
-  const engine = inThreadEngine(server.fetch, queueMicrotask, clock);
+  const engine = inThreadEngine(server.fetch, deliverAnswer, clock);
   const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
   const user = userEvent.setup();
   const close = async () => {
@@ -45,11 +45,16 @@ const rangesDashboard = () => {
   return { server, engine, clock, view, user, close };
 };
 
+const chooseRange = async (f: ReturnType<typeof rangesDashboard>, label: string) => {
+  await f.user.click(f.view.getByRole("button", { name: /^Time range/ }));
+  await f.user.click(await screen.findByRole("option", { name: label, exact: true }));
+};
+
 it("opens fresh on Last 30 days and paints range controls, titles, muted comparisons and captions without a request or announcement", async () => {
   const f = rangesDashboard();
   try {
-    const select = await f.view.findByRole<HTMLSelectElement>("combobox", { name: "Time range" });
-    expect(select.value).toBe("30d");
+    const select = await f.view.findByRole("button", { name: /^Time range/ });
+    expect(select.textContent).toBe("Last 30 days");
     expect(window.location.search).toBe("?range=30d");
     expect(document.title).toBe("Overview · Last 30 days · opencode-stats");
     const tokens = f.view.getByRole("region", { name: "Tokens" });
@@ -59,7 +64,7 @@ it("opens fresh on Last 30 days and paints range controls, titles, muted compari
     expect(next.hasAttribute("disabled")).toBe(true);
     await vi.waitFor(() => expect(f.server.streams).toBe(1));
     const requests = f.server.requests;
-    await f.user.selectOptions(select, "today");
+    await chooseRange(f, "Today");
     await vi.waitFor(() => expect(number?.textContent).toBe("112"));
     expect(document.title).toBe("Overview · Today · opencode-stats");
     expect(tokens.querySelector(".previous-period")?.textContent).toContain("↑ 12%");
@@ -90,8 +95,8 @@ it("opens fresh on Last 30 days and paints range controls, titles, muted compari
 it("shifts, returns to live presets, removes fixed chips and restores Back and Forward from the address", async () => {
   const f = rangesDashboard();
   try {
-    const select = await f.view.findByRole("combobox", { name: "Time range" });
-    await f.user.selectOptions(select, "today");
+    const select = await f.view.findByRole("button", { name: /^Time range/ });
+    await chooseRange(f, "Today");
     await f.user.click(f.view.getByRole("button", { name: "Previous range" }));
     const fixed = "/?range=fixed&from=2026-10-06&to=2026-10-06";
     await vi.waitFor(() => expect(window.location.pathname + window.location.search).toBe(fixed));
@@ -117,7 +122,7 @@ it("shifts, returns to live presets, removes fixed chips and restores Back and F
     await f.user.click(await f.view.findByRole("button", { name: /Remove fixed range/ }));
     await vi.waitFor(() => expect(window.location.search).toBe("?range=today"));
     expect(document.activeElement).toBe(select);
-    await f.user.selectOptions(select, "all");
+    await chooseRange(f, "All time");
     await vi.waitFor(() => expect(document.title).toBe("Overview · All time · opencode-stats"));
     expect(f.view.getByRole("button", { name: "Previous range" }).hasAttribute("disabled")).toBe(
       true,
@@ -141,9 +146,69 @@ it("restores a bookmarked fixed range without changing its local dates or losing
       f.view.getByRole("region", { name: "Tokens" }).querySelector(".headline-number")?.textContent,
     ).toBe("100");
     expect(window.location.search).toBe("?range=fixed&from=2026-10-06&to=2026-10-06");
-    expect(f.view.getByRole<HTMLSelectElement>("combobox", { name: "Time range" }).value).toBe(
-      "today",
+    expect(f.view.getByRole("button", { name: /^Time range/ }).textContent).toBe("Today");
+  } finally {
+    await f.close();
+  }
+});
+
+it("keeps the published Select controlled until the complete engine answer is delivered", async () => {
+  let holding = false;
+  const deliveries: (() => void)[] = [];
+  const f = rangesDashboard((deliver) => {
+    if (holding) deliveries.push(deliver);
+    else queueMicrotask(deliver);
+  });
+  try {
+    const trigger = await f.view.findByRole("button", { name: /^Time range/ });
+    await vi.waitFor(() => expect(f.server.streams).toBe(1));
+    holding = true;
+    await chooseRange(f, "Today");
+    await vi.waitFor(() => expect(deliveries).toHaveLength(1));
+    expect(trigger.textContent).toBe("Last 30 days");
+    expect(window.location.search).toBe("?range=30d");
+    expect(document.title).toBe("Overview · Last 30 days · opencode-stats");
+    expect(f.view.container.querySelector(".headline-number")?.textContent).toBe("213");
+    deliveries[0]!();
+    expect(trigger.textContent).toBe("Today");
+    expect(f.view.container.querySelector(".headline-number")?.textContent).toBe("112");
+    expect(window.location.search).toBe("?range=today");
+    expect(f.server.requests).toBe(2);
+  } finally {
+    await f.close();
+  }
+});
+
+it("offers all published Select options, keeps repeated selections and supports keyboard selection and Escape focus", async () => {
+  const f = rangesDashboard();
+  try {
+    const trigger = await f.view.findByRole("button", { name: /^Time range/ });
+    await f.user.click(trigger);
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "Today",
+      "Last 7 days",
+      "Last 30 days",
+      "Last 90 days",
+      "Last 180 days",
+      "Last 365 days",
+      "All time",
+    ]);
+    await f.user.click(screen.getByRole("option", { name: "Last 30 days", exact: true }));
+    expect(trigger.textContent).toBe("Last 30 days");
+    expect(window.location.search).toBe("?range=30d");
+    await f.user.click(trigger);
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("option", { name: "Last 30 days", exact: true }),
+      ),
     );
+    await f.user.keyboard("{Home}{Enter}");
+    await vi.waitFor(() => expect(trigger.textContent).toBe("Today"));
+    await f.user.click(trigger);
+    await f.user.keyboard("{Escape}");
+    await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(screen.queryByRole("option")).toBeNull();
+    expect(f.view.getByRole("status").textContent).toBe("");
   } finally {
     await f.close();
   }
