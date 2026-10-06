@@ -70,7 +70,6 @@ export function createLiveEngine(
       if (session !== current) return;
       current.opening = false;
       if (newer && before) status.wrote();
-      status.resume();
       status.connected();
       changed();
     }
@@ -121,7 +120,6 @@ export function createLiveEngine(
           if (session !== current) return;
           if (facts.current()) {
             status.connected();
-            status.resume();
           }
           changed();
           openStream(current);

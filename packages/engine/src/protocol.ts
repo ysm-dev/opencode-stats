@@ -32,11 +32,11 @@ const State = Schema.Union([
   }),
 ]);
 export type EngineState = typeof State.Type;
-export const Request = Schema.Struct({
+const Request = Schema.Struct({
   id: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   action: Action,
 });
-export const Signal = Schema.Union([
+const Signal = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("visibility"), visible: Schema.Boolean }),
   Schema.Struct({ kind: Schema.Literal("paused"), paused: Schema.Boolean }),
   Schema.Struct({ kind: Schema.Literal("focus") }),

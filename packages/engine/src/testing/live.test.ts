@@ -8,6 +8,7 @@ import {
 } from "@opencode-stats/browser-copy/testing";
 import type { EngineState } from "../index.ts";
 import { inThreadEngine, referenceTokens } from "./index.ts";
+import { blockedSlices } from "./blocked-slices.ts";
 
 const step = (input: number | null): Step => ({
   start: 1,
@@ -157,16 +158,8 @@ it.each([1, 3])(
   "discards an interrupted %i-row live batch without a partial or late paint",
   async (rows) => {
     const server = inMemoryDashboardServer(syntheticCopy([]));
-    const entered = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    let work = 0;
-    const engine = inThreadEngine(server.fetch, queueMicrotask, {
-      workNow: () => (work += 4),
-      yield: () => {
-        entered.resolve();
-        return release.promise;
-      },
-    });
+    const slices = blockedSlices();
+    const engine = inThreadEngine(server.fetch, queueMicrotask, slices.clock);
     try {
       await engine.client.request({ kind: "all-time" });
       server.commit(
@@ -175,14 +168,14 @@ it.each([1, 3])(
           { revision: 2 },
         ),
       );
-      await entered.promise;
+      await slices.entered;
       server.commit(syntheticCopy([step(8)], { revision: 3 }));
       const closing = engine.dispose();
-      release.resolve();
+      slices.release();
       await closing;
       expect(engine.answers).toHaveLength(1);
     } finally {
-      release.resolve();
+      slices.release();
       await engine.dispose();
       await server.dispose();
     }

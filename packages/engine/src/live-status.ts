@@ -56,6 +56,8 @@ export function createLiveStatus(clock: EngineClock) {
     },
     connected: () => {
       disconnectedAt = undefined;
+      pausedAt = undefined;
+      resuming = false;
     },
     pause: () => {
       pausedAt = clock.now();
@@ -63,9 +65,6 @@ export function createLiveStatus(clock: EngineClock) {
     },
     retry: () => {
       resuming = true;
-    },
-    resume: () => {
-      pausedAt = undefined;
     },
   };
 }

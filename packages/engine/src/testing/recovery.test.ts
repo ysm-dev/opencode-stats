@@ -3,6 +3,7 @@ import { formatVersion } from "@opencode-stats/browser-copy";
 import { inMemoryDashboardServer, syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import type { EngineState } from "../index.ts";
 import { inThreadEngine, manualClock } from "./index.ts";
+import { blockedSlices } from "./blocked-slices.ts";
 
 const copy = (revision = 1) =>
   syntheticCopy(
@@ -192,27 +193,19 @@ it("replaces the whole generation on reconnection, and recovers an initially una
 
 it("discards sliced work on hide and does not commit or paint until the shown catch-up", async () => {
   const server = inMemoryDashboardServer(syntheticCopy([]));
-  const entered = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  let work = 0;
-  const engine = inThreadEngine(server.fetch, queueMicrotask, {
-    workNow: () => (work += 4),
-    yield: () => {
-      entered.resolve();
-      return release.promise;
-    },
-  });
+  const slices = blockedSlices();
+  const engine = inThreadEngine(server.fetch, queueMicrotask, slices.clock);
   onTestFinished(async () => {
-    release.resolve();
+    slices.release();
     await engine.dispose();
     await server.dispose();
   });
   await engine.client.request({ kind: "all-time" });
   server.commit(copy(2));
-  await entered.promise;
+  await slices.entered;
   engine.client.signal({ kind: "visibility", visible: false });
   await vi.waitFor(() => expect(server.streams).toBe(0));
-  release.resolve();
+  slices.release();
   expect(engine.answers).toHaveLength(1);
   const answer = engine.client.request({ kind: "all-time" });
   engine.client.signal({ kind: "visibility", visible: true });
