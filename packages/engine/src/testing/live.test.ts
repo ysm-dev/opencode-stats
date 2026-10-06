@@ -233,13 +233,21 @@ it("does not let an unsolicited live paint replace an unanswered user request", 
   try {
     const pending = engine.client.request({ kind: "all-time" });
     await sent.promise;
-    await engine.sendToPage({ id: 0, state: { screen: "problem", reason: "invalid-address" } });
+    await engine.sendToPage({
+      id: 0,
+      state: { screen: "problem", reason: "invalid-address" },
+      timing: { kind: "live", compute: 0, elapsed: 0 },
+    });
     expect(listener).not.toHaveBeenCalled();
     deliver();
     expect(await pending).toMatchObject({ kind: "paint", state: { screen: "dashboard" } });
     expect(listener).toHaveBeenCalledOnce();
     unsubscribe();
-    await engine.sendToPage({ id: 0, state: { screen: "problem", reason: "invalid-address" } });
+    await engine.sendToPage({
+      id: 0,
+      state: { screen: "problem", reason: "invalid-address" },
+      timing: { kind: "live", compute: 0, elapsed: 0 },
+    });
     expect(listener).toHaveBeenCalledOnce();
   } finally {
     await engine.dispose();

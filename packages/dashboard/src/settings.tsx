@@ -1,4 +1,4 @@
-import { Show, createSignal, onCleanup, onMount } from "solid-js";
+import { Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Select } from "@opencode/ui/select";
 import { Switch } from "@opencode/ui/switch";
@@ -6,21 +6,27 @@ import { Icon } from "@opencode/ui/icon";
 import { useTheme } from "@opencode/ui/theme/context";
 import type { ColorScheme } from "@opencode/ui/theme/context";
 import { usePreferences } from "./preferences.tsx";
+import { changes, changeDiagnostics, stateMark } from "./change-time.ts";
 
 const label = (value: string) => value[0]!.toUpperCase() + value.slice(1);
 const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
   const theme = useTheme();
   const preferences = usePreferences();
+  const appearance = createMemo(() => ({
+    theme: theme.themeId(),
+    scheme: theme.colorScheme(),
+    shortcuts: preferences.singleKeyShortcuts(),
+    storage: preferences.keepsPreferences(),
+  }));
   let title!: HTMLHeadingElement;
   let sheet!: HTMLDivElement;
-  let nested = false;
+  const [menu, setMenu] = createSignal<"theme" | "scheme">();
   let keyboardFocus: HTMLElement | "navigation" | undefined;
   const pointer = () => {
     keyboardFocus = undefined;
   };
-  const opened = (open: boolean) => {
-    nested = open;
-  };
+  const opened = (name: "theme" | "scheme", open: boolean) =>
+    changes.local("settings-menu", () => setMenu(open ? name : undefined));
   // The published select defers its initial autofocus. It must not undo a key
   // that has already moved focus; genuine pointer input releases that target.
   const highlighted = () => {
@@ -34,7 +40,7 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
   };
   const schemes: ColorScheme[] = ["system", "light", "dark"];
   const keydown = (event: KeyboardEvent) => {
-    if (nested) {
+    if (menu()) {
       keyboardFocus = "navigation";
       return;
     }
@@ -91,6 +97,9 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
             sheet = element;
           }}
           class="settings-sheet"
+          data-preference-state={stateMark(appearance())}
+          data-theme={appearance().theme}
+          data-scheme={appearance().scheme}
           role="dialog"
           aria-modal="true"
           aria-labelledby="settings-title"
@@ -108,14 +117,15 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
             <span id="scheme-label">Color scheme</span>
             <Select
               options={schemes}
-              current={theme.colorScheme()}
+              current={appearance().scheme}
               label={label}
               aria-labelledby="scheme-label"
               fitViewport
               onSelect={(value) => {
-                if (value) theme.setColorScheme(value);
+                if (value) changes.local("scheme", () => theme.setColorScheme(value));
               }}
-              onOpenChange={opened}
+              open={menu() === "scheme"}
+              onOpenChange={(open) => opened("scheme", open)}
               onHighlight={highlighted}
               contentClass="settings-options"
             />
@@ -124,27 +134,34 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
             <span id="theme-label">Theme</span>
             <Select
               options={theme.ids()}
-              current={theme.themeId()}
+              current={appearance().theme}
               label={theme.name}
               aria-labelledby="theme-label"
               fitViewport
               onSelect={(value) => {
-                if (value) theme.setTheme(value);
+                if (value) changes.local("theme", () => theme.setTheme(value));
               }}
-              onOpenChange={opened}
+              open={menu() === "theme"}
+              onOpenChange={(open) => opened("theme", open)}
               onHighlight={highlighted}
               contentClass="settings-options"
             />
           </div>
-          <Switch
-            checked={preferences.singleKeyShortcuts()}
-            onChange={preferences.setSingleKeyShortcuts}
-          >
+          <Switch checked={appearance().shortcuts} onChange={preferences.setSingleKeyShortcuts}>
             Single-key shortcuts
           </Switch>
-          <Show when={!preferences.keepsPreferences()}>
+          <Show when={!appearance().storage}>
             <p class="storage-notice">Your browser keeps preferences only for this tab.</p>
           </Show>
+          <button
+            class="settings-diagnostics"
+            type="button"
+            onClick={() =>
+              void navigator.clipboard.writeText(JSON.stringify({ changes: changeDiagnostics() }))
+            }
+          >
+            Copy diagnostics
+          </button>
           <button class="settings-done" type="button" onClick={props.close}>
             Done
           </button>
@@ -166,12 +183,12 @@ export const Settings = () => {
         type="button"
         class="settings-gear"
         aria-label="Settings"
-        onClick={() => setOpen(true)}
+        onClick={() => changes.local("settings", () => setOpen(true))}
       >
         <Icon name="settings-gear" />
       </button>
       <Show when={open()}>
-        <Sheet opener={opener} close={() => setOpen(false)} />
+        <Sheet opener={opener} close={() => changes.local("settings", () => setOpen(false))} />
       </Show>
     </>
   );

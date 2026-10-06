@@ -1,6 +1,12 @@
 import { chromium, webkit, type Page } from "playwright";
 import { expect, it } from "vitest";
 import { preferencesBrowser } from "./testing/preferences-server.ts";
+import { installTourClock, tourTime } from "./testing/change-clock.ts";
+import {
+  installWholePaintObserver,
+  wholeChange,
+  watchChangeRequests,
+} from "./testing/whole-paint.ts";
 
 declare global {
   interface Window {
@@ -61,8 +67,13 @@ it.each([chromium, webkit])(
       hasTouch: touch,
       viewport: { width: touch ? 360 : 1280, height: 720 },
     });
-    const now = Date.now();
-    const today = Math.floor(now / 86400000) * 86400000;
+    const today = Math.floor(Date.now() / 86400000) * 86400000;
+    const now = today + (14 * 60 + 2) * 60000;
+    // Keep the actual worker schedulers/live stream enabled. Only the synthetic
+    // wall clock is controlled, so a real minute cannot create a third valid
+    // frame inside the legacy exact before/after assertions below.
+    await installTourClock(fixture.context, now);
+    await fixture.context.addInitScript(installWholePaintObserver);
     for (const [id, start, input] of [
       ["previous", today - 86400000 + (now - today) / 2, 100],
       ["current", today + (now - today) / 2, 112],
@@ -162,5 +173,17 @@ it.each([chromium, webkit])(
     expect(page.url()).toBe(fixedAddress);
     expect(await page.title()).toBe(fixedTitle);
     expect(await tokens.textContent()).toBe("100");
+    const clockRequests = watchChangeRequests(fixture.context);
+    await wholeChange(page, "remove-fixed", () =>
+      page.getByRole("button", { name: /Remove fixed range/ }).click(),
+    );
+    expect(await page.title()).toBe("Overview · Today · opencode-stats");
+    expect(await tokens.textContent()).toBe("112");
+    await wholeChange(page, "minute", () => tourTime(page, now + 60000));
+    expect(await comparison.textContent()).toContain("through 14:03");
+    await wholeChange(page, "day", () => tourTime(page, today + 86400000 + 60000));
+    expect(await tokens.textContent()).toBe("0");
+    expect(await page.getByRole("button", { name: /Pause live updates/ }).count()).toBe(1);
+    clockRequests.check();
   },
 );

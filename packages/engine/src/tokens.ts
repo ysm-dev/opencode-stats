@@ -97,7 +97,11 @@ export function createFacts(clock: EngineClock) {
         historyCompleteFrom: number;
       })
     | undefined;
-  const apply = async (copy: BrowserCopy, signal: AbortSignal): Promise<boolean> => {
+  const apply = async (
+    copy: BrowserCopy,
+    signal: AbortSignal,
+    addWork: (work: number) => void,
+  ): Promise<boolean> => {
     if (
       copy.kind === "changes" &&
       (copy.generation !== current?.generation || copy.fromRevision !== current.revision)
@@ -108,38 +112,43 @@ export function createFacts(clock: EngineClock) {
     let started = clock.workNow();
     const checkpoint = async () => {
       if (clock.workNow() - started >= 4) {
+        addWork(clock.workNow() - started);
         await clock.yield();
         started = clock.workNow();
       }
     };
-    const rowsEnd = copy.tombstones.length + copy.ids.length;
-    for (let index = 0; index < rowsEnd + copy.names.length; index++) {
-      if (signal.aborted) return false;
-      if (index < copy.tombstones.length) update(next, copy.tombstones[index]!);
-      else if (index < rowsEnd) {
-        const position = index - copy.tombstones.length;
-        update(next, copy.ids[position]!, row(copy, position));
-      } else {
-        const name = copy.names[index - rowsEnd]!;
-        next.names = HashMap.set(next.names, `${name.dimension}\0${name.code}`, name);
+    try {
+      const rowsEnd = copy.tombstones.length + copy.ids.length;
+      for (let index = 0; index < rowsEnd + copy.names.length; index++) {
+        if (signal.aborted) return false;
+        if (index < copy.tombstones.length) update(next, copy.tombstones[index]!);
+        else if (index < rowsEnd) {
+          const position = index - copy.tombstones.length;
+          update(next, copy.ids[position]!, row(copy, position));
+        } else {
+          const name = copy.names[index - rowsEnd]!;
+          next.names = HashMap.set(next.names, `${name.dimension}\0${name.code}`, name);
+        }
+        await checkpoint();
       }
-      await checkpoint();
+      if (!(await applyDimensions(next, copy, checkpoint, signal))) return false;
+      const sessions = await placeSessions(HashMap.values(next.facts), checkpoint, signal);
+      if (signal.aborted) return false;
+      // Persistent maps leave the prior complete copy available throughout every slice.
+      snapshot = next;
+      filteredPlacements.clear();
+      placements = sessions;
+      current = {
+        generation: copy.generation,
+        revision: copy.revision,
+        historyCompleteFrom: copy.historyCompleteFrom,
+        tokens: totals(snapshot.amounts),
+        sessions: { total: sessions.roots.size, subagents: sessions.subagents.size },
+      };
+      return true;
+    } finally {
+      addWork(clock.workNow() - started);
     }
-    if (!(await applyDimensions(next, copy, checkpoint, signal))) return false;
-    const sessions = await placeSessions(HashMap.values(next.facts), checkpoint, signal);
-    if (signal.aborted) return false;
-    // Persistent maps leave the prior complete copy available throughout every slice.
-    snapshot = next;
-    filteredPlacements.clear();
-    placements = sessions;
-    current = {
-      generation: copy.generation,
-      revision: copy.revision,
-      historyCompleteFrom: copy.historyCompleteFrom,
-      tokens: totals(snapshot.amounts),
-      sessions: { total: sessions.roots.size, subagents: sessions.subagents.size },
-    };
-    return true;
   };
   const history = (now: number, timeZone: string) => {
     return placements.first === Infinity

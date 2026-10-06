@@ -118,7 +118,9 @@ h2 {
   }
 }
 .settings-gear,
-.settings-done {
+.settings-diagnostics,
+.settings-done,
+.settings-diagnostics {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -243,6 +245,7 @@ h2 {
 }
 @media (pointer: coarse) {
   .settings-gear,
+  .settings-diagnostics,
   .settings-done,
   .settings-sheet [data-component="select-v2"],
   .settings-sheet [data-slot="switch-label"] {

@@ -7,6 +7,7 @@ import {
   type EngineAction,
 } from "./protocol.ts";
 import type { EngineNetwork } from "./network.ts";
+import type { ChangeKind } from "./change.ts";
 import { createLiveEngine } from "./live.ts";
 import { systemClock, type EngineClock } from "./clock.ts";
 import {
@@ -80,6 +81,7 @@ export function connectEngine(
     | Extract<EngineAction, { kind: "filter" | "remove-filter" | "clear-filters" }>
     | undefined;
   let filterAnnouncement = "";
+  let inputWork = 0;
   const selectRange = (action: EngineAction) => {
     filterChange = undefined;
     filterAnnouncement = "";
@@ -110,9 +112,11 @@ export function connectEngine(
       range = shiftRange(range ?? "30d", action.direction, now, timeZone);
     else range = "all";
   };
-  const paint = () => {
+  const paint = (kind: ChangeKind = "live", work = 0, elapsed = 0) => {
     if (!active || !live.visible()) return;
+    const started = clock.workNow();
     const id = pending?.id ?? 0;
+    const changeKind = pending?.action.kind ?? kind;
     pending = undefined;
     const state = stateFor(range, filters, live);
     if (state.screen === "dashboard" && filterChange) {
@@ -129,7 +133,13 @@ export function connectEngine(
     port.postMessage({
       id,
       state: state.screen === "dashboard" ? { ...state, filterAnnouncement } : state,
+      timing: {
+        kind: changeKind,
+        compute: clock.workNow() - started + inputWork + work,
+        elapsed: clock.workNow() - started + elapsed,
+      },
     });
+    inputWork = 0;
   };
   const live = createLiveEngine(network, clock, paint, () => port.postMessage({ reload: true }));
   const decode = Schema.decodeUnknownSync(Message);
@@ -137,8 +147,10 @@ export function connectEngine(
     const message = decode(event.data);
     if ("kind" in message) live.signal(message);
     else {
+      const started = clock.workNow();
       active = pending = message;
       selectRange(message.action);
+      inputWork = clock.workNow() - started;
       if (live.current()) paint();
       else live.start();
     }

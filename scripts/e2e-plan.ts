@@ -15,6 +15,11 @@ const work: Readonly<Record<string, Work>> = {
   // Its first full hosted sample is pending; keep the conservative file cost.
   "ranges.test.ts": [30, ["chromium", "webkit"]],
   "filters.test.ts": [30, ["chromium", "webkit"]],
+  // Synthetic whole-paint tours retain the native per-test/job budgets. Split
+  // engines at the existing file/shard seam; refine these estimates on hosted CI.
+  "whole-paint-chromium.test.ts": [35, ["chromium"]],
+  "whole-paint-webkit.test.ts": [35, ["webkit"]],
+  "whole-paint-canaries.test.ts": [20, ["chromium", "webkit"]],
   "preference-evidence.test.ts": [8, ["chromium"]],
   "preferences-chromium.test.ts": [37, ["chromium"]],
   "source.test.ts": [16, ["chromium"]],

@@ -1,11 +1,12 @@
 import * as Schema from "effect/Schema";
 import { Preset } from "./ranges.ts";
 import { Filter, FilterDimension } from "./filters.ts";
+import { ComputeTime } from "./change.ts";
 
 const Action = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("address"), address: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("all-time") }),
-  Schema.Struct({ kind: Schema.Literal("preset"), preset: Preset }),
+  Schema.Struct({ kind: Schema.Literals(["preset", "remove-fixed"]), preset: Preset }),
   Schema.Struct({ kind: Schema.Literal("shift"), direction: Schema.Literals([-1, 1]) }),
   Schema.Struct({
     kind: Schema.Literals(["filter", "remove-filter"]),
@@ -95,6 +96,7 @@ export const Answer = Schema.Union([
   Schema.Struct({
     id: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
     state: State,
+    timing: ComputeTime,
   }),
 ]);
 export type EngineRequest = typeof Request.Type;

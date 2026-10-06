@@ -7,6 +7,7 @@ import { Settings } from "./settings.tsx";
 import { Filters, FilterChips } from "./filters.tsx";
 import { PageState, PageActions } from "./page-context.ts";
 import { preserveFilterFocus } from "./filter-focus.ts";
+import { changes, stateMark } from "./change-time.ts";
 import {
   Link,
   Outlet,
@@ -20,6 +21,7 @@ import {
   presetLabels,
   type EngineState,
   type EngineAction,
+  type ChangeTime,
   type createPageClient,
 } from "@opencode-stats/engine";
 
@@ -30,19 +32,28 @@ const focusRange = () =>
 const RangeControls = () => {
   const state = useContext(PageState)!;
   const client = useContext(PageActions)!;
+  const [menuOpen, setMenuOpen] = createSignal(false);
   const selectPreset = (preset: (typeof presets)[number] | null) => {
     if (preset) void client.request({ kind: "preset", preset });
   };
   const nextRange = () => {
+    const started = performance.now();
     focusRange();
-    void client.request({ kind: "shift", direction: 1 });
+    void client.request({ kind: "shift", direction: 1 }, started);
   };
   const removeFixed = () => {
+    const started = performance.now();
     focusRange();
-    void client.request({ kind: "preset", preset: state().range.preset });
+    void client.request({ kind: "remove-fixed", preset: state().range.preset }, started);
   };
   return (
-    <div class="range-control" aria-label="Time range" role="group" data-range={state().address}>
+    <div
+      class="range-control"
+      aria-label="Time range"
+      role="group"
+      data-state={stateMark(state())}
+      data-range={state().address}
+    >
       <button
         type="button"
         aria-label="Previous range"
@@ -62,6 +73,8 @@ const RangeControls = () => {
         fitViewport
         onSelect={selectPreset}
         contentClass="settings-options range-options"
+        open={menuOpen()}
+        onOpenChange={(open) => changes.local("range-menu", () => setMenuOpen(open))}
       />
       <button
         type="button"
@@ -89,7 +102,7 @@ const PreviousNumber = (props: { metric: "tokens" | "sessions" }) => {
   const state = useContext(PageState)!;
   return (
     <Show when={state().comparison[props.metric]}>
-      <p class="previous-period">
+      <p class="previous-period" data-state={stateMark(state())}>
         {state().comparison[props.metric]}
         <br />
         <small>{state().comparison.caption}</small>
@@ -102,7 +115,7 @@ const Overview = () => {
   const state = useContext(PageState)!;
   return (
     <>
-      <header>
+      <header data-state={stateMark(state())}>
         <h1 tabIndex={-1}>Overview</h1>
         <RangeControls />
         <FilterChips />
@@ -110,6 +123,7 @@ const Overview = () => {
       </header>
       <section
         aria-labelledby="tokens"
+        data-state={stateMark(state())}
         data-generation={state().generation}
         data-revision={state().revision}
         data-range={state().address}
@@ -120,6 +134,7 @@ const Overview = () => {
       </section>
       <section
         aria-labelledby="sessions"
+        data-state={stateMark(state())}
         data-generation={state().generation}
         data-revision={state().revision}
         data-range={state().address}
@@ -140,6 +155,7 @@ const LiveStatus = () => {
     <button
       type="button"
       class="live-status"
+      data-state={stateMark(state())}
       data-generation={state().generation}
       data-revision={state().revision}
       data-updating={!state().paused && !state().statusLine}
@@ -160,13 +176,14 @@ const UpdateStatus = () => {
   const state = useContext(PageState)!;
   const client = useContext(PageActions)!;
   const resume = () => {
+    const started = performance.now();
     document.querySelector<HTMLButtonElement>(".live-status")!.focus();
-    client.signal({ kind: "paused", paused: false });
+    client.signal({ kind: "paused", paused: false }, started);
   };
   return (
     <>
       <Show when={state().statusLine}>
-        <p class="update-status" data-warning={!state().paused}>
+        <p class="update-status" data-state={stateMark(state())} data-warning={!state().paused}>
           {state().statusLine}
           <Show when={state().paused}>
             {" · "}
@@ -176,7 +193,13 @@ const UpdateStatus = () => {
           </Show>
         </p>
       </Show>
-      <span class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      <span
+        class="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-state={stateMark(state())}
+      >
         {state().announcement}
       </span>
     </>
@@ -232,7 +255,7 @@ const CompleteDashboard = (props: {
         <Show
           when={props.state.screen === "dashboard" && props.state}
           fallback={
-            <main tabIndex={-1}>
+            <main tabIndex={-1} data-problem-state={stateMark(props.state)}>
               <h1>Can't load the dashboard</h1>
               <p>Reload to try again.</p>
             </main>
@@ -253,17 +276,18 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
   const [state, setState] = createSignal<EngineState>();
   const router = makeRouter();
   let latest: EngineState | undefined;
+  let latestTiming!: ChangeTime;
   let painted = false;
   let closed = false;
   let historyMode: "push" | "replace" = "replace";
   const actions: PageClient = {
     ...props.client,
-    request: (action: EngineAction) => {
+    request: (action: EngineAction, started?: number) => {
       historyMode = "push";
-      return props.client.request(action);
+      return props.client.request(action, started);
     },
   };
-  const paint = (next: EngineState) => {
+  const update = (next: EngineState) => {
     if (next.screen === "dashboard")
       document.title = `Overview · ${next.rangeLabel} · opencode-stats`;
     if (
@@ -276,9 +300,16 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
     historyMode = "replace";
     preserveFilterFocus(() => setState(next));
   };
-  const unsubscribe = props.client.subscribe((next) => {
+  const paint = (next: EngineState, timing: ChangeTime) =>
+    changes.page(
+      timing,
+      () => update(next),
+      () => !closed && state() === next,
+    );
+  const unsubscribe = props.client.subscribe((next, timing) => {
     latest = next;
-    if (painted) paint(next);
+    latestTiming = timing;
+    if (painted) paint(next, timing);
   });
   onMount(() => {
     const visibility = () => props.client.signal({ kind: "visibility", visible: !document.hidden });
@@ -306,11 +337,12 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
         await router.load();
       }
       painted = true;
-      return paint(latest!);
+      return paint(latest!, latestTiming);
     });
   });
   onCleanup(() => {
     closed = true;
+    changes.discard();
     unsubscribe();
     props.client.dispose();
   });

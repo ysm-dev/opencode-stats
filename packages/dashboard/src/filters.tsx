@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal, useContext } from "solid-js";
 import { filterLabels } from "@opencode-stats/engine";
 import { PageState, PageActions, type CompletePage } from "./page-context.ts";
+import { changes, stateMark } from "./change-time.ts";
 
 type ChecklistState = CompletePage["checklists"][number];
 const rowId = (dimension: string, id: string) => `filter-${dimension}-${encodeURIComponent(id)}`;
@@ -11,24 +12,32 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
   const [search, setSearch] = createSignal("");
   const [expanded, setExpanded] = createSignal(false);
   const [announcement, setAnnouncement] = createSignal("");
+  const display = createMemo(() => ({ query: search(), expanded: expanded() }));
   const values = () =>
     state().checklists.find((list) => list.dimension === props.dimension)!.values;
   const matches = createMemo(() =>
     values().filter((value) =>
       `${value.name} ${value.id}`
         .toLocaleLowerCase("en-US")
-        .includes(search().trim().toLocaleLowerCase("en-US")),
+        .includes(display().query.trim().toLocaleLowerCase("en-US")),
     ),
   );
-  const shown = () => (search() || expanded() ? matches() : matches().slice(0, 5));
+  const shown = () => (display().query || display().expanded ? matches() : matches().slice(0, 5));
   const find = (id: string) => values().find((value) => value.id === id)!;
   const searchValues = (event: InputEvent & { currentTarget: HTMLInputElement }) => {
-    setSearch(event.currentTarget.value);
-    const count = matches().length;
-    setAnnouncement(count === 0 ? "No matches" : `${count} results`);
+    changes.local("search", () => {
+      setSearch(event.currentTarget.value);
+      const count = matches().length;
+      setAnnouncement(count === 0 ? "No matches" : `${count} results`);
+    });
   };
   return (
-    <section class="filter-checklist" aria-labelledby={`filter-heading-${props.dimension}`}>
+    <section
+      class="filter-checklist"
+      data-state={stateMark(state())}
+      data-local-state={stateMark(display())}
+      aria-labelledby={`filter-heading-${props.dimension}`}
+    >
       <h3 id={`filter-heading-${props.dimension}`} tabIndex={-1}>
         {filterLabels[props.dimension]}
       </h3>
@@ -38,7 +47,8 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
       <input
         type="search"
         id={`filter-search-${props.dimension}`}
-        value={search()}
+        value={display().query}
+        data-local-state={stateMark(display())}
         onInput={searchValues}
       />
       <span class="sr-only" aria-live="polite" aria-atomic="true">
@@ -46,7 +56,12 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
       </span>
       <For each={shown().map((value) => value.id)}>
         {(id) => (
-          <label class="filter-row" for={rowId(props.dimension, id)}>
+          <label
+            class="filter-row"
+            data-state={stateMark(state())}
+            data-local-state={stateMark(display())}
+            for={rowId(props.dimension, id)}
+          >
             <input
               type="checkbox"
               id={rowId(props.dimension, id)}
@@ -54,10 +69,11 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
               aria-describedby={`${rowId(props.dimension, id)}-amount`}
               checked={find(id).selected}
               onChange={(event) => {
+                const started = performance.now();
                 // Native activation must not paint a tick before the worker's complete answer.
                 event.currentTarget.checked = find(id).selected;
                 event.currentTarget.focus();
-                void client.request({ kind: "filter", dimension: props.dimension, id });
+                void client.request({ kind: "filter", dimension: props.dimension, id }, started);
               }}
             />
             <span class="filter-value">{find(id).name}</span>
@@ -72,15 +88,17 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
           </label>
         )}
       </For>
-      <Show when={!search() && !expanded() && values().length > 5}>
+      <Show when={!display().query && !display().expanded && values().length > 5}>
         <button
           type="button"
-          onClick={() => {
-            const next = values()[5]!;
-            // The expander disappears; put focus on the first newly revealed row.
-            setExpanded(true);
-            document.getElementById(rowId(props.dimension, next.id))!.focus();
-          }}
+          onClick={() =>
+            changes.local("expand-checklist", () => {
+              const next = values()[5]!;
+              // The expander disappears; put focus on the first newly revealed row.
+              setExpanded(true);
+              document.getElementById(rowId(props.dimension, next.id))!.focus();
+            })
+          }
         >
           {values().length - 5} more
         </button>
@@ -95,6 +113,7 @@ export const Filters = () => {
   return (
     <section
       class="filters"
+      data-state={stateMark(state())}
       aria-labelledby="filters-title"
       data-range={state().address}
       data-generation={state().generation}
@@ -129,17 +148,22 @@ export const FilterChips = () => {
   const client = useContext(PageActions)!;
   const find = (key: string) => state().filters.find((filter) => chipKey(filter) === key)!;
   const remove = (key: string) => {
+    const started = performance.now();
     const filter = find(key);
-    void client.request({
-      kind: "remove-filter",
-      dimension: filter.dimension,
-      id: filter.id,
-      announce: true,
-    });
+    void client.request(
+      {
+        kind: "remove-filter",
+        dimension: filter.dimension,
+        id: filter.id,
+        announce: true,
+      },
+      started,
+    );
   };
   return (
     <section
       class="filter-chips"
+      data-state={stateMark(state())}
       aria-labelledby="active-filters-title"
       data-range={state().address}
       data-generation={state().generation}
@@ -156,6 +180,7 @@ export const FilterChips = () => {
           <button
             type="button"
             id={chipId(key)}
+            data-state={stateMark(state())}
             aria-label={`Remove ${filterLabels[find(key).dimension]} filter · ${find(key).name}`}
             onClick={(event) => {
               event.currentTarget.focus();

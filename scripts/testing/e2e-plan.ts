@@ -53,9 +53,14 @@ assert.deepEqual(prepareE2e(["preferences-webkit.test.ts"]), {
   opencode: false,
 });
 assert.deepEqual(prepareE2e(["smoke.test.ts"]), { browsers: ["chromium"], opencode: true });
-for (const file of ["ranges.test.ts", "filters.test.ts"])
+for (const file of ["ranges.test.ts", "filters.test.ts", "whole-paint-canaries.test.ts"])
   assert.deepEqual(prepareE2e([file]), {
     browsers: ["chromium", "webkit"],
+    opencode: false,
+  });
+for (const browser of ["chromium", "webkit"])
+  assert.deepEqual(prepareE2e([`whole-paint-${browser}.test.ts`]), {
+    browsers: [browser],
     opencode: false,
   });
 assert.deepEqual(prepareE2e(["future.test.tsx"]), {

@@ -2,6 +2,7 @@ import { formatVersion } from "@opencode-stats/browser-copy";
 import type { CopyCursor, LiveAnnouncement } from "@opencode-stats/browser-copy/api";
 import type { EngineClock } from "./clock.ts";
 import type { EngineSignal } from "./protocol.ts";
+import type { ChangeKind } from "./change.ts";
 import { followCopy, loadCopy, type EngineNetwork } from "./network.ts";
 import { createFacts } from "./tokens.ts";
 import { createLiveStatus } from "./live-status.ts";
@@ -13,6 +14,7 @@ type Session = {
   work?: Promise<void> | undefined;
   target?: CopyCursor | undefined;
   opening: boolean;
+  kind: ChangeKind;
 };
 
 const timeKey = (value: { now: number; timeZone: string; locale: string }) =>
@@ -21,9 +23,11 @@ const timeKey = (value: { now: number; timeZone: string; locale: string }) =>
 export function createLiveEngine(
   network: EngineNetwork,
   clock: EngineClock,
-  paint: () => void,
+  paint: (kind: ChangeKind, work: number, elapsed: number) => void,
   reload: () => void,
 ) {
+  let readyWork = 0;
+  let readyStarted: number | undefined;
   const facts = createFacts(clock);
   const status = createLiveStatus(clock);
   let session: Session | undefined;
@@ -36,6 +40,7 @@ export function createLiveEngine(
   let stopBoundary: (() => void) | undefined;
   let stopRetry: (() => void) | undefined;
   let presented = "";
+  let nextKind: ChangeKind = "live";
   const readTime = () => ({ now: clock.now(), timeZone: clock.timeZone(), locale: clock.locale() });
   let time = readTime();
   const updateTime = (force = false) => {
@@ -46,10 +51,19 @@ export function createLiveEngine(
   };
   const cleanups = new Set<Promise<void>>();
   const enabled = () => started && visible && !paused && !closed;
-  const changed = () => {
+  const changed = (kind: ChangeKind, priorWork = 0) => {
+    const started = clock.workNow();
     if (!paused) updateTime(true);
     presented = JSON.stringify(status.read());
-    paint();
+    const background = kind === "live" || kind === "resume" || kind === "visible";
+    const work = (background ? readyWork : 0) + priorWork + clock.workNow() - started;
+    const elapsed =
+      clock.workNow() - (background ? (readyStarted ?? started) : started) + priorWork;
+    if (background) {
+      readyWork = 0;
+      readyStarted = undefined;
+    }
+    paint(kind, work, elapsed);
   };
   const disconnect = () => {
     const previous = session;
@@ -66,10 +80,24 @@ export function createLiveEngine(
     stopRetry = clock.after(2000, connect);
   };
   const apply = async (current: Session, cursor?: CopyCursor) => {
+    let ownWork = 0;
+    let workStarted: number | undefined;
+    const addWork = (work: number, started = clock.workNow()) => {
+      ownWork += work;
+      workStarted ??= started;
+    };
     const signal = current.controller.signal;
-    const copy = await loadCopy(network, cursor, signal);
-    if (!(await facts.apply(copy, signal)) && !signal.aborted) {
-      await facts.apply(await loadCopy(network, undefined, signal), signal);
+    const copy = await loadCopy(network, clock, addWork, cursor, signal);
+    if (!(await facts.apply(copy, signal, addWork)) && !signal.aborted) {
+      await facts.apply(
+        await loadCopy(network, clock, addWork, undefined, signal),
+        signal,
+        addWork,
+      );
+    }
+    if (!signal.aborted) {
+      readyWork += ownWork;
+      readyStarted ??= workStarted;
     }
   };
   const catchUp = async (current: Session) => {
@@ -85,7 +113,8 @@ export function createLiveEngine(
       current.opening = false;
       if (newer && before) status.wrote();
       status.connected();
-      changed();
+      changed(current.kind);
+      current.kind = "live";
     }
   };
   const wake = (current: Session) => {
@@ -122,7 +151,12 @@ export function createLiveEngine(
     if (!enabled() || session) return;
     stopRetry?.();
     stopRetry = undefined;
-    const current: Session = { controller: new AbortController(), opening: !!facts.current() };
+    const current: Session = {
+      controller: new AbortController(),
+      opening: !!facts.current(),
+      kind: nextKind,
+    };
+    nextKind = "live";
     session = current;
     if (facts.current()) openStream(current);
     else {
@@ -136,18 +170,23 @@ export function createLiveEngine(
           if (facts.current()) {
             status.connected();
           }
-          changed();
+          changed(current.kind);
           openStream(current);
         });
     }
   };
   const tick = () => {
+    const started = clock.workNow();
+    const day = localDate(time.now, time.timeZone);
     if (
       facts.current() &&
       !session?.opening &&
       (updateTime() || JSON.stringify(status.read()) !== presented)
     )
-      changed();
+      changed(
+        day === localDate(time.now, time.timeZone) ? "minute" : "day",
+        clock.workNow() - started,
+      );
   };
   const boundary = () => {
     const now = clock.now();
@@ -175,12 +214,15 @@ export function createLiveEngine(
     disconnect();
   };
   const signal = (event: EngineSignal) => {
+    const started = clock.workNow();
     if (event.kind === "focus") {
       connect();
-      if (enabled() && facts.current() && !session?.opening && updateTime(true)) changed();
+      if (enabled() && facts.current() && !session?.opening && updateTime(true))
+        changed("focus", clock.workNow() - started);
       return;
     }
     if (event.kind === "visibility") {
+      if (event.visible && !visible) nextKind = "visible";
       visible = event.visible;
       if (!visible && replaceRelease) reload();
     } else {
@@ -188,8 +230,11 @@ export function createLiveEngine(
       paused = event.paused;
       if (paused) {
         status.pause();
-        changed();
-      } else status.retry();
+        changed("pause", clock.workNow() - started);
+      } else {
+        nextKind = "resume";
+        status.retry();
+      }
     }
     if (enabled()) start();
     else suspend();

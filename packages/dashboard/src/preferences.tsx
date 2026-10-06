@@ -3,23 +3,32 @@ import type { ParentProps } from "solid-js";
 import { ThemeProvider, useTheme } from "@opencode/ui/theme/context";
 import type { DesktopTheme } from "@opencode/ui/theme";
 import { dashboardPalette } from "./palette.ts";
+import { changes, stateMark } from "./change-time.ts";
 
 const apply = (theme: DesktopTheme, mode: "light" | "dark") => {
-  const palette = dashboardPalette(theme, mode === "dark");
-  let style = document.getElementById("dashboard-theme");
-  if (!style) {
-    style = document.createElement("style");
-    style.id = "dashboard-theme";
-    document.head.append(style);
-  }
-  style.textContent = `:root{${Object.entries(palette)
-    .map(([role, colour]) => `--dashboard-${role}:${colour};`)
-    .join("")}}`;
-  const root = document.documentElement;
-  root.style.backgroundColor = palette["deep"]!;
-  root.style.setProperty("--dashboard-background", palette["deep"]!);
-  root.style.colorScheme = mode;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", palette["deep"]!);
+  changes.appearance(
+    theme.id === document.documentElement.dataset["paletteTheme"] ? "scheme" : "theme",
+    () => {
+      const palette = dashboardPalette(theme, mode === "dark");
+      let style = document.getElementById("dashboard-theme");
+      if (!style) {
+        style = document.createElement("style");
+        style.id = "dashboard-theme";
+        document.head.append(style);
+      }
+      style.textContent = `:root{${Object.entries(palette)
+        .map(([role, colour]) => `--dashboard-${role}:${colour};`)
+        .join("")}}`;
+      const root = document.documentElement;
+      root.style.backgroundColor = palette["deep"]!;
+      root.style.setProperty("--dashboard-background", palette["deep"]!);
+      root.style.colorScheme = mode;
+      root.dataset["paletteState"] = String(stateMark(palette));
+      root.dataset["paletteTheme"] = theme.id;
+      root.dataset["paletteScheme"] = mode;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", palette["deep"]!);
+    },
+  );
 };
 
 const preferenceState = () => {
@@ -48,8 +57,10 @@ const preferenceState = () => {
     singleKeyShortcuts,
     keepsPreferences,
     setSingleKeyShortcuts: (enabled: boolean) => {
-      setSingleKeyShortcuts(enabled);
-      localStorage.setItem("opencode-stats-single-key-shortcuts", enabled ? "on" : "off");
+      changes.local("shortcuts", () => {
+        setSingleKeyShortcuts(enabled);
+        localStorage.setItem("opencode-stats-single-key-shortcuts", enabled ? "on" : "off");
+      });
     },
   };
 };

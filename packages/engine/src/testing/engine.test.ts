@@ -136,7 +136,11 @@ it("replaces an unanswered request, emits only the newest complete state and kee
       state: { screen: "problem", reason: "invalid-address" },
     });
     expect(engine.answers).toEqual([
-      { id: 2, state: { screen: "problem", reason: "invalid-address" } },
+      {
+        id: 2,
+        state: { screen: "problem", reason: "invalid-address" },
+        timing: { kind: "address", compute: expect.any(Number), elapsed: expect.any(Number) },
+      },
     ]);
     expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
       kind: "paint",

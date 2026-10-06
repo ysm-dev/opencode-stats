@@ -9,6 +9,7 @@ import {
   type LiveAnnouncement,
 } from "@opencode-stats/browser-copy/api";
 import { decode } from "@opencode-stats/browser-copy";
+import type { EngineClock } from "./clock.ts";
 
 export type EngineNetwork = {
   readonly baseUrl: string;
@@ -16,7 +17,12 @@ export type EngineNetwork = {
   readonly release: string;
 };
 
-const fetchCopy = Effect.fnUntraced(function* (baseUrl: string, cursor?: CopyCursor) {
+const fetchCopy = Effect.fnUntraced(function* (
+  baseUrl: string,
+  clock: EngineClock,
+  addWork: (work: number, started: number) => void,
+  cursor?: CopyCursor,
+) {
   const client = yield* HttpApiClient.make(BrowserCopyApi, { baseUrl });
   const bytes = yield* cursor
     ? client.browserCopy.changes({
@@ -24,12 +30,21 @@ const fetchCopy = Effect.fnUntraced(function* (baseUrl: string, cursor?: CopyCur
       })
     : client.browserCopy.whole();
   // HttpApi's buffered binary codec returns a full ArrayBuffer, not a subview.
-  return decode(bytes.buffer);
+  const started = clock.workNow();
+  const copy = decode(bytes.buffer);
+  addWork(clock.workNow() - started, started);
+  return copy;
 });
 
-export function loadCopy(network: EngineNetwork, cursor?: CopyCursor, signal?: AbortSignal) {
+export function loadCopy(
+  network: EngineNetwork,
+  clock: EngineClock,
+  addWork: (work: number, started: number) => void,
+  cursor?: CopyCursor,
+  signal?: AbortSignal,
+) {
   return Effect.runPromise(
-    fetchCopy(network.baseUrl, cursor).pipe(
+    fetchCopy(network.baseUrl, clock, addWork, cursor).pipe(
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, network.fetch),
     ),
