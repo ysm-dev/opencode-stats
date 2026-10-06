@@ -32,7 +32,7 @@ const dashboardView = (engine: ReturnType<typeof inThreadEngine>) =>
   render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
 
 beforeEach(() => {
-  window.history.replaceState(null, "", "/");
+  window.history.replaceState(null, "", "/?range=all");
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: () => {},
@@ -236,7 +236,7 @@ describe("Overview", () => {
       expect(await view.findByRole("heading", { name: "Overview", level: 1 })).toBeTruthy();
       expect(view.getByRole("region", { name: "Tokens" }).textContent).toBe("Tokens1,245");
       expect(view.getByText("All time")).toBeTruthy();
-      expect(document.title).toBe("Overview · opencode-stats");
+      expect(document.title).toBe("Overview · All time · opencode-stats");
       expect(window.location.pathname + window.location.search).toBe("/?range=all");
       expect(view.getByRole("navigation", { name: "Pages" })).toBeTruthy();
       await user.tab();

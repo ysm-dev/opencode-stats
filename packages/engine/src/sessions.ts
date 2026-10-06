@@ -14,8 +14,10 @@ export async function placeSessions(
 ) {
   const roots = new Map<number, number>();
   const subagents = new Map<number, number>();
+  let first = Infinity;
   for (const fact of facts) {
     if (signal.aborted) break;
+    first = Math.min(first, fact.start);
     if (!Number.isNaN(fact.session)) place(roots, fact.session, fact.start);
     let code = fact.subagent;
     const visited = new Set<number>();
@@ -28,5 +30,5 @@ export async function placeSessions(
     }
     await checkpoint();
   }
-  return { total: roots.size, subagents: subagents.size };
+  return { roots, subagents, first };
 }

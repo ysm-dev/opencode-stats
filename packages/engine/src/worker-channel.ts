@@ -1,31 +1,63 @@
 import * as Schema from "effect/Schema";
-import { Message, type ChannelPort, type EngineRequest, type EngineState } from "./protocol.ts";
+import {
+  Message,
+  type ChannelPort,
+  type EngineRequest,
+  type EngineState,
+  type EngineAction,
+} from "./protocol.ts";
 import type { EngineNetwork } from "./network.ts";
 import { createLiveEngine } from "./live.ts";
 import { systemClock, type EngineClock } from "./clock.ts";
+import {
+  parseRange,
+  resolveRange,
+  previousPeriod,
+  normalizeRange,
+  shiftRange,
+  rangeAddress,
+  presets,
+  type TimeRange,
+} from "./ranges.ts";
+import { changeLabel, periodLabel, rangeLabel, clockLabel } from "./time-labels.ts";
 
 function stateFor(
-  request: EngineRequest,
+  range: TimeRange | undefined,
   live: ReturnType<typeof createLiveEngine>,
-  baseUrl: string,
 ): EngineState {
-  if (request.action.kind === "address") {
-    try {
-      const address = new URL(request.action.address, baseUrl);
-      if (address.origin !== new URL(baseUrl).origin || address.pathname !== "/")
-        return { screen: "problem", reason: "invalid-address" };
-    } catch {
-      return { screen: "problem", reason: "invalid-address" };
-    }
-  }
+  if (range === undefined) return { screen: "problem", reason: "invalid-address" };
   const current = live.current();
   if (!current) return { screen: "problem", reason: "copy-unavailable" };
+  const { now, timeZone, locale } = live.time();
+  const history = live.history(now, timeZone);
+  const period = resolveRange(range, now, timeZone, history);
+  const amounts = live.query(period, timeZone);
+  const previous = previousPeriod(range, period, timeZone, history);
+  const comparison = { tokens: "", sessions: "", caption: "" };
+  if (previous) {
+    const before = live.query(previous, timeZone);
+    comparison.tokens = changeLabel(amounts.tokens.total, before.tokens.total);
+    comparison.sessions = changeLabel(amounts.sessions.total, before.sessions.total);
+    comparison.caption = `Previous period · ${periodLabel(previous, timeZone, locale)} · through ${clockLabel(previous.end, timeZone, locale)}`;
+  }
   return {
     screen: "dashboard",
-    address: "/?range=all",
-    rangeLabel: "All time",
-    tokens: current.tokens,
-    sessions: current.sessions,
+    address: rangeAddress(range),
+    rangeLabel: rangeLabel(range, period, timeZone, locale),
+    range: {
+      preset:
+        typeof range === "string"
+          ? range
+          : (presets.find((key) => (key === "today" ? 1 : Number.parseInt(key)) === period.days) ??
+            "30d"),
+      fixedLabel: typeof range === "string" ? "" : periodLabel(period, timeZone, locale),
+      canShiftBack: range !== "all",
+      canShiftForward: rangeAddress(shiftRange(range, 1, now, timeZone)) !== rangeAddress(range),
+    },
+    period,
+    timeZone,
+    comparison,
+    ...amounts,
     generation: current.generation,
     revision: current.revision,
     ...live.status(),
@@ -39,11 +71,27 @@ export function connectEngine(
 ): () => Promise<void> {
   let pending: EngineRequest | undefined;
   let active: EngineRequest | undefined;
+  let range: TimeRange | undefined = "30d";
+  const selectRange = (action: EngineAction) => {
+    live.refreshTime();
+    const { now, timeZone } = live.time();
+    if (action.kind === "address") {
+      try {
+        range = parseRange(action.address, network.baseUrl);
+      } catch {
+        range = undefined;
+      }
+    } else if (action.kind === "shift")
+      range = shiftRange(range ?? "30d", action.direction, now, timeZone);
+    else range = action.kind === "all-time" ? "all" : action.preset;
+  };
   const paint = () => {
     if (!active || !live.visible()) return;
+    const { now, timeZone } = live.time();
+    if (range !== undefined) range = normalizeRange(range, now, timeZone);
     const id = pending?.id ?? 0;
     pending = undefined;
-    port.postMessage({ id, state: stateFor(active, live, network.baseUrl) });
+    port.postMessage({ id, state: stateFor(range, live) });
   };
   const live = createLiveEngine(network, clock, paint, () => port.postMessage({ reload: true }));
   const decode = Schema.decodeUnknownSync(Message);
@@ -52,6 +100,7 @@ export function connectEngine(
     if ("kind" in message) live.signal(message);
     else {
       active = pending = message;
+      selectRange(message.action);
       if (live.current()) paint();
       else live.start();
     }

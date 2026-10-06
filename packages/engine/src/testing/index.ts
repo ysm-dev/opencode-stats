@@ -40,7 +40,7 @@ export function inThreadEngine(
   const stop = connectEngine(
     port(worker, page),
     { baseUrl: "http://127.0.0.1:22440", fetch, release: "test-release" },
-    { ...systemClock, ...clock },
+    { ...systemClock, timeZone: () => "UTC", locale: () => "en-GB", ...clock },
   );
   const client = createPageClient(port(page, worker), reload);
   return {

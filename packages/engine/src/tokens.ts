@@ -1,9 +1,7 @@
 import {
-  tokenKinds,
   sessionFields,
   mapStepFields,
   mapSessionFields,
-  type StepDimension,
   type BrowserCopy,
   type DimensionName,
 } from "@opencode-stats/browser-copy";
@@ -12,33 +10,13 @@ import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import type { EngineClock } from "./clock.ts";
 import { placeSessions } from "./sessions.ts";
+import { emptyAmounts, adjust, totals, type Fact } from "./amounts.ts";
+import { emptyDays, updateDay, dayTotals } from "./days.ts";
+import { localDate, midnight } from "./calendar.ts";
+import type { Period } from "./ranges.ts";
 
-type Amounts = Record<(typeof tokenKinds)[number], bigint>;
-type Fact = { start: number } & Readonly<
-  Record<(typeof tokenKinds)[number] | StepDimension, number>
->;
-const emptyAmounts = (): Amounts => ({
-  input: 0n,
-  cacheRead: 0n,
-  cacheWrite: 0n,
-  output: 0n,
-  reasoning: 0n,
-});
 const row = (copy: BrowserCopy, index: number): Fact =>
   mapStepFields((field) => copy.steps[field][index]!);
-const adjust = (amounts: Amounts, fact: Fact, direction: bigint) => {
-  for (const kind of tokenKinds) {
-    if (!Number.isNaN(fact[kind])) amounts[kind] += BigInt(fact[kind]) * direction;
-  }
-};
-const totals = (amounts: Amounts) => ({
-  total: Number(tokenKinds.reduce((sum, kind) => sum + amounts[kind], 0n)),
-  input: Number(amounts.input),
-  cacheRead: Number(amounts.cacheRead),
-  cacheWrite: Number(amounts.cacheWrite),
-  output: Number(amounts.output),
-  reasoning: Number(amounts.reasoning),
-});
 
 const emptySnapshot = () => ({
   facts: HashMap.empty<string, Fact>(),
@@ -46,13 +24,19 @@ const emptySnapshot = () => ({
   sessions: HashMap.empty<number, Readonly<Record<(typeof sessionFields)[number], number>>>(),
   projects: HashMap.empty<number, true>(),
   amounts: emptyAmounts(),
+  days: emptyDays(),
+  timeZone: "UTC",
 });
 
 function update(snapshot: ReturnType<typeof emptySnapshot>, id: string, next?: Fact) {
   const before = Option.getOrUndefined(HashMap.get(snapshot.facts, id));
-  if (before) adjust(snapshot.amounts, before, -1n);
+  if (before) {
+    adjust(snapshot.amounts, before, -1n);
+    snapshot.days = updateDay(snapshot.days, id, before, snapshot.timeZone, -1n);
+  }
   if (next) {
     adjust(snapshot.amounts, next, 1n);
+    snapshot.days = updateDay(snapshot.days, id, next, snapshot.timeZone, 1n);
     snapshot.facts = HashMap.set(snapshot.facts, id, next);
   } else snapshot.facts = HashMap.remove(snapshot.facts, id);
 }
@@ -87,6 +71,17 @@ async function applyDimensions(
 
 export function createFacts(clock: EngineClock) {
   let snapshot = emptySnapshot();
+  let placements = {
+    roots: new Map<number, number>(),
+    subagents: new Map<number, number>(),
+    first: Infinity,
+  };
+  const indexZone = (timeZone: string) => {
+    if (snapshot.timeZone === timeZone) return;
+    let days = emptyDays();
+    for (const [id, fact] of snapshot.facts) days = updateDay(days, id, fact, timeZone, 1n);
+    snapshot = { ...snapshot, days, timeZone };
+  };
   let current:
     | (CopyCursor & {
         tokens: ReturnType<typeof totals>;
@@ -132,14 +127,29 @@ export function createFacts(clock: EngineClock) {
     if (signal.aborted) return false;
     // Persistent maps leave the prior complete copy available throughout every slice.
     snapshot = next;
+    placements = sessions;
     current = {
       generation: copy.generation,
       revision: copy.revision,
       historyCompleteFrom: copy.historyCompleteFrom,
       tokens: totals(snapshot.amounts),
-      sessions,
+      sessions: { total: sessions.roots.size, subagents: sessions.subagents.size },
     };
     return true;
   };
-  return { apply, current: () => current };
+  const history = (now: number, timeZone: string) => {
+    return placements.first === Infinity
+      ? midnight(localDate(now, timeZone), timeZone)
+      : placements.first;
+  };
+  const query = (period: Period, timeZone: string) => {
+    indexZone(timeZone);
+    const count = (map: Map<number, number>) =>
+      [...map.values()].filter((start) => start >= period.start && start < period.end).length;
+    return {
+      tokens: dayTotals(snapshot.days, period, timeZone),
+      sessions: { total: count(placements.roots), subagents: count(placements.subagents) },
+    };
+  };
+  return { apply, current: () => current, history, query };
 }

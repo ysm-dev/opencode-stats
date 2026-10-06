@@ -1,8 +1,11 @@
 import * as Schema from "effect/Schema";
+import { Preset } from "./ranges.ts";
 
 const Action = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("address"), address: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("all-time") }),
+  Schema.Struct({ kind: Schema.Literal("preset"), preset: Preset }),
+  Schema.Struct({ kind: Schema.Literal("shift"), direction: Schema.Literals([-1, 1]) }),
 ]);
 export type EngineAction = typeof Action.Type;
 const Tokens = Schema.Struct({
@@ -16,8 +19,27 @@ const Tokens = Schema.Struct({
 const State = Schema.Union([
   Schema.Struct({
     screen: Schema.Literal("dashboard"),
-    address: Schema.Literal("/?range=all"),
-    rangeLabel: Schema.Literal("All time"),
+    address: Schema.String,
+    rangeLabel: Schema.String,
+    range: Schema.Struct({
+      preset: Preset,
+      fixedLabel: Schema.String,
+      canShiftBack: Schema.Boolean,
+      canShiftForward: Schema.Boolean,
+    }),
+    period: Schema.Struct({
+      start: Schema.Number,
+      end: Schema.Number,
+      from: Schema.String,
+      to: Schema.String,
+      days: Schema.Number,
+    }),
+    timeZone: Schema.String,
+    comparison: Schema.Struct({
+      tokens: Schema.String,
+      sessions: Schema.String,
+      caption: Schema.String,
+    }),
     tokens: Tokens,
     sessions: Schema.Struct({ total: Schema.Number, subagents: Schema.Number }),
     generation: Schema.String,

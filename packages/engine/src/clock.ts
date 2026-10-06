@@ -1,5 +1,7 @@
 export type EngineClock = {
   now: () => number;
+  timeZone: () => string;
+  locale: () => string;
   workNow: () => number;
   yield: () => Promise<void>;
   everySecond: (update: () => void) => () => void;
@@ -8,6 +10,8 @@ export type EngineClock = {
 
 export const systemClock: EngineClock = {
   now: () => Date.now(),
+  timeZone: () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+  locale: () => Intl.DateTimeFormat().resolvedOptions().locale,
   workNow: () => performance.now(),
   yield: () => new Promise((resolve) => setTimeout(resolve, 0)),
   everySecond: (update) => {

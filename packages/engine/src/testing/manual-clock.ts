@@ -1,7 +1,7 @@
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-export function manualClock() {
-  let now = new Date(2026, 9, 7, 14, 2).getTime();
+export function manualClock(initial = Date.parse("2026-10-07T14:02:00Z")) {
+  let now = initial;
   const timers = new Set<{ at: number; interval: number; update: () => void }>();
   const schedule = (milliseconds: number, update: () => void, interval = 0) => {
     const timer = { at: now + milliseconds, interval, update };

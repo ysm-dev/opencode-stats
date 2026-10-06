@@ -5,6 +5,7 @@ import type { EngineSignal } from "./protocol.ts";
 import { followCopy, loadCopy, type EngineNetwork } from "./network.ts";
 import { createFacts } from "./tokens.ts";
 import { createLiveStatus } from "./live-status.ts";
+import { addDates, localDate, midnight } from "./calendar.ts";
 
 type Session = {
   controller: AbortController;
@@ -29,11 +30,23 @@ export function createLiveEngine(
   let closed = false;
   let replaceRelease = false;
   let stopClock: (() => void) | undefined;
+  let stopBoundary: (() => void) | undefined;
   let stopRetry: (() => void) | undefined;
   let presented = "";
+  const readTime = () => ({ now: clock.now(), timeZone: clock.timeZone(), locale: clock.locale() });
+  let time = readTime();
+  const timeKey = (value: typeof time) =>
+    `${Math.floor(value.now / 60000)}\0${value.timeZone}\0${value.locale}\0${localDate(value.now, value.timeZone)}`;
+  const updateTime = (force = false) => {
+    const next = readTime();
+    if (!force && timeKey(next) === timeKey(time)) return false;
+    time = next;
+    return true;
+  };
   const cleanups = new Set<Promise<void>>();
   const enabled = () => started && visible && !paused && !closed;
   const changed = () => {
+    if (!paused) updateTime(true);
     presented = JSON.stringify(status.read());
     paint();
   };
@@ -128,18 +141,34 @@ export function createLiveEngine(
     }
   };
   const tick = () => {
-    if (facts.current() && !session?.opening && JSON.stringify(status.read()) !== presented)
+    if (
+      facts.current() &&
+      !session?.opening &&
+      (updateTime() || JSON.stringify(status.read()) !== presented)
+    )
       changed();
+  };
+  const boundary = () => {
+    const now = clock.now();
+    const nextMinute = (Math.floor(now / 60000) + 1) * 60000;
+    const nextDay = midnight(addDates(localDate(now, clock.timeZone()), 1), clock.timeZone());
+    stopBoundary = clock.after(Math.min(nextMinute, nextDay) - now, () => {
+      tick();
+      boundary();
+    });
   };
   const start = () => {
     started = true;
     if (!enabled()) return;
     stopClock ??= clock.everySecond(tick);
+    if (!stopBoundary) boundary();
     connect();
   };
   const suspend = () => {
     stopClock?.();
     stopClock = undefined;
+    stopBoundary?.();
+    stopBoundary = undefined;
     stopRetry?.();
     stopRetry = undefined;
     disconnect();
@@ -147,12 +176,14 @@ export function createLiveEngine(
   const signal = (event: EngineSignal) => {
     if (event.kind === "focus") {
       connect();
+      if (enabled() && facts.current() && !session?.opening && updateTime(true)) changed();
       return;
     }
     if (event.kind === "visibility") {
       visible = event.visible;
       if (!visible && replaceRelease) reload();
     } else {
+      if (event.paused && enabled()) updateTime(true);
       paused = event.paused;
       if (paused) {
         status.pause();
@@ -164,6 +195,12 @@ export function createLiveEngine(
   };
   return {
     current: facts.current,
+    query: facts.query,
+    history: facts.history,
+    time: () => time,
+    refreshTime: () => {
+      if (enabled()) updateTime(true);
+    },
     status: status.read,
     visible: () => visible,
     start,

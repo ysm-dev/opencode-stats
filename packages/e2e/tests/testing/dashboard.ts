@@ -137,7 +137,7 @@ async function checkViewport(
       });
       try {
         phase(`${width} ${asset} navigation`);
-        await page.goto(origin, { waitUntil: "commit" });
+        await page.goto(`${origin}/?range=all`, { waitUntil: "commit" });
         phase(`${width} ${asset} committed`);
         await vi.waitFor(
           () => {
@@ -173,7 +173,7 @@ async function checkViewport(
       await page.evaluate(
         () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
       );
-      expect(await page.title()).toBe("Overview · opencode-stats");
+      expect(await page.title()).toBe("Overview · All time · opencode-stats");
       expect(await page.locator("html").getAttribute("lang")).toBe("en");
       expect(await page.getByRole("heading", { name: "Overview", level: 1 }).count()).toBe(1);
       expect(await page.getByRole("navigation", { name: "Pages" }).count()).toBe(1);

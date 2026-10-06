@@ -8,7 +8,7 @@ import {
   type Accessor,
 } from "solid-js";
 import { render } from "solid-js/web";
-import { MetaProvider } from "@solidjs/meta";
+import { MetaProvider, Title } from "@solidjs/meta";
 import { PreferenceProvider } from "./preferences.tsx";
 import { Settings } from "./settings.tsx";
 import {
@@ -19,12 +19,78 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/solid-router";
-import type { EngineState, createPageClient } from "@opencode-stats/engine";
+import {
+  presets,
+  presetLabels,
+  type EngineState,
+  type EngineAction,
+  type createPageClient,
+} from "@opencode-stats/engine";
 
 type PageClient = ReturnType<typeof createPageClient>;
 type CompletePage = Extract<EngineState, { screen: "dashboard" }>;
 const PageState = createContext<Accessor<CompletePage>>();
 const PageActions = createContext<PageClient>();
+
+const RangeControls = () => {
+  const state = useContext(PageState)!;
+  const client = useContext(PageActions)!;
+  const selectPreset = (event: Event & { currentTarget: HTMLSelectElement }) => {
+    const preset = presets.find((value) => value === event.currentTarget.value)!;
+    void client.request({ kind: "preset", preset });
+  };
+  return (
+    <div class="range-control" aria-label="Time range" role="group" data-range={state().address}>
+      <button
+        type="button"
+        aria-label="Previous range"
+        disabled={!state().range.canShiftBack}
+        onClick={() => void client.request({ kind: "shift", direction: -1 })}
+      >
+        ‹
+      </button>
+      <label class="sr-only" for="time-range">
+        Time range
+      </label>
+      <select id="time-range" value={state().range.preset} onChange={selectPreset}>
+        {presets.map((preset) => (
+          <option value={preset}>{presetLabels[preset]}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        aria-label="Next range"
+        disabled={!state().range.canShiftForward}
+        onClick={() => void client.request({ kind: "shift", direction: 1 })}
+      >
+        ›
+      </button>
+      <Show when={state().range.fixedLabel}>
+        <button
+          class="fixed-range"
+          type="button"
+          aria-label={`Remove fixed range · ${state().range.fixedLabel}`}
+          onClick={() => void client.request({ kind: "preset", preset: state().range.preset })}
+        >
+          {state().range.fixedLabel} ×
+        </button>
+      </Show>
+    </div>
+  );
+};
+
+const PreviousNumber = (props: { metric: "tokens" | "sessions" }) => {
+  const state = useContext(PageState)!;
+  return (
+    <Show when={state().comparison[props.metric]}>
+      <p class="previous-period">
+        {state().comparison[props.metric]}
+        <br />
+        <small>{state().comparison.caption}</small>
+      </p>
+    </Show>
+  );
+};
 
 const Overview = () => {
   const state = useContext(PageState)!;
@@ -32,25 +98,30 @@ const Overview = () => {
     <>
       <header>
         <h1 tabIndex={-1}>Overview</h1>
-        <p>{state().rangeLabel}</p>
+        <Title>Overview · {state().rangeLabel} · opencode-stats</Title>
+        <RangeControls />
         <UpdateStatus />
       </header>
       <section
         aria-labelledby="tokens"
         data-generation={state().generation}
         data-revision={state().revision}
+        data-range={state().address}
       >
         <h2 id="tokens">Tokens</h2>
         <p class="headline-number">{state().tokens.total.toLocaleString("en-US")}</p>
+        <PreviousNumber metric="tokens" />
       </section>
       <section
         aria-labelledby="sessions"
         data-generation={state().generation}
         data-revision={state().revision}
+        data-range={state().address}
       >
         <h2 id="sessions">Sessions</h2>
         <p class="headline-number">{state().sessions.total.toLocaleString("en-US")}</p>
         <p>+ {state().sessions.subagents.toLocaleString("en-US")} subagent sessions</p>
+        <PreviousNumber metric="sessions" />
       </section>
     </>
   );
@@ -178,19 +249,43 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
   let latest: EngineState | undefined;
   let painted = false;
   let closed = false;
+  let historyMode: "push" | "replace" = "replace";
+  const actions: PageClient = {
+    ...props.client,
+    request: (action: EngineAction) => {
+      historyMode = "push";
+      return props.client.request(action);
+    },
+  };
+  const paint = (next: EngineState) => {
+    if (
+      next.screen === "dashboard" &&
+      window.location.pathname + window.location.search !== next.address
+    ) {
+      router.history[historyMode](next.address);
+    }
+    historyMode = "replace";
+    setState(next);
+  };
   const unsubscribe = props.client.subscribe((next) => {
     latest = next;
-    if (painted) setState(next);
+    if (painted) paint(next);
   });
   onMount(() => {
     const visibility = () => props.client.signal({ kind: "visibility", visible: !document.hidden });
     const focus = () => props.client.signal({ kind: "focus" });
+    const restore = () => {
+      historyMode = "replace";
+      void props.client.request({ kind: "address", address: window.location.href });
+    };
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("focus", focus);
+    window.addEventListener("popstate", restore);
     visibility();
     onCleanup(() => {
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("focus", focus);
+      window.removeEventListener("popstate", restore);
     });
     void Promise.all([
       props.ready,
@@ -202,7 +297,7 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
         await router.load();
       }
       painted = true;
-      return setState(latest!);
+      return paint(latest!);
     });
   });
   onCleanup(() => {
@@ -211,7 +306,7 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
     props.client.dispose();
   });
   return (
-    <PageActions.Provider value={props.client}>
+    <PageActions.Provider value={actions}>
       <Show when={state()}>
         {(complete) => <CompleteDashboard state={complete()} router={router} />}
       </Show>

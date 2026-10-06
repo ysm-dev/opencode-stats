@@ -1,13 +1,8 @@
 import type { EngineClock } from "./clock.ts";
-
-const time = (timestamp: number) =>
-  new Date(timestamp).toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+import { clockLabel } from "./time-labels.ts";
 
 export function createLiveStatus(clock: EngineClock) {
+  const time = (timestamp: number) => clockLabel(timestamp, clock.timeZone(), clock.locale());
   let lastWrite: number | undefined;
   let disconnectedAt: number | undefined;
   let pausedAt: number | undefined;

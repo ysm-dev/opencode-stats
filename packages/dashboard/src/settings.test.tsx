@@ -34,6 +34,7 @@ afterEach(() => {
 });
 
 const dashboard = () => {
+  window.history.replaceState(null, "", "/?range=all");
   const server = inMemoryDashboardServer(
     syntheticCopy([
       { start: 1, input: 987, cacheRead: null, cacheWrite: null, output: null, reasoning: null },
