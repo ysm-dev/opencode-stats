@@ -71,3 +71,6 @@
 /packages/dashboard/vite.config.ts @ysm-dev
 /packages/e2e/tests/preferences.test.ts @ysm-dev
 /packages/e2e/tests/testing/preference-paint.ts @ysm-dev
+/packages/e2e/tests/preferences-chromium.test.ts @ysm-dev
+/packages/e2e/tests/preferences-webkit.test.ts @ysm-dev
+/packages/e2e/tests/testing/settings.ts @ysm-dev
