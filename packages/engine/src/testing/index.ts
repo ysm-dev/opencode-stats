@@ -5,6 +5,7 @@ import { systemClock, type EngineClock } from "../clock.ts";
 export { referenceTokens, referenceSessions } from "./reference.ts";
 export { manualClock } from "./manual-clock.ts";
 export { blockedSlices } from "./blocked-slices.ts";
+export { filterCopy } from "./filter-fixture.ts";
 
 export function inThreadEngine(
   fetch: typeof globalThis.fetch,

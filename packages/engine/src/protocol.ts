@@ -1,11 +1,19 @@
 import * as Schema from "effect/Schema";
 import { Preset } from "./ranges.ts";
+import { Filter, FilterDimension } from "./filters.ts";
 
 const Action = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("address"), address: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("all-time") }),
   Schema.Struct({ kind: Schema.Literal("preset"), preset: Preset }),
   Schema.Struct({ kind: Schema.Literal("shift"), direction: Schema.Literals([-1, 1]) }),
+  Schema.Struct({
+    kind: Schema.Literal("filter"),
+    dimension: FilterDimension,
+    id: Schema.String,
+    announce: Schema.optional(Schema.Boolean),
+  }),
+  Schema.Struct({ kind: Schema.Literal("clear-filters") }),
 ]);
 export type EngineAction = typeof Action.Type;
 const Tokens = Schema.Struct({
@@ -41,6 +49,21 @@ const State = Schema.Union([
       caption: Schema.String,
     }),
     tokens: Tokens,
+    filters: Schema.Array(Schema.Struct({ ...Filter.fields, name: Schema.String })),
+    checklists: Schema.Array(
+      Schema.Struct({
+        dimension: FilterDimension,
+        values: Schema.Array(
+          Schema.Struct({
+            id: Schema.String,
+            name: Schema.String,
+            tokens: Schema.Number,
+            selected: Schema.Boolean,
+            proportion: Schema.Number,
+          }),
+        ),
+      }),
+    ),
     sessions: Schema.Struct({ total: Schema.Number, subagents: Schema.Number }),
     generation: Schema.String,
     revision: Schema.Int,
@@ -48,6 +71,7 @@ const State = Schema.Union([
     paused: Schema.Boolean,
     statusLine: Schema.String,
     announcement: Schema.String,
+    filterAnnouncement: Schema.String,
   }),
   Schema.Struct({
     screen: Schema.Literal("problem"),

@@ -197,6 +197,8 @@ export function createLiveEngine(
   return {
     current: facts.current,
     query: facts.query,
+    filterState: facts.filterState,
+    filterLabel: facts.filterLabel,
     history: facts.history,
     time: () => time,
     refreshTime: () => {

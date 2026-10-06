@@ -9,9 +9,16 @@ import type { CopyCursor } from "@opencode-stats/browser-copy/api";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import type { EngineClock } from "./clock.ts";
-import { placeSessions } from "./sessions.ts";
+import { placeSessions, matchingPlacements } from "./sessions.ts";
 import { emptyAmounts, adjust, totals, type Fact } from "./amounts.ts";
-import { emptyDays, updateDay, dayTotals } from "./days.ts";
+import { emptyDays, updateDay, dayTotals, checklistAmounts } from "./days.ts";
+import {
+  compileFilters,
+  filterDimensions,
+  filterName,
+  matchingFacts,
+  type Filter,
+} from "./filters.ts";
 import { localDate, midnight } from "./calendar.ts";
 import type { Period } from "./ranges.ts";
 
@@ -71,6 +78,7 @@ async function applyDimensions(
 
 export function createFacts(clock: EngineClock) {
   let snapshot = emptySnapshot();
+  const filteredPlacements = new Map<string, ReturnType<typeof matchingPlacements>>();
   let placements = {
     roots: new Map<number, number>(),
     subagents: new Map<number, number>(),
@@ -127,6 +135,7 @@ export function createFacts(clock: EngineClock) {
     if (signal.aborted) return false;
     // Persistent maps leave the prior complete copy available throughout every slice.
     snapshot = next;
+    filteredPlacements.clear();
     placements = sessions;
     current = {
       generation: copy.generation,
@@ -142,14 +151,70 @@ export function createFacts(clock: EngineClock) {
       ? midnight(localDate(now, timeZone), timeZone)
       : placements.first;
   };
-  const query = (period: Period, timeZone: string) => {
+  const names = () =>
+    [...HashMap.values(snapshot.names)].filter((name) =>
+      name.dimension === "session"
+        ? HashMap.has(snapshot.sessions, name.code)
+        : name.dimension !== "project" || HashMap.has(snapshot.projects, name.code),
+    );
+  const query = (period: Period, timeZone: string, filters: readonly Filter[]) => {
     indexZone(timeZone);
+    const compiled = compileFilters(filters, names());
+    const key = JSON.stringify(filters);
+    let placed = filteredPlacements.get(key);
+    if (!placed) {
+      placed =
+        filters.length === 0
+          ? placements
+          : matchingPlacements(
+              matchingFacts(HashMap.values(snapshot.facts), compiled),
+              snapshot.sessions,
+            );
+      filteredPlacements.set(key, placed);
+    }
     const count = (map: Map<number, number>) =>
       [...map.values()].filter((start) => start >= period.start && start < period.end).length;
     return {
-      tokens: dayTotals(snapshot.days, period),
-      sessions: { total: count(placements.roots), subagents: count(placements.subagents) },
+      tokens: dayTotals(snapshot.days, period, compiled),
+      sessions: { total: count(placed.roots), subagents: count(placed.subagents) },
     };
   };
-  return { apply, current: () => current, history, query };
+  const filterState = (period: Period, timeZone: string, filters: readonly Filter[]) => {
+    indexZone(timeZone);
+    const available = names();
+    const compiled = compileFilters(filters, available);
+    return {
+      filters: filters.map((filter) => ({ ...filter, name: filterName(filter, available) })),
+      checklists: filterDimensions
+        .filter((dimension) => dimension !== "session")
+        .map((dimension) => {
+          const amounts = checklistAmounts(snapshot.days, period, compiled, dimension);
+          const maximum = Math.max(0, ...amounts.values());
+          const values = available
+            .filter((name) => name.dimension === dimension)
+            .map((name) => ({
+              id: name.id,
+              name: name.name,
+              tokens: amounts.get(name.code) ?? 0,
+              selected: filters.some(
+                (filter) => filter.dimension === dimension && filter.id === name.id,
+              ),
+              proportion: maximum === 0 ? 0 : (amounts.get(name.code) ?? 0) / maximum,
+            }))
+            .sort(
+              (a, b) =>
+                b.tokens - a.tokens || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+            );
+          return { dimension, values };
+        }),
+    };
+  };
+  return {
+    apply,
+    current: () => current,
+    history,
+    query,
+    filterState,
+    filterLabel: (filter: Filter) => filterName(filter, names()),
+  };
 }

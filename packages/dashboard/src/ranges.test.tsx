@@ -1,11 +1,9 @@
-import { render, cleanup, screen } from "@solidjs/testing-library";
-import userEvent from "@testing-library/user-event";
+import { cleanup, screen } from "@solidjs/testing-library";
 import axe from "axe-core";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
-import { inThreadEngine, manualClock } from "@opencode-stats/engine/testing";
-import { inMemoryDashboardServer, syntheticCopy } from "@opencode-stats/browser-copy/testing";
-import { Dashboard } from "./dashboard.tsx";
+import { syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import { dashboardEnvironment } from "./testing/environment.ts";
+import { dashboardFixture } from "./testing/dashboard-fixture.tsx";
 
 beforeEach(() => {
   dashboardEnvironment("/");
@@ -25,24 +23,15 @@ const step = (date: string, input: number, session: number) => ({
   reasoning: 0,
 });
 const rangesDashboard = (deliverAnswer: (deliver: () => void) => void = queueMicrotask) => {
-  const server = inMemoryDashboardServer(
+  return dashboardFixture(
     syntheticCopy([
       step("2026-10-01T12:00Z", 1, 0),
       step("2026-10-06T12:00Z", 50, 1),
       step("2026-10-06T13:00Z", 50, 2),
       step("2026-10-07T12:00Z", 112, 3),
     ]),
+    deliverAnswer,
   );
-  const clock = manualClock();
-  const engine = inThreadEngine(server.fetch, deliverAnswer, clock);
-  const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
-  const user = userEvent.setup();
-  const close = async () => {
-    cleanup();
-    await engine.dispose();
-    await server.dispose();
-  };
-  return { server, engine, clock, view, user, close };
 };
 
 const chooseRange = async (f: ReturnType<typeof rangesDashboard>, label: string) => {

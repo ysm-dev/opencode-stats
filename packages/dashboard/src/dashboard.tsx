@@ -1,17 +1,12 @@
-import {
-  Show,
-  createContext,
-  createSignal,
-  onCleanup,
-  onMount,
-  useContext,
-  type Accessor,
-} from "solid-js";
+import { Show, createSignal, onCleanup, onMount, useContext } from "solid-js";
 import { render } from "solid-js/web";
 import { MetaProvider } from "@solidjs/meta";
 import { Select } from "@opencode/ui/select";
 import { PreferenceProvider } from "./preferences.tsx";
 import { Settings } from "./settings.tsx";
+import { Filters, FilterChips } from "./filters.tsx";
+import { PageState, PageActions } from "./page-context.ts";
+import { preserveFilterFocus } from "./filter-focus.ts";
 import {
   Link,
   Outlet,
@@ -29,9 +24,6 @@ import {
 } from "@opencode-stats/engine";
 
 type PageClient = ReturnType<typeof createPageClient>;
-type CompletePage = Extract<EngineState, { screen: "dashboard" }>;
-const PageState = createContext<Accessor<CompletePage>>();
-const PageActions = createContext<PageClient>();
 const focusRange = () =>
   document.querySelector<HTMLElement>('.range-control [data-component="select-v2"]')!.focus();
 
@@ -113,6 +105,7 @@ const Overview = () => {
       <header>
         <h1 tabIndex={-1}>Overview</h1>
         <RangeControls />
+        <FilterChips />
         <UpdateStatus />
       </header>
       <section
@@ -205,6 +198,7 @@ const Shell = () => (
           Overview
         </Link>
       </nav>
+      <Filters />
       <footer>
         <LiveStatus />
         <Settings />
@@ -280,7 +274,7 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
       router.history.flush();
     }
     historyMode = "replace";
-    setState(next);
+    preserveFilterFocus(() => setState(next));
   };
   const unsubscribe = props.client.subscribe((next) => {
     latest = next;

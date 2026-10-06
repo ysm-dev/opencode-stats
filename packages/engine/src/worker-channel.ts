@@ -19,9 +19,11 @@ import {
   type TimeRange,
 } from "./ranges.ts";
 import { changeLabel, periodLabel, rangeLabel, clockLabel } from "./time-labels.ts";
+import { parseFilters, filterAddress, toggleFilter, type Filter } from "./filters.ts";
 
 function stateFor(
   range: TimeRange | undefined,
+  filters: readonly Filter[],
   live: ReturnType<typeof createLiveEngine>,
 ): EngineState {
   if (range === undefined) return { screen: "problem", reason: "invalid-address" };
@@ -30,18 +32,18 @@ function stateFor(
   const { now, timeZone, locale } = live.time();
   const history = live.history(now, timeZone);
   const period = resolveRange(range, now, timeZone, history);
-  const amounts = live.query(period, timeZone);
+  const amounts = live.query(period, timeZone, filters);
   const previous = previousPeriod(range, period, timeZone, history);
   const comparison = { tokens: "", sessions: "", caption: "" };
   if (previous) {
-    const before = live.query(previous, timeZone);
+    const before = live.query(previous, timeZone, filters);
     comparison.tokens = changeLabel(amounts.tokens.total, before.tokens.total);
     comparison.sessions = changeLabel(amounts.sessions.total, before.sessions.total);
     comparison.caption = `Previous period · ${periodLabel(previous, locale)} · through ${clockLabel(previous.end, timeZone, locale)}`;
   }
   return {
     screen: "dashboard",
-    address: rangeAddress(range),
+    address: filterAddress(rangeAddress(range), filters),
     rangeLabel: rangeLabel(range, period, locale),
     range: {
       preset:
@@ -57,9 +59,11 @@ function stateFor(
     timeZone,
     comparison,
     ...amounts,
+    ...live.filterState(period, timeZone, filters),
     generation: current.generation,
     revision: current.revision,
     ...live.status(),
+    filterAnnouncement: "",
   };
 }
 
@@ -71,15 +75,24 @@ export function connectEngine(
   let pending: EngineRequest | undefined;
   let active: EngineRequest | undefined;
   let range: TimeRange | undefined = "30d";
+  let filters: readonly Filter[] = [];
+  let filterChange: Extract<EngineAction, { kind: "filter" | "clear-filters" }> | undefined;
+  let filterAnnouncement = "";
   const selectRange = (action: EngineAction) => {
+    filterChange = undefined;
+    filterAnnouncement = "";
     live.refreshTime();
     const { now, timeZone } = live.time();
     if (action.kind === "address") {
       try {
         range = parseRange(action.address, network.baseUrl);
+        filters = parseFilters(action.address, network.baseUrl);
       } catch {
         range = undefined;
       }
+    } else if (action.kind === "filter" || action.kind === "clear-filters") {
+      filters = action.kind === "clear-filters" ? [] : toggleFilter(filters, action);
+      filterChange = action;
     } else if (action.kind === "shift")
       range = shiftRange(range ?? "30d", action.direction, now, timeZone);
     else range = action.kind === "all-time" ? "all" : action.preset;
@@ -88,7 +101,22 @@ export function connectEngine(
     if (!active || !live.visible()) return;
     const id = pending?.id ?? 0;
     pending = undefined;
-    port.postMessage({ id, state: stateFor(range, live) });
+    const state = stateFor(range, filters, live);
+    if (state.screen === "dashboard" && filterChange) {
+      if (filterChange.kind === "clear-filters") filterAnnouncement = "Filters cleared";
+      else if (filterChange.announce) {
+        const change = filterChange;
+        const selected = state.filters.find(
+          (filter) => filter.dimension === change.dimension && filter.id === change.id,
+        );
+        filterAnnouncement = `Filter ${selected ? "added" : "removed"}: ${change.dimension} ${selected?.name ?? live.filterLabel(change)}`;
+      }
+    }
+    filterChange = undefined;
+    port.postMessage({
+      id,
+      state: state.screen === "dashboard" ? { ...state, filterAnnouncement } : state,
+    });
   };
   const live = createLiveEngine(network, clock, paint, () => port.postMessage({ reload: true }));
   const decode = Schema.decodeUnknownSync(Message);
