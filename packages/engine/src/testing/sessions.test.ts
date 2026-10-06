@@ -76,6 +76,7 @@ it("rolls descendant steps up to their session, places each subagent at its own 
 });
 
 it("equals the row-oriented reference for generated first-step placements and nested history", async () => {
+  expect.hasAssertions();
   await fc.assert(
     fc.asyncProperty(
       fc.array(fc.record({ start: fc.integer(), code: fc.integer({ min: 0, max: 3 }) }), {
@@ -100,6 +101,7 @@ it("equals the row-oriented reference for generated first-step placements and ne
 });
 
 it("uses counted ownership without traversing cyclic or missing imported parent links", async () => {
+  expect.hasAssertions();
   const malformed = [
     { code: 1, parent: 2, session: 0, project: 9, fork: null },
     { code: 2, parent: 1, session: 0, project: 9, fork: null },

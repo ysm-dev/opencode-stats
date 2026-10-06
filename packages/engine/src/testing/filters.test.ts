@@ -266,6 +266,7 @@ it("keeps selections stable across incremental recoding, deleted metadata and a 
 });
 
 it("equals the independent row reference for arbitrary multi-dimension combinations and full/partial local days", async () => {
+  expect.hasAssertions();
   await fc.assert(
     fc.asyncProperty(
       fc.array(
