@@ -45,7 +45,7 @@ describe("Overview", () => {
       await view.findByRole("heading", { name: "Overview" });
       const number = view.container.querySelector(".headline-number");
       const region = view.getByRole("region", { name: "Tokens" });
-      await user.click(view.getByRole("button", { name: "Settings", exact: true }));
+      await user.click(view.getByRole("button", { name: "Settings" }));
       const focused = document.activeElement;
       server.commit(syntheticCopy([{ ...first, input: 20 }], { revision: 2 }));
       await vi.waitFor(() => expect(region.textContent).toBe("Tokens22"));

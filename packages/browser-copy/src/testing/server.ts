@@ -8,6 +8,8 @@ import { encode } from "../binary.ts";
 import { tokenKinds, type BrowserCopy, type Step } from "../facts.ts";
 import { syntheticCopy } from "./synthetic.ts";
 
+type Fetch = (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch>;
+
 const at = (copy: BrowserCopy, index: number): Step => {
   const amount = (kind: (typeof tokenKinds)[number]) =>
     Number.isNaN(copy.steps[kind][index]) ? null : copy.steps[kind][index]!;
@@ -95,7 +97,7 @@ export function inMemoryDashboardServer(
     Layer.provide(HttpServer.layerServices),
   );
   const server = HttpRouter.toWebHandler(routes, { disableLogger: true });
-  const fetch: typeof globalThis.fetch = (input, init) => {
+  const fetch: Fetch = (input, init) => {
     requests++;
     const request = new Request(input, init);
     addresses.push(request.url);
