@@ -7,8 +7,7 @@ import {
   syntheticCopy,
 } from "@opencode-stats/browser-copy/testing";
 import type { EngineState } from "../index.ts";
-import { inThreadEngine, referenceTokens } from "./index.ts";
-import { blockedSlices } from "./blocked-slices.ts";
+import { inThreadEngine, referenceTokens, blockedSlices } from "./index.ts";
 
 const step = (input: number | null): Step => ({
   start: 1,

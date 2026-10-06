@@ -2,8 +2,7 @@ import { expect, it, onTestFinished, vi } from "vitest";
 import { formatVersion } from "@opencode-stats/browser-copy";
 import { inMemoryDashboardServer, syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import type { EngineState } from "../index.ts";
-import { inThreadEngine, manualClock } from "./index.ts";
-import { blockedSlices } from "./blocked-slices.ts";
+import { inThreadEngine, manualClock, blockedSlices } from "./index.ts";
 
 const copy = (revision = 1) =>
   syntheticCopy(
@@ -64,6 +63,21 @@ it("retries every two visible seconds, warns once after five and clears the warn
     }),
   );
   expect(f.paints).toHaveLength(warnings + 1);
+});
+
+it("schedules retries from a mid-second disconnect rather than the label clock's next tick", async () => {
+  const f = fixture();
+  await open(f);
+  await f.clock.advance(0.4);
+  await f.server.drop();
+  await f.clock.advance(1.99);
+  expect(f.server.requests).toBe(2);
+  await f.clock.advance(0.01);
+  expect(f.server.requests).toBe(3);
+  f.engine.client.signal({ kind: "visibility", visible: false });
+  await vi.waitFor(() => expect(f.clock.ticking).toBe(0));
+  await f.clock.advance(10);
+  expect(f.server.requests).toBe(3);
 });
 
 it.each(["visibility", "paused"] as const)(

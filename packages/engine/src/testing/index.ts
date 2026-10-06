@@ -4,6 +4,7 @@ import type { ChannelPort } from "../protocol.ts";
 import { systemClock, type EngineClock } from "../clock.ts";
 export { referenceTokens } from "./reference.ts";
 export { manualClock } from "./manual-clock.ts";
+export { blockedSlices } from "./blocked-slices.ts";
 
 export function inThreadEngine(
   fetch: typeof globalThis.fetch,

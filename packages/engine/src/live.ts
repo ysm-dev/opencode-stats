@@ -28,8 +28,8 @@ export function createLiveEngine(
   let started = false;
   let closed = false;
   let replaceRelease = false;
-  let lastAttempt = 0;
   let stopClock: (() => void) | undefined;
+  let stopRetry: (() => void) | undefined;
   let presented = "";
   const cleanups = new Set<Promise<void>>();
   const enabled = () => started && visible && !paused && !closed;
@@ -48,8 +48,8 @@ export function createLiveEngine(
   const failed = (current: Session) => {
     if (session !== current) return;
     status.disconnect();
-    lastAttempt = clock.now();
     disconnect();
+    stopRetry = clock.after(2000, connect);
   };
   const apply = async (current: Session, cursor?: CopyCursor) => {
     const signal = current.controller.signal;
@@ -106,7 +106,8 @@ export function createLiveEngine(
   };
   const connect = () => {
     if (!enabled() || session) return;
-    lastAttempt = clock.now();
+    stopRetry?.();
+    stopRetry = undefined;
     const current: Session = { controller: new AbortController(), opening: !!facts.current() };
     session = current;
     if (facts.current()) openStream(current);
@@ -129,7 +130,6 @@ export function createLiveEngine(
   const tick = () => {
     if (facts.current() && !session?.opening && JSON.stringify(status.read()) !== presented)
       changed();
-    if (!session && clock.now() - lastAttempt >= 2000) connect();
   };
   const start = () => {
     started = true;
@@ -140,6 +140,8 @@ export function createLiveEngine(
   const suspend = () => {
     stopClock?.();
     stopClock = undefined;
+    stopRetry?.();
+    stopRetry = undefined;
     disconnect();
   };
   const signal = (event: EngineSignal) => {
