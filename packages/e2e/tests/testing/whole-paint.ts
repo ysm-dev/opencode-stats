@@ -128,7 +128,7 @@ export function installWholePaintObserver() {
   const pageComplete = (states: Set<string | null>, regions: Element[]) => {
     const dashboardComplete =
       !!document.querySelector("main h1") &&
-      document.querySelectorAll(".headline-number").length === 2 &&
+      document.querySelectorAll(".headline-number").length === 7 &&
       document.querySelectorAll(".filter-checklist").length === 5 &&
       !!document.querySelector(".range-control") &&
       !!document.querySelector(".live-status") &&
