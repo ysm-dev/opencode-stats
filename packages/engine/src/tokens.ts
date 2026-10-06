@@ -2,6 +2,7 @@ import {
   sessionFields,
   mapStepFields,
   mapSessionFields,
+  mapPromptFields,
   type BrowserCopy,
   type DimensionName,
 } from "@opencode-stats/browser-copy";
@@ -21,12 +22,14 @@ import {
 } from "./filters.ts";
 import { localDate, midnight } from "./calendar.ts";
 import type { Period } from "./ranges.ts";
+import { stepMetrics, type PromptFact } from "./step-metrics.ts";
 
 const row = (copy: BrowserCopy, index: number): Fact =>
   mapStepFields((field) => copy.steps[field][index]!);
 
 const emptySnapshot = () => ({
   facts: HashMap.empty<string, Fact>(),
+  prompts: HashMap.empty<string, PromptFact>(),
   names: HashMap.empty<string, DimensionName>(),
   sessions: HashMap.empty<number, Readonly<Record<(typeof sessionFields)[number], number>>>(),
   projects: HashMap.empty<number, true>(),
@@ -121,14 +124,26 @@ export function createFacts(clock: EngineClock) {
       const rowsEnd = copy.tombstones.length + copy.ids.length;
       for (let index = 0; index < rowsEnd + copy.names.length; index++) {
         if (signal.aborted) return false;
-        if (index < copy.tombstones.length) update(next, copy.tombstones[index]!);
-        else if (index < rowsEnd) {
+        if (index < copy.tombstones.length) {
+          const id = copy.tombstones[index]!;
+          update(next, id);
+          next.prompts = HashMap.remove(next.prompts, id);
+        } else if (index < rowsEnd) {
           const position = index - copy.tombstones.length;
           update(next, copy.ids[position]!, row(copy, position));
         } else {
           const name = copy.names[index - rowsEnd]!;
           next.names = HashMap.set(next.names, `${name.dimension}\0${name.code}`, name);
         }
+        await checkpoint();
+      }
+      for (const [index, id] of copy.promptIds.entries()) {
+        if (signal.aborted) return false;
+        next.prompts = HashMap.set(
+          next.prompts,
+          id,
+          mapPromptFields((field) => copy.prompts[field][index]!),
+        );
         await checkpoint();
       }
       if (!(await applyDimensions(next, copy, checkpoint, signal))) return false;
@@ -151,9 +166,11 @@ export function createFacts(clock: EngineClock) {
     }
   };
   const history = (now: number, timeZone: string) => {
-    return placements.first === Infinity
-      ? midnight(localDate(now, timeZone), timeZone)
-      : placements.first;
+    const first = [...HashMap.values(snapshot.prompts)].reduce(
+      (start, prompt) => Math.min(start, prompt.start),
+      placements.first,
+    );
+    return first === Infinity ? midnight(localDate(now, timeZone), timeZone) : first;
   };
   const names = () =>
     [...HashMap.values(snapshot.names)].filter((name) =>
@@ -178,6 +195,12 @@ export function createFacts(clock: EngineClock) {
     return {
       tokens: dayTotals(snapshot.days, period, compiled),
       sessions: { total: count(placed.roots), subagents: count(placed.subagents) },
+      metrics: stepMetrics(
+        matchingFacts(HashMap.values(snapshot.facts), compiled),
+        matchingFacts(HashMap.values(snapshot.prompts), compiled),
+        names(),
+        period,
+      ),
     };
   };
   const filterState = (period: Period, timeZone: string, filters: readonly Filter[]) => {

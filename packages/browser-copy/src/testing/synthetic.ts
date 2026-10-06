@@ -1,6 +1,7 @@
 import {
   mapStepFields,
   mapSessionFields,
+  mapPromptFields,
   type BrowserCopy,
   type Step,
   type StepDimensions,
@@ -19,11 +20,18 @@ export function syntheticCopy(
     ids: steps.map((_, index) => `step-${index}`),
     tombstones: [],
     names: [],
+    prompts: mapPromptFields(() => new Float64Array()),
+    promptIds: [],
     sessions: mapSessionFields(() => new Float64Array()),
     projects: new Float64Array(),
     sessionTombstones: new Float64Array(),
     projectTombstones: new Float64Array(),
     ...header,
-    steps: mapStepFields((field) => Float64Array.from(steps, (step) => step[field] ?? NaN)),
+    steps: mapStepFields((field) =>
+      Float64Array.from(
+        steps,
+        (step) => step[field] ?? (field === "failed" || field === "interrupted" ? 0 : NaN),
+      ),
+    ),
   };
 }

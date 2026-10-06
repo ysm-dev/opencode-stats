@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { decode, encode } from "./index.ts";
+import { decode, encode, stepFields } from "./index.ts";
 import { syntheticCopy, formatFixture } from "./testing/index.ts";
 
 const step = { start: 1, input: 2, cacheRead: null, cacheWrite: 0, output: 3, reasoning: null };
@@ -32,7 +32,10 @@ it("round-trips session/project facts and their deletions as zero-copy columns",
 it.each([-1, Infinity, 0.5, 0x100000000])("rejects invalid dimension codes %s", (code) => {
   const copy = formatFixture();
   expect(() =>
-    encode({ ...copy, steps: { ...copy.steps, project: new Float64Array([code]) } }),
+    encode({
+      ...copy,
+      steps: { ...copy.steps, project: Float64Array.from(copy.steps.project, () => code) },
+    }),
   ).toThrow("dimension code");
 });
 
@@ -93,11 +96,12 @@ it("rejects duplicate row IDs", () => {
 
 it("validates every variable-length field before exposing columns", () => {
   const bytes = encode(syntheticCopy([step]));
-  new DataView(bytes).setUint32(216, 0xffffffff, true);
+  const stringsAt = 120 + stepFields.length * 8;
+  new DataView(bytes).setUint32(stringsAt, 0xffffffff, true);
   expect(() => decode(bytes)).toThrow("string lengths");
   const malformed = encode(syntheticCopy([step])).slice(0, -1);
   new DataView(malformed).setUint32(76, malformed.byteLength, true);
-  new DataView(malformed).setUint32(80, malformed.byteLength - 216, true);
+  new DataView(malformed).setUint32(80, malformed.byteLength - stringsAt, true);
   expect(() => decode(malformed)).toThrow("string lengths");
   const trailing = encode(syntheticCopy([], { names: [name] }));
   new DataView(trailing).setUint32(88, 0, true);

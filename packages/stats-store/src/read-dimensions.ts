@@ -7,6 +7,11 @@ import { dimensionNames, sessionFacts, projectFacts, steps } from "./schema.ts";
 export const countedSteps = (facts: ReadonlyArray<typeof steps.$inferSelect>) =>
   facts.map((row) => ({
     start: row.start,
+    streamEnd: row.streamEnd,
+    completed: row.completed,
+    error: row.error,
+    failed: row.failed,
+    interrupted: row.interrupted,
     ...mapTokenFields((kind) => row[kind]),
     provider: row.provider,
     model: row.model,

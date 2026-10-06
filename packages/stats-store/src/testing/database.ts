@@ -18,6 +18,8 @@ export type SyntheticMessage = {
   };
   readonly content?: string;
   readonly error?: string;
+  readonly streamEnd?: number;
+  readonly completed?: number;
   readonly provider?: string;
   readonly model?: string;
   readonly variant?: string;
@@ -67,13 +69,18 @@ export function syntheticDatabase(filename: string) {
     },
     message(message: SyntheticMessage, advanceCounter = true) {
       const data = JSON.stringify({
-        time: { created: message.start },
+        time: { created: message.start, streamed: message.streamEnd, completed: message.completed },
         tokens: message.tokens,
         content: [{ type: "text", text: message.content ?? "SYNTHETIC PRIVATE CONTENT" }],
-        error: message.error,
-        providerID: message.provider ?? "synthetic-provider",
-        modelID: message.model ?? "synthetic-model",
-        variant: message.variant,
+        error:
+          message.error === undefined
+            ? undefined
+            : { type: message.error, message: "SYNTHETIC PRIVATE ERROR" },
+        model: {
+          providerID: message.provider ?? "synthetic-provider",
+          id: message.model ?? "synthetic-model",
+          variant: message.variant,
+        },
         agent: message.agent ?? "build",
       });
       const write = () => {

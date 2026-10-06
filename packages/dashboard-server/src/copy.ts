@@ -1,4 +1,9 @@
-import { encode, mapStepFields, mapSessionFields } from "@opencode-stats/browser-copy";
+import {
+  encode,
+  mapStepFields,
+  mapSessionFields,
+  mapPromptFields,
+} from "@opencode-stats/browser-copy";
 import type { StoreCopy } from "@opencode-stats/stats-store";
 
 export function encodeStore(copy: StoreCopy): Uint8Array {
@@ -10,6 +15,10 @@ export function encodeStore(copy: StoreCopy): Uint8Array {
       revision: copy.revision,
       historyCompleteFrom: copy.historyCompleteFrom,
       ids: copy.facts.map((fact) => fact.id),
+      promptIds: copy.prompts.map((fact) => fact.id),
+      prompts: mapPromptFields((field) =>
+        Float64Array.from(copy.prompts, (row) => row[field] ?? NaN),
+      ),
       tombstones: copy.tombstones.map((fact) => fact.id),
       names: copy.names,
       sessions: mapSessionFields((field) =>

@@ -5,6 +5,11 @@ export const steps = sqliteTable("step", {
   session: text().notNull(),
   position: integer().notNull(),
   start: integer().notNull(),
+  streamEnd: integer("stream_end"),
+  completed: integer(),
+  error: integer(),
+  failed: integer().notNull(),
+  interrupted: integer().notNull(),
   input: integer(),
   cacheRead: integer("cache_read"),
   cacheWrite: integer("cache_write"),
@@ -17,6 +22,20 @@ export const steps = sqliteTable("step", {
   project: integer().notNull(),
   sessionCode: integer("session_code").notNull(),
   subagent: integer(),
+  revision: integer().notNull(),
+});
+
+export const prompts = sqliteTable("prompt", {
+  id: text().primaryKey(),
+  session: text().notNull(),
+  position: integer().notNull(),
+  start: integer().notNull(),
+  provider: integer(),
+  model: integer(),
+  variant: integer(),
+  agent: integer(),
+  project: integer().notNull(),
+  sessionCode: integer("session_code").notNull(),
   revision: integer().notNull(),
 });
 

@@ -81,11 +81,21 @@ it.each([chromium, webkit])(
       const session = `ses-range-${id}`;
       fixture.server.writer.session(session);
       fixture.server.writer.message({
-        id: `msg-range-${id}`,
+        id: `prompt-range-${id}`,
         session,
         seq: 0,
+        start: Math.floor(start) - 1,
+        type: "user",
+      });
+      fixture.server.writer.message({
+        id: `msg-range-${id}`,
+        session,
+        seq: 1,
         start: Math.floor(start),
-        tokens: { input },
+        tokens: { input, cache: { read: 0, write: 0 } },
+        streamEnd: Math.floor(start) + (id === "current" ? 200 : 100),
+        completed: Math.floor(start) + 300,
+        error: id === "current" ? "aborted" : "api.error",
       });
     }
     const page = await fixture.context.newPage();
@@ -117,6 +127,20 @@ it.each([chromium, webkit])(
       "Overview · Today · opencode-stats",
     );
     expect(await tokens.textContent()).toBe("112");
+    const headline = (name: string) => page.getByRole("region", { name, exact: true });
+    expect(await headline("Steps").textContent()).toContain("1 per prompt");
+    expect(await headline("Prompts").locator(".headline-number").textContent()).toBe("1");
+    expect(await headline("Failed steps").textContent()).toContain(
+      "0% failure rate · 1 interrupted",
+    );
+    expect(await headline("Failed steps").locator(".previous-period").textContent()).toContain(
+      "↓ 100%",
+    );
+    expect(await headline("Response time p50").textContent()).toContain(
+      "p95 0.2 s · 100% of steps timed",
+    );
+    expect(await headline("Response time p50").textContent()).toContain("Recorded from");
+    expect(await headline("Cache hit rate").textContent()).toContain("context size median 112");
     expect(
       await page.getByRole("region", { name: "Tokens" }).locator(".previous-period").textContent(),
     ).toContain("↑ 12%");

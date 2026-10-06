@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { metadata, steps, tombstones } from "./schema.ts";
+import { metadata, steps, prompts, tombstones } from "./schema.ts";
 import { countedSteps, readDimensions } from "./read-dimensions.ts";
 import { gt } from "drizzle-orm";
 import { Database, type StoreRuntime } from "./database.ts";
@@ -9,6 +9,7 @@ import type {
   StepDimensions,
   SessionFact,
   DimensionName,
+  Prompt,
 } from "@opencode-stats/browser-copy";
 import * as Cause from "effect/Cause";
 import { sqlFailure } from "./errors.ts";
@@ -20,6 +21,7 @@ export type StoreCopy = {
   readonly revision: number;
   readonly historyCompleteFrom: number;
   readonly steps: ReadonlyArray<Step & StepDimensions>;
+  readonly prompts: ReadonlyArray<Prompt & { readonly id: string }>;
   readonly facts: ReadonlyArray<
     Step &
       Omit<StepDimensions, "session"> & {
@@ -76,6 +78,11 @@ export const stayInSync = Effect.fnUntraced(function* (
                 .where(gt(tombstones.revision, since.revision))
                 .orderBy(tombstones.id)
             : [];
+          const delivered = yield* db
+            .select()
+            .from(prompts)
+            .where(changes ? gt(prompts.revision, since.revision) : undefined)
+            .orderBy(prompts.session, prompts.position);
           const dimensions = yield* readDimensions(changes ? since.revision : undefined, deleted);
           return {
             kind: changes ? ("changes" as const) : ("whole" as const),
@@ -85,6 +92,16 @@ export const stayInSync = Effect.fnUntraced(function* (
             historyCompleteFrom: header.historyCompleteFrom,
             steps: countedSteps(facts),
             facts,
+            prompts: delivered.map((row) => ({
+              id: row.id,
+              start: row.start,
+              provider: row.provider,
+              model: row.model,
+              variant: row.variant,
+              agent: row.agent,
+              project: row.project,
+              session: row.sessionCode,
+            })),
             tombstones: deleted.filter(
               (row) => !row.id.startsWith("session:") && !row.id.startsWith("project:"),
             ),

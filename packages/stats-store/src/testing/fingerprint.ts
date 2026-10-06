@@ -9,8 +9,17 @@ export function fingerprintFixture(writer: ReturnType<typeof syntheticDatabase>)
     seq: 0,
     start: 1000,
     tokens: fiveTokens,
+    streamEnd: 1200,
+    completed: 1300,
+    error: "api.error",
   });
-  writer.message({ id: "msg-missing", session: "ses-fingerprint", seq: 1, start: 2000 });
+  writer.message({
+    id: "msg-missing",
+    session: "ses-fingerprint",
+    seq: 1,
+    start: 2000,
+    error: "aborted",
+  });
   writer.message({
     id: "msg-zero",
     session: "ses-fingerprint",
@@ -58,4 +67,38 @@ export function fingerprintFixture(writer: ReturnType<typeof syntheticDatabase>)
   writer.project("global", "/", "Ignored");
   writer.move("ses-fork-again", "global");
   writer.title("ses-fingerprint", "A synthetic session");
+  writer.message({
+    id: "prompt-next",
+    session: "ses-fingerprint",
+    seq: 5,
+    start: 8000,
+    type: "user",
+  });
+  writer.message({
+    id: "prompt-synthetic",
+    session: "ses-fingerprint",
+    seq: 6,
+    start: 8100,
+    type: "synthetic",
+  });
+  writer.message({
+    id: "step-after",
+    session: "ses-fingerprint",
+    seq: 7,
+    start: 8200,
+    streamEnd: 8200,
+    completed: 8400,
+    provider: "other",
+    model: "model",
+    variant: "high",
+    agent: "plan",
+  });
+  writer.message({ id: "prompt-child", session: "ses-child", seq: 0, start: 8300, type: "user" });
+  writer.message({
+    id: "prompt-unassigned",
+    session: "ses-fingerprint",
+    seq: 8,
+    start: 8500,
+    type: "user",
+  });
 }

@@ -8,6 +8,7 @@ import { Filters, FilterChips } from "./filters.tsx";
 import { PageState, PageActions } from "./page-context.ts";
 import { preserveFilterFocus } from "./filter-focus.ts";
 import { changes, stateMark } from "./change-time.ts";
+import { PreviousNumber, StepHeadlines } from "./step-headlines.tsx";
 import {
   Link,
   Outlet,
@@ -98,19 +99,6 @@ const RangeControls = () => {
   );
 };
 
-const PreviousNumber = (props: { metric: "tokens" | "sessions" }) => {
-  const state = useContext(PageState)!;
-  return (
-    <Show when={state().comparison[props.metric]}>
-      <p class="previous-period" data-state={stateMark(state())}>
-        {state().comparison[props.metric]}
-        <br />
-        <small>{state().comparison.caption}</small>
-      </p>
-    </Show>
-  );
-};
-
 const Overview = () => {
   const state = useContext(PageState)!;
   return (
@@ -144,6 +132,7 @@ const Overview = () => {
         <p>+ {state().sessions.subagents.toLocaleString("en-US")} subagent sessions</p>
         <PreviousNumber metric="sessions" />
       </section>
+      <StepHeadlines />
     </>
   );
 };

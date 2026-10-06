@@ -8,6 +8,8 @@ export {
   mapStepDimensions,
   mapStepFields,
   mapSessionFields,
+  promptFields,
+  mapPromptFields,
 } from "./facts.ts";
 export type {
   BrowserCopy,
@@ -19,4 +21,6 @@ export type {
   StepDimensions,
   SessionFact,
   SessionColumns,
+  Prompt,
+  PromptColumns,
 } from "./facts.ts";

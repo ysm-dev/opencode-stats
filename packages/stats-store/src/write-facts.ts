@@ -1,14 +1,20 @@
 import { eq } from "drizzle-orm";
 import * as Effect from "effect/Effect";
 import { Database } from "./database.ts";
-import { metadata, steps, sessions, tombstones } from "./schema.ts";
+import { metadata, steps, prompts, sessions, tombstones } from "./schema.ts";
 import type { SourceFact, SourceReader, SourceSession, SourceProject } from "./source-reader.ts";
-import { makeDimensions, owningSession, saveDetails } from "./dimensions.ts";
+import { makeDimensions, owningSession, saveDetails, stepAttribution } from "./dimensions.ts";
+import { replacePrompts } from "./write-prompts.ts";
 
 type Snapshot = Effect.Success<ReturnType<SourceReader["read"]>>;
 const keys = [
   "position",
   "start",
+  "streamEnd",
+  "completed",
+  "error",
+  "failed",
+  "interrupted",
   "input",
   "cacheRead",
   "cacheWrite",
@@ -36,15 +42,14 @@ const replaceFacts = Effect.fnUntraced(function* (
   const session = byId.get(id);
   const owner = session ? owningSession(session, byId) : id;
   for (const fact of facts) {
+    const attributed = yield* stepAttribution(fact, code);
     const row = {
       ...fact,
-      provider: yield* code("provider", fact.provider),
-      model: yield* code(
-        "model",
-        fact.provider !== null && fact.model !== null ? `${fact.provider}/${fact.model}` : null,
-      ),
-      variant: (yield* code("variant", fact.variant))!,
-      agent: yield* code("agent", fact.agent),
+      ...attributed,
+      error: yield* code("error", fact.error),
+      failed: Number(fact.error !== null && fact.error !== "aborted"),
+      interrupted: Number(fact.error === "aborted"),
+      variant: attributed.variant!,
       project: (yield* code("project", session!.project))!,
       sessionCode: (yield* code("session", owner))!,
       subagent: yield* code("session", owner === id ? null : id),
@@ -93,11 +98,21 @@ export const commitUnit = Effect.fnUntraced(function* (
         for (const snapshot of snapshots) {
           if (!snapshot.session) {
             yield* replaceFacts(snapshot.id, [], revision, now, inventory, code);
+            yield* replacePrompts(snapshot.id, [], [], revision, now, inventory, code);
             yield* db.delete(sessions).where(eq(sessions.id, snapshot.id));
             continue;
           }
           const session = snapshot.session;
           yield* replaceFacts(session.id, snapshot.facts, revision, now, inventory, code);
+          yield* replacePrompts(
+            session.id,
+            snapshot.prompts,
+            snapshot.facts,
+            revision,
+            now,
+            inventory,
+            code,
+          );
           yield* db
             .insert(sessions)
             .values(session)
@@ -106,12 +121,15 @@ export const commitUnit = Effect.fnUntraced(function* (
       if (removed)
         for (const id of removed) {
           yield* replaceFacts(id, [], revision, now, inventory, code);
+          yield* replacePrompts(id, [], [], revision, now, inventory, code);
           yield* db.delete(sessions).where(eq(sessions.id, id));
         }
       const facts = yield* db.select({ start: steps.start }).from(steps);
-      const earliest = facts.reduce(
+      const delivered = yield* db.select({ start: prompts.start }).from(prompts);
+      const starts = [...facts, ...delivered];
+      const earliest = starts.reduce(
         (value, row) => Math.min(value, row.start),
-        facts[0]?.start ?? 0,
+        starts[0]?.start ?? 0,
       );
       yield* db
         .update(metadata)

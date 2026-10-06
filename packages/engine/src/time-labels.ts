@@ -13,7 +13,7 @@ export const clockLabel = (instant: number, timeZone: string, locale: string) =>
     timeStyle: "short",
     hourCycle: new Intl.DateTimeFormat(locale, { hour: "numeric" }).resolvedOptions().hourCycle,
   }).format(instant);
-const dateLabel = (date: string, locale: string) => {
+export const dateLabel = (date: string, locale: string) => {
   // This is a date label, not an instant: even a skipped local date keeps its name.
   const instant = midnight(date, "UTC");
   const options: Intl.DateTimeFormatOptions = {

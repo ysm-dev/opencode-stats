@@ -2,6 +2,7 @@ import {
   mapTokenFields,
   mapStepDimensions,
   mapSessionFields,
+  mapPromptFields,
   type Step,
 } from "@opencode-stats/browser-copy";
 import type { StoreCopy } from "../store.ts";
@@ -18,7 +19,16 @@ export function canonicalCopy(copy: StoreCopy) {
     steps: copy.steps.map((step, index) => ({
       id: copy.facts[index]!.id,
       ...tokenFacts([step])[0],
+      streamEnd: step.streamEnd,
+      completed: step.completed,
+      error: identity(step.error ?? null),
+      failed: step.failed,
+      interrupted: step.interrupted,
       ...mapStepDimensions((dimension) => identity(step[dimension])),
+    })),
+    prompts: copy.prompts.map((prompt) => ({
+      id: prompt.id,
+      ...mapPromptFields((field) => (field === "start" ? prompt.start : identity(prompt[field]))),
     })),
     sessions: copy.sessions
       .map((session) => ({

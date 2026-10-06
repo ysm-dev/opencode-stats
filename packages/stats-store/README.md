@@ -2,16 +2,23 @@
 
 `stayInSync(options, runtime, announce)` builds once at startup, announces the
 committed copy, and returns `read()` or `read(cursor)`. Reads contain UTC step
-starts, five independently nullable token kinds, step dimensions, sessions,
+starts, nullable stream ends and completions, counted failed/interrupted flags and error-type codes,
+five independently nullable token kinds, step dimensions, delivered prompts, sessions,
 subagent sessions, projects and names, not totals or message content.
 
-Stats-store version 4 rebuilds statistics to add these facts and dimensions, with a fingerprint of the complete synthetic history.
+Stats-store version 5 rebuilds your statistics to add prompts, errors and timings, with a fingerprint of the complete synthetic history.
 Codes are allocated monotonically, retained after deletion and never reused.
 Fork-copy IDs (`msg_` + 26 characters + `_` + digits) never count, even after
 rewrites or deletion of their origin. Nested steps roll into their owning session
 or topmost surviving ancestor. Every pass reads all session details and projects;
 project moves and renames need no session-counter change. Already-read steps are
 reattributed in the same commit as their session details. Archives keep counting.
+
+Prompts are delivered `user` rows in sessions without a parent, never `synthetic`
+rows or copied history. They keep their delivery time and the first subsequent
+step's attribution, or NULL attribution if none follows. Steps record `aborted`
+as interrupted and every other recorded error type as failed; missing usage
+never removes a step. Only scalar metadata is selected from OpenCode JSON.
 
 - The server and its worker select `./bun`; Node tests select `./node` or
   `./testing`'s `inThreadRuntime`. The package root loads no Bun built-ins.

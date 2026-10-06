@@ -180,7 +180,7 @@ it("counts incomplete and failed steps, recorded zeroes and start rewrites, but 
       seq: 0,
       start: 1234,
       tokens: { input: 0, cache: { read: 0 }, reasoning: 7 },
-      error: "SYNTHETIC FAILURE",
+      error: "synthetic.failure",
     };
     writer.message(message);
     writer.message({ ...message, start: 5678 });
@@ -220,7 +220,7 @@ it("counts incomplete and failed steps, recorded zeroes and start rewrites, but 
       expect(
         readFileSync(join(cache, file)).includes(Buffer.from("SYNTHETIC PRIVATE CONTENT")),
       ).toBe(false);
-      expect(readFileSync(join(cache, file)).includes(Buffer.from("SYNTHETIC FAILURE"))).toBe(
+      expect(readFileSync(join(cache, file)).includes(Buffer.from("SYNTHETIC PRIVATE ERROR"))).toBe(
         false,
       );
     }

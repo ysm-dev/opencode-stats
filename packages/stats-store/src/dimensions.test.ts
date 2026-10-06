@@ -325,11 +325,11 @@ it("keeps missing migrated dimensions missing, defaults only the variant, and fo
   const fixture = syntheticFixture();
   const { writer, source, folder } = fixture;
   writer.session("migrated", null, { title: "" });
-  for (const [index, dimensions] of [{}, { providerID: "p" }, { modelID: "m" }].entries()) {
+  for (const [index, dimensions] of [{}, { providerID: "p" }, { id: "m" }].entries()) {
     writer.message({ id: `old-${index}`, session: "migrated", seq: index, start: index });
     writer.rewriteWithoutCounter(
       `old-${index}`,
-      JSON.stringify({ time: { created: index }, ...dimensions }),
+      JSON.stringify({ time: { created: index }, model: dimensions }),
     );
   }
   try {

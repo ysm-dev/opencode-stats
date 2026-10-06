@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { randomBytes } from "node:crypto";
 import { syntheticCopy } from "./synthetic.ts";
-import { mapSessionFields } from "../facts.ts";
+import { mapSessionFields, mapPromptFields } from "../facts.ts";
 
 const amount = fc.option(fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER }), { nil: null });
 const code = fc.integer({ min: 0, max: 0xfffffffe });
@@ -13,6 +13,11 @@ const tokenStep = fc.record({
   cacheWrite: amount,
   output: amount,
   reasoning: amount,
+  streamEnd: amount,
+  completed: amount,
+  error: optionalCode,
+  failed: fc.integer({ min: 0, max: 1 }),
+  interrupted: fc.integer({ min: 0, max: 1 }),
 });
 export const syntheticSteps = fc.array(tokenStep, { maxLength: 100 });
 const dimensionStep = fc.record({
@@ -68,6 +73,12 @@ export const syntheticCopies = fc
         revision: fromRevision + increment,
         historyCompleteFrom,
         names,
+        prompts: mapPromptFields((field) =>
+          Float64Array.from(steps, (step) =>
+            field === "start" ? step.start : (step[field] ?? NaN),
+          ),
+        ),
+        promptIds: steps.map((_, index) => `prompt-${index}`),
         sessions: mapSessionFields((field) =>
           Float64Array.from(sessions, (session) => session[field] ?? NaN),
         ),

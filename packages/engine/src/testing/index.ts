@@ -18,3 +18,4 @@ export {
   referenceRangeTokens,
   referenceHours,
 } from "./time-reference.ts";
+export { metricCopy } from "./metrics-fixture.ts";

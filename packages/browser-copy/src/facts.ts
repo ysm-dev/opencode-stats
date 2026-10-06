@@ -10,7 +10,49 @@ export const stepDimensions = [
   "subagent",
 ] as const;
 export type StepDimension = (typeof stepDimensions)[number];
-export const stepFields = ["start", ...tokenKinds, ...stepDimensions] as const;
+export const stepFields = [
+  "start",
+  "streamEnd",
+  "completed",
+  "error",
+  "failed",
+  "interrupted",
+  ...tokenKinds,
+  ...stepDimensions,
+] as const;
+export const promptFields = [
+  "start",
+  "provider",
+  "model",
+  "variant",
+  "agent",
+  "project",
+  "session",
+] as const;
+export type Prompt = Readonly<Record<(typeof promptFields)[number], number | null>> & {
+  readonly start: number;
+};
+export type PromptColumns = Readonly<Record<(typeof promptFields)[number], Float64Array>>;
+export function mapPromptFields<Value>(
+  read: (field: (typeof promptFields)[number]) => Value,
+): Record<(typeof promptFields)[number], Value> {
+  return {
+    start: read("start"),
+    ...mapAttributionFields(read),
+    project: read("project"),
+    session: read("session"),
+  };
+}
+function mapAttributionFields<Value>(
+  read: (field: "provider" | "model" | "variant" | "agent") => Value,
+) {
+  return {
+    provider: read("provider"),
+    model: read("model"),
+    variant: read("variant"),
+    agent: read("agent"),
+  };
+}
 export const sessionFields = ["code", "parent", "session", "project", "fork"] as const;
 export function mapTokenFields<Value>(read: (field: TokenKind) => Value): Record<TokenKind, Value> {
   return {
@@ -25,10 +67,7 @@ export function mapStepDimensions<Value>(
   read: (field: StepDimension) => Value,
 ): Record<StepDimension, Value> {
   return {
-    provider: read("provider"),
-    model: read("model"),
-    variant: read("variant"),
-    agent: read("agent"),
+    ...mapAttributionFields(read),
     project: read("project"),
     session: read("session"),
     subagent: read("subagent"),
@@ -37,7 +76,16 @@ export function mapStepDimensions<Value>(
 export function mapStepFields<Value>(
   read: (field: (typeof stepFields)[number]) => Value,
 ): Record<(typeof stepFields)[number], Value> {
-  return { start: read("start"), ...mapTokenFields(read), ...mapStepDimensions(read) };
+  return {
+    start: read("start"),
+    streamEnd: read("streamEnd"),
+    completed: read("completed"),
+    error: read("error"),
+    failed: read("failed"),
+    interrupted: read("interrupted"),
+    ...mapTokenFields(read),
+    ...mapStepDimensions(read),
+  };
 }
 export function mapSessionFields<Value>(
   read: (field: (typeof sessionFields)[number]) => Value,
@@ -58,9 +106,16 @@ export type SessionFact = Readonly<Record<(typeof sessionFields)[number], number
 export type SessionColumns = Readonly<Record<(typeof sessionFields)[number], Float64Array>>;
 export type StepDimensions = Readonly<Record<StepDimension, number | null>>;
 
-export type Step = { readonly start: number } & Readonly<Record<TokenKind, number | null>>;
+export type Step = {
+  readonly start: number;
+  readonly streamEnd?: number | null;
+  readonly completed?: number | null;
+  readonly error?: number | null;
+  readonly failed?: number;
+  readonly interrupted?: number;
+} & Readonly<Record<TokenKind, number | null>>;
 export type StepColumns = { readonly start: Float64Array } & Readonly<
-  Record<TokenKind | StepDimension, Float64Array>
+  Record<(typeof stepFields)[number], Float64Array>
 >;
 
 export type BrowserCopy = {
@@ -70,6 +125,8 @@ export type BrowserCopy = {
   readonly revision: number;
   readonly historyCompleteFrom: number;
   readonly steps: StepColumns;
+  readonly prompts: PromptColumns;
+  readonly promptIds: readonly string[];
   readonly sessions: SessionColumns;
   readonly projects: Float64Array;
   readonly sessionTombstones: Float64Array;

@@ -16,6 +16,8 @@ const at = (copy: BrowserCopy, index: number) => ({
     Number.isNaN(copy.steps[field][index]) ? null : copy.steps[field][index]!,
   ),
   start: copy.steps.start[index]!,
+  failed: copy.steps.failed[index]!,
+  interrupted: copy.steps.interrupted[index]!,
 });
 
 function difference(before: BrowserCopy, after: BrowserCopy): BrowserCopy {
@@ -37,7 +39,12 @@ function difference(before: BrowserCopy, after: BrowserCopy): BrowserCopy {
       revision: after.revision,
       historyCompleteFrom: after.historyCompleteFrom,
       ids: indices.map((index) => after.ids[index]!),
-      tombstones: before.ids.filter((id) => !current.has(id)),
+      tombstones: [
+        ...before.ids.filter((id) => !current.has(id)),
+        ...before.promptIds.filter((id) => !after.promptIds.includes(id)),
+      ],
+      prompts: after.prompts,
+      promptIds: after.promptIds,
       names: after.names.filter(
         (name) =>
           !before.names.some(

@@ -1,9 +1,7 @@
-import { tokenKinds, type StepDimension } from "@opencode-stats/browser-copy";
+import { tokenKinds, stepFields } from "@opencode-stats/browser-copy";
 
 export type Amounts = Record<(typeof tokenKinds)[number], bigint>;
-export type Fact = { start: number } & Readonly<
-  Record<(typeof tokenKinds)[number] | StepDimension, number>
->;
+export type Fact = { start: number } & Readonly<Record<(typeof stepFields)[number], number>>;
 export const emptyAmounts = (): Amounts => ({
   input: 0n,
   cacheRead: 0n,

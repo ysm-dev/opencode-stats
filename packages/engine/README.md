@@ -14,6 +14,13 @@ never count. Missing token amounts contribute nothing. Token counts accumulate
 as integers before conversion to page numbers, avoiding summation-order
 rounding errors. Sessions keep their placement across all history as ranges move.
 
+`state.metrics` includes steps, prompts, steps per prompt, failures by error type,
+interruptions, response-time p50/p95 and timed share, context median/p95/max and
+cache hit rate. Percentiles use exact nearest rank, never interpolation. Missing
+stream ends and incomplete context triples are excluded, not filled with zero.
+`recordedFromLabel` dates the earliest timed matching step over all history;
+the selected range supplies the response distribution and its timed share.
+
 `{ kind: "preset", preset: "today" | "7d" | "30d" | "90d" | "180d" | "365d" | "all" }`
 selects a live preset; `{ kind: "shift", direction: -1 | 1 }` shifts by its local
 days. Fixed addresses use `?range=fixed&from=2026-09-01&to=2026-09-30` (inclusive

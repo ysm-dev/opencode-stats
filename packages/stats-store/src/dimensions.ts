@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import * as Effect from "effect/Effect";
 import { Database } from "./database.ts";
 import { dimensionNames, sessionFacts, projectFacts, tombstones, steps } from "./schema.ts";
-import type { SourceSession, SourceProject } from "./source-reader.ts";
+import type { SourceSession, SourceProject, SourceFact } from "./source-reader.ts";
 
 export function owningSession(
   session: SourceSession,
@@ -68,6 +68,22 @@ export const makeDimensions = Effect.fnUntraced(function* () {
     });
 });
 type DimensionWriter = ReturnType<Effect.Success<ReturnType<typeof makeDimensions>>>;
+export const stepAttribution = Effect.fnUntraced(function* (
+  step: SourceFact | undefined,
+  code: DimensionWriter,
+) {
+  const provider = step?.provider ?? null;
+  const model = step?.model ?? null;
+  return {
+    provider: yield* code("provider", provider),
+    model: yield* code(
+      "model",
+      provider !== null && model !== null ? `${provider}/${model}` : null,
+    ),
+    variant: yield* code("variant", step?.variant ?? null),
+    agent: yield* code("agent", step?.agent ?? null),
+  };
+});
 export const detailKeys = ["id", "parent", "session", "project", "title", "fork"] as const;
 
 const saveSessions = Effect.fnUntraced(function* (
