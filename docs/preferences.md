@@ -1,7 +1,8 @@
 # Browser preferences — #37 implementation notes
 
-Implemented against integration `75974a98940cb90faba35402605d3f404a3ed99a` (including
-#35 sync and #40 launcher reconciliation) using the
+Implemented against integration `4a37d0b6604fc39cbb14db48e3711d5dbe0be98d` (including
+the `75974a9` mutation-free policy, #34 passive stall diagnostics, #35 sync and
+#40 launcher reconciliation) using the
 published `@opencode/ui` 2.0.21 provider, resolvers and controls. No accessibility exception.
 
 ## Storage and first paint
@@ -56,16 +57,45 @@ It also has negative/boundary fixtures through the same public palette seam.
   No mutation command or former unbounded CI aggregate is used. No new whole-file exception.
 - Chromium and WebKit pass first stored-theme paint, denied storage, other-tab synchronization,
   system scheme changes, whole-paint/no-request/data-identity checks and Settings accessibility.
-  The packed suite has 25 passing tests; it covers OpenCode Light/Dark, Matrix Light and
+  The packed suite has 28 passing tests (the original 25 plus three setup/cleanup regressions);
+  it covers OpenCode Light/Dark, Matrix Light and
   Everforest Light at 320–1280 widths, short windows and zoom-equivalent viewport/density.
 - Native browser zoom and VoiceOver remain human checks; automated reflow uses equivalent
   viewport/density conditions, not a claimed Safari/Chrome toolbar-zoom or screen-reader walkthrough.
 
+## Clean preparation and setup-failure ownership
+
+- The public `bun run e2e` now provisions both Chromium's headless shell and WebKit. On Linux,
+  Playwright `--with-deps` installs the actual OS libraries/fonts. Hosted CI calls that same
+  preparation path, rather than a Chromium-only step. Downloads and OS/OpenCode preparation
+  are inside the existing e2e watchdog and enclosing local aggregate/job/attempt deadlines.
+- An empty `PLAYWRIGHT_BROWSERS_PATH` reproduced the missing WebKit executable before the fix.
+  Public subprocess regressions then failed on leaked fixture directories for both missing
+  WebKit and an npm installation failure; both now pass without skipping unavailable browsers.
+  A third regression checks that a real launched server's PID, listening address and directory
+  are gone after browser launch rejects.
+- The shared preferences fixture uses native `AsyncDisposableStack` / `await using` to own
+  server, browser and context as each is acquired, including browser/context setup failures.
+  Fixture initialization catches installation/startup failures, always removes its temporary
+  directory, closes its synthetic writer in `finally`, and stops its owned process tree if
+  graceful shutdown fails. It still passes an explicit synthetic database and isolated homes;
+  no real user configuration or database is read.
+
+Final bounded measurements after reconciling `4a37d0b`:
+
+| Actual command/environment                                                                                                                              | Result                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run ci`, macOS ARM64, new empty browser path                                                                                                       | 117.31s total, including cold downloads; ordinary gates, 611 tests / 100% per-file coverage, contracts, release and all 28 packed cases pass; final verification fails on #35's `runtime.bun.test.ts` 5s limit |
+| `bun run e2e packages/e2e/tests/preferences.test.ts packages/e2e/tests/preferences-setup.test.ts`, Debian 12 ARM64 clean container / empty browser path | 116.42s including container preparation, Linux OS prerequisites and browser downloads; all 15 affected cases pass (45.26s test run)                                                                            |
+
+The initial broader clean Linux container run passed 24/27 cases, including preferences,
+but three plugin activation cases hit their unchanged 30s caps. This is not a full Linux or
+hosted-CI success claim. Logs are `issue-37-final-cold-ci.log`,
+`issue-37-final-clean-linux-preferences.log` and `issue-37-clean-linux.log` in the session's
+managed temporary directory.
+
 Every validation command is bounded at five minutes, with the tighter 5-second unit/Bun,
-10-second hook and 30-second browser caps retained. The mutation-free policy integration is
-reconciled and its outer-300-second `bun run ci` was executed. Preparation, ordinary gates,
-coverage, contracts, release and all 25 packed tests passed. Final gate verification is blocked
-by the independent #35 stats-store tests exceeding their 5-second caps in isolated verification:
-`runtime.bun.test.ts`, `history.test.ts` and `types.test.ts`. Their limits were not raised and
-their source/tests were not changed by #37. Full aggregate acceptance requires the #35 owner
-to optimize/reconcile those tests; the preferences-specific checks have no remaining failure.
+10-second hook and 30-second browser caps retained. Full aggregate acceptance remains blocked
+by independently owned #35 verification timeouts (the earlier run also hit `history.test.ts`
+and `types.test.ts`). Those sources/tests and limits were not changed by #37. No mutation
+tooling was restored or executed; no browser/paint/accessibility assertion was removed.
