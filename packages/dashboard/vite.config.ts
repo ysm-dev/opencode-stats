@@ -48,6 +48,9 @@ export default defineConfig({
       },
     },
   ],
+  // The worker's HttpApi imports must join the initial scan, not trigger a
+  // second optimization/504/full reload while the first page is loading.
+  optimizeDeps: { entries: ["index.html", require.resolve("@opencode-stats/engine/worker")] },
   server: {
     host: "127.0.0.1",
     port: 5173,
