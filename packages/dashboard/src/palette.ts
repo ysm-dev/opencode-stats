@@ -52,15 +52,18 @@ export const dashboardPalette = (theme: DesktopTheme, dark: boolean): Record<str
     palette[`edge-${surface}`] = nearest(tokens, "v2-border-border-strong", "grey", background, 3)!;
     palette[`selected-${surface}`] = nearest(tokens, "v2-icon-icon-accent", "blue", background, 3)!;
   }
-  palette["inverse-text"] = tokenColour(tokens, "v2-text-text-inverse");
-  // ADR 0015: retain inverse text, darken eighteen light inverse surfaces by one/two steps.
-  palette["inverse"] = nearest(
-    tokens,
-    "v2-background-bg-inverse",
-    "grey",
-    palette["inverse-text"],
-    4.5,
-  )!;
+  palette["inverse"] = tokenColour(tokens, "v2-background-bg-inverse");
+  const inverseText = nearest(tokens, "v2-text-text-inverse", "grey", palette["inverse"], 4.5);
+  palette["inverse-text"] = inverseText ?? tokenColour(tokens, "v2-text-text-inverse");
+  // ADR 0015: only with no foreground route, darken eighteen light backgrounds one/two steps.
+  if (!inverseText)
+    palette["inverse"] = nearest(
+      tokens,
+      "v2-background-bg-inverse",
+      "grey",
+      palette["inverse-text"],
+      4.5,
+    )!;
   palette["empty"] = palette[dark ? "layer-01" : "layer-02"]!;
   const levels = steps
     .map((step) => tokens[`v2-blue-${step}`])

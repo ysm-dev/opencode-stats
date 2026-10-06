@@ -46,6 +46,84 @@ describe("dashboard colours on the real published surfaces", () => {
       "#808080ff",
     ]);
   });
+  it("repairs inverse foregrounds first and preserves the exact named light fallback policies", () => {
+    const preserved: Record<string, string> = {
+      aura: "#756f85",
+      matrix: "#6a7669",
+      palenight: "#7f727a",
+      tokyonight: "#6b738c",
+    };
+    for (const [id, background] of Object.entries(preserved)) {
+      const palette = dashboardPalette(DEFAULT_THEMES[id]!, false);
+      expect(palette["inverse"]).toBe(background);
+      expect(palette["inverse-text"]).toBe("#ffffffff");
+    }
+    const fallbacks: string[] = [];
+    const originals: Array<[string, string]> = [];
+    const mutedFallbacks: string[] = [];
+    const baseText: Array<[string, string]> = [];
+    const variants = Object.entries(DEFAULT_THEMES).flatMap(([id, theme]) =>
+      [false, true].map((dark) => ({ id, theme, dark })),
+    );
+    for (const { id, theme, dark } of variants) {
+      const tokens = resolveThemeVariantV2(dark ? theme.dark : theme.light, dark);
+      const palette = dashboardPalette(theme, dark);
+      const scheme = dark ? "dark" : "light";
+      const background = resolve(tokens, "v2-background-bg-inverse");
+      if (palette["inverse"] !== background) {
+        const step = Object.entries(tokens).find(
+          ([key, colour]) => key.startsWith("v2-grey-") && colour === palette["inverse"],
+        )?.[0];
+        fallbacks.push(`${id}/${scheme}:${step}`);
+        // The pinned originals are grey-1000: 1100/1200 means one/two darker steps.
+        originals.push(
+          [background, tokens["v2-grey-1000"]!],
+          [palette["inverse-text"]!, resolve(tokens, "v2-text-text-inverse")],
+        );
+      }
+      for (const surface of ["base", "deep", "layer-01", "layer-02", "layer-03"]) {
+        const colour = palette[`muted-${surface}`]!;
+        if (
+          colour !== resolve(tokens, "v2-text-text-muted") &&
+          !Object.entries(tokens).some(
+            ([key, value]) => key.startsWith("v2-grey-") && value === colour,
+          )
+        ) {
+          mutedFallbacks.push(`${id}/${scheme}/${surface}:${colour}`);
+          baseText.push([colour, palette[`text-${surface}`]!]);
+        }
+      }
+    }
+    expect(fallbacks).toEqual([
+      "ayu/light:v2-grey-1200",
+      "catppuccin/light:v2-grey-1100",
+      "catppuccin-frappe/light:v2-grey-1100",
+      "catppuccin-macchiato/light:v2-grey-1100",
+      "cobalt2/light:v2-grey-1100",
+      "everforest/light:v2-grey-1200",
+      "gruvbox/light:v2-grey-1100",
+      "kanagawa/light:v2-grey-1100",
+      "material/light:v2-grey-1100",
+      "mercury/light:v2-grey-1100",
+      "nightowl/light:v2-grey-1100",
+      "nord/light:v2-grey-1100",
+      "one-dark/light:v2-grey-1100",
+      "onedarkpro/light:v2-grey-1100",
+      "rosepine/light:v2-grey-1200",
+      "shadesofpurple/light:v2-grey-1100",
+      "solarized/light:v2-grey-1200",
+      "zenburn/light:v2-grey-1100",
+    ]);
+    for (const [actual, original] of originals) expect(actual).toBe(original);
+    expect(mutedFallbacks).toEqual([
+      "everforest/light/layer-02:#334048",
+      "everforest/light/layer-03:#334048",
+      "solarized/light/layer-01:#2e444b",
+      "solarized/light/layer-02:#2e444b",
+      "solarized/light/layer-03:#2e444b",
+    ]);
+    for (const [muted, text] of baseText) expect(muted).toBe(text);
+  });
   it("uses an independently checked CIEDE2000 reference", () => {
     expect(deltaE([50, 2.6772, -79.7751], [50, 0, -82.7485])).toBeCloseTo(2.0425, 4);
     for (const distance of visionDistances("#000000", "#ffffff"))
