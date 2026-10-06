@@ -31,6 +31,7 @@ writeFileSync(
 import { spawn, spawnSync } from "node:child_process";
 if (process.argv[3] !== "user" && process.getuid() !== 0) throw new Error("Expected privileged fixture");
 appendFileSync(process.argv[2], process.pid + "\\n");
+if (process.argv[3] === "leaf") appendFileSync(process.argv[2] + ".leaf", process.pid + "\\n");
 if (process.argv[3] === "user") appendFileSync(process.argv[2] + ".user", process.pid + "\\n");
 if (!process.argv[3] || process.argv[3] === "pty") {
   appendFileSync(process.argv[2] + ".monitor", process.ppid + "\\n");
@@ -78,7 +79,18 @@ const rescue = (file: string): void => {
   }
 };
 try {
-  for (const mode of ["pty", "deadline", "abort", "SIGINT", "SIGTERM", "denied", "kill-denied"]) {
+  for (const mode of [
+    "pty",
+    "deadline",
+    "abort",
+    "SIGINT",
+    "SIGTERM",
+    "denied",
+    "kill-denied",
+    "stop-timeout",
+    "inventory-timeout",
+    "kill-timeout",
+  ]) {
     const originalPath = process.env["PATH"];
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -86,20 +98,47 @@ try {
       if (mode === "SIGINT" || mode === "SIGTERM") process.kill(process.pid, mode);
     }, 500);
     const denied = join(folder, mode);
-    const failure = mode === "denied" || mode === "kill-denied";
-    const pty = mode === "pty" || mode === "kill-denied";
+    const timeout = mode.endsWith("timeout");
+    const failure = mode === "denied" || mode === "kill-denied" || timeout;
+    const rescueExpected = mode === "denied" || mode === "kill-denied" || mode === "kill-timeout";
+    const pty =
+      mode === "pty" ||
+      mode === "kill-denied" ||
+      mode === "inventory-timeout" ||
+      mode === "kill-timeout";
     if (failure) {
       mkdirSync(denied);
       writeFileSync(
         join(denied, "sudo"),
-        mode === "denied"
-          ? "#!/bin/sh\necho 'fixture denies elevated cleanup' >&2\nexit 9\n"
-          : '#!/bin/sh\nif [ "$5" = SIGKILL ]; then echo "fixture denies elevated kill" >&2; exit 9; fi\nexec /usr/bin/sudo "$@"\n',
+        timeout
+          ? `#!/bin/sh
+if [ "$7" = "$(cat '${pids}.leaf')" ]; then
+  if [ "$5" = SIGKILL ] && [ '${mode}' = kill-timeout ]; then touch '${denied}/kill'; exec /bin/sleep 2; fi
+  /usr/bin/sudo "$@" || exit "$?"
+  if [ "$5" = SIGCONT ]; then touch '${denied}/resumed'; fi
+  if [ "$5" = SIGSTOP ]; then
+    touch '${denied}/frozen'
+    if [ '${mode}' = stop-timeout ]; then exec /bin/sleep 2; fi
+  fi
+  exit 0
+fi
+exec /usr/bin/sudo "$@"
+`
+          : mode === "denied"
+            ? "#!/bin/sh\necho 'fixture denies elevated cleanup' >&2\nexit 9\n"
+            : '#!/bin/sh\nif [ "$5" = SIGKILL ]; then echo "fixture denies elevated kill" >&2; exit 9; fi\nexec /usr/bin/sudo "$@"\n',
         { mode: 0o755 },
       );
+      if (timeout && mode !== "stop-timeout")
+        writeFileSync(
+          join(denied, "ps"),
+          `#!/bin/sh\nif [ "$1" = -A ] && [ -f '${denied}/frozen' ]; then touch '${denied}/inventory'; exec /bin/sleep 2; fi\nexec /bin/ps "$@"\n`,
+          { mode: 0o755 },
+        );
       process.env["PATH"] = `${denied}:${originalPath}`;
     }
     const started = performance.now();
+    const listeners = [process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")];
     let rejection = "";
     try {
       await assert.rejects(
@@ -120,11 +159,37 @@ try {
           return true;
         },
       );
+      assert.deepEqual(
+        [process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")],
+        listeners,
+        "Cleanup leaked interrupt listeners",
+      );
       assert.ok(
         performance.now() - started < 2000,
         `${mode}: elevated preparation escaped its deadline`,
       );
       const owned = recorded(pids);
+      if (timeout) {
+        assert.ok(
+          existsSync(join(denied, "frozen")),
+          "Timeout must follow a successful privileged STOP",
+        );
+        if (mode !== "stop-timeout")
+          assert.ok(
+            existsSync(join(denied, "inventory")),
+            "Must exhaust frozen inventory allowance",
+          );
+        if (mode === "kill-timeout") {
+          assert.ok(
+            existsSync(join(denied, "kill")),
+            "Must actually launch the bounded privileged KILL helper",
+          );
+          assert.ok(
+            existsSync(join(denied, "resumed")),
+            "Must successfully send privileged CONT after KILL times out",
+          );
+        }
+      }
       assert.equal(
         owned.length,
         4,
@@ -157,9 +222,11 @@ try {
             "Partial failure stranded an owned process or sudo monitor frozen",
           );
         }
-        rescue(pids);
-        rescue(`${pids}.monitor`);
-        await Bun.sleep(20);
+        if (rescueExpected) {
+          rescue(pids);
+          rescue(`${pids}.monitor`);
+          await Bun.sleep(20);
+        }
       }
       assert.deepEqual(
         owned.filter(alive),
@@ -199,6 +266,7 @@ try {
       rmSync(`${pids}.user`, { force: true });
       rmSync(`${pids}.monitor`, { force: true });
       rmSync(`${pids}.monitor-uid`, { force: true });
+      rmSync(`${pids}.leaf`, { force: true });
     }
   }
   process.stdout.write("Owned elevated descendants terminate; unrelated control survives.\n");

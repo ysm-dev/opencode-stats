@@ -74,7 +74,7 @@ export const killProcessTree = (pid: number): void => {
 
 const terminate = (pid: number, deadline: number, descendant: boolean): void => {
   try {
-    signal(pid, "SIGKILL", deadline, descendant);
+    signal(pid, "SIGKILL", deadline - 200, descendant);
   } catch (error) {
     // Never strand a stopped sudo monitor if permission or inventory fails.
     // A resumed monitor can forward shutdown; the failure still propagates.
@@ -95,12 +95,18 @@ const killOwnedTree = (pid: number, deadline: number, descendant: boolean): void
   // Freeze each parent before discovering its children so it cannot fork past
   // the snapshot. PPIDs include detached sessions; process groups do not.
   // The caller cannot fork while this synchronous traversal is running.
-  if (pid !== process.pid && !signal(pid, "SIGSTOP", deadline, descendant)) return;
   const failures: Error[] = [];
+  let stopped = false;
   try {
+    // A privileged helper may apply STOP and then time out: acquisition is
+    // uncertain until it returns, so owned descendants still need recovery.
+    stopped = pid === process.pid || signal(pid, "SIGSTOP", deadline - 400, descendant);
+    if (!stopped) return;
     const result = spawnSync("ps", ["-A", "-o", "pid=,ppid="], {
       encoding: "utf8",
-      timeout: cleanupTimeout(deadline),
+      // One shared deadline for the whole tree; reserve its final 400ms for
+      // KILL and CONT, including a separate 200ms resume allowance.
+      timeout: cleanupTimeout(deadline - 400),
     });
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`Cannot inventory test workers: ${result.stderr}`);
@@ -115,7 +121,7 @@ const killOwnedTree = (pid: number, deadline: number, descendant: boolean): void
     }
   } finally {
     // Children die before their parent, preserving ancestry until cleanup is done.
-    terminate(pid, deadline, descendant);
+    if (stopped || descendant) terminate(pid, deadline, descendant);
   }
   if (failures.length) throw new AggregateError(failures, "Owned process cleanup failed");
 };
