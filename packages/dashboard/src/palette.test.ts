@@ -344,6 +344,7 @@ describe("dashboard colours on the real published surfaces", () => {
       }
     }
     expect(ratio(palette["inverse-text"]!, palette["inverse"]!)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(palette["live"]!, palette["deep"]!)).toBeGreaterThanOrEqual(3);
     const surface = resolve(tokens, "v2-background-bg-base");
     const roles = [
       ...Array.from({ length: 8 }, (_, index) => `series-${index + 1}`),

@@ -1,11 +1,13 @@
 import { createPageClient } from "../index.ts";
 import { connectEngine } from "../worker-channel.ts";
 import type { ChannelPort } from "../protocol.ts";
+import { systemClock, type EngineClock } from "../clock.ts";
 export { referenceTokens } from "./reference.ts";
 
 export function inThreadEngine(
   fetch: typeof globalThis.fetch,
   deliverAnswer: (deliver: () => void) => void = queueMicrotask,
+  clock: Partial<EngineClock> = {},
 ) {
   const answers: object[] = [];
   type Listeners = Map<string, Set<(event: MessageEvent) => void>>;
@@ -32,7 +34,11 @@ export function inThreadEngine(
       });
     },
   });
-  const stop = connectEngine(port(worker, page), { baseUrl: "http://127.0.0.1:22440", fetch });
+  const stop = connectEngine(
+    port(worker, page),
+    { baseUrl: "http://127.0.0.1:22440", fetch },
+    { ...systemClock, ...clock },
+  );
   const client = createPageClient(port(page, worker));
   return {
     client,

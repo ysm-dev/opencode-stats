@@ -35,6 +35,77 @@ afterEach(() => {
 });
 
 describe("Overview", () => {
+  it("paints live facts atomically without replacing controls or dropping Settings focus", async () => {
+    const first = { start: 1, input: 1, cacheRead: 0, cacheWrite: 0, output: 2, reasoning: null };
+    const server = inMemoryDashboardServer(syntheticCopy([first]));
+    const engine = inThreadEngine(server.fetch);
+    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    const user = userEvent.setup();
+    try {
+      await view.findByRole("heading", { name: "Overview" });
+      const number = view.container.querySelector(".headline-number");
+      const region = view.getByRole("region", { name: "Tokens" });
+      await user.click(view.getByRole("button", { name: "Settings", exact: true }));
+      const focused = document.activeElement;
+      server.commit(syntheticCopy([{ ...first, input: 20 }], { revision: 2 }));
+      await vi.waitFor(() => expect(region.textContent).toBe("Tokens22"));
+      expect(view.container.querySelector(".headline-number")).toBe(number);
+      expect(document.activeElement).toBe(focused);
+      expect(view.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+      expect(view.getByText("Last write just now")).toBeTruthy();
+      expect(region.getAttribute("data-revision")).toBe("2");
+      expect(view.container.querySelector(".live-status")?.getAttribute("data-revision")).toBe("2");
+      expect(view.container.querySelector(".live-status")?.hasAttribute("aria-live")).toBe(false);
+    } finally {
+      cleanup();
+      await engine.dispose();
+      await server.dispose();
+    }
+  });
+
+  it("keeps live updates behind the font barrier and paints only the newest complete copy", async () => {
+    const fonts = deferred();
+    const first = { start: 1, input: 1, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0 };
+    const server = inMemoryDashboardServer(syntheticCopy([first]));
+    const engine = inThreadEngine(server.fetch);
+    const view = render(() => <Dashboard client={engine.client} ready={fonts.promise} />);
+    try {
+      await vi.waitFor(() => expect(engine.answers).toHaveLength(1));
+      server.commit(syntheticCopy([{ ...first, input: 7 }], { revision: 2 }));
+      await vi.waitFor(() => expect(engine.answers).toHaveLength(2));
+      expect(view.container.textContent).toBe("");
+      fonts.resolve();
+      await vi.waitFor(() =>
+        expect(view.container.querySelector(".headline-number")?.textContent).toBe("7"),
+      );
+    } finally {
+      fonts.resolve();
+      cleanup();
+      await engine.dispose();
+      await server.dispose();
+    }
+  });
+
+  it("does not navigate or paint when unmounted before its ready barrier resolves", async () => {
+    const fonts = deferred();
+    const server = inMemoryDashboardServer(syntheticCopy([]));
+    const engine = inThreadEngine(server.fetch);
+    const view = render(() => <Dashboard client={engine.client} ready={fonts.promise} />);
+    try {
+      await vi.waitFor(() => expect(engine.answers).toHaveLength(1));
+      view.unmount();
+      fonts.resolve();
+      await Promise.resolve();
+      expect(window.location.search).toBe("");
+      expect(view.container.textContent).toBe("");
+    } finally {
+      fonts.resolve();
+      cleanup();
+      await engine.dispose();
+      await server.dispose();
+    }
+  });
+
   it("paints all-history Tokens only after the real engine and fonts are ready", async () => {
     const load = deferred();
     const fonts = deferred();
@@ -69,7 +140,7 @@ describe("Overview", () => {
       await user.click(view.getByRole("link", { name: "Overview" }));
       expect(window.location.pathname + window.location.search).toBe("/?range=all");
       expect(view.getByRole("region", { name: "Tokens" }).textContent).toBe("Tokens1,245");
-      expect(server.requests).toBe(1);
+      expect(server.requests).toBe(2);
       await accessible(view.container);
     } finally {
       load.resolve();

@@ -1,19 +1,37 @@
 import * as Schema from "effect/Schema";
-import { Answer, type ChannelPort, type EngineAction, type RequestOutcome } from "./protocol.ts";
+import {
+  Answer,
+  type ChannelPort,
+  type EngineAction,
+  type EngineState,
+  type RequestOutcome,
+} from "./protocol.ts";
 
 export function createPageClient(port: ChannelPort) {
   let nextId = 0;
   let closed = false;
   let pending: { id: number; resolve: (result: RequestOutcome) => void } | undefined;
+  const listeners = new Set<(state: EngineState) => void>();
   const decodeAnswer = Schema.decodeUnknownSync(Answer);
   const receive = (event: MessageEvent): void => {
     const answer = decodeAnswer(event.data);
-    if (pending?.id !== answer.id) return;
-    pending.resolve({ kind: "paint", state: answer.state });
-    pending = undefined;
+    if (answer.id === 0) {
+      if (pending) return;
+    } else {
+      if (pending?.id !== answer.id) return;
+      pending.resolve({ kind: "paint", state: answer.state });
+      pending = undefined;
+    }
+    for (const listener of listeners) listener(answer.state);
   };
   port.addEventListener("message", receive);
   return {
+    subscribe(listener: (state: EngineState) => void): () => void {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
     request(action: EngineAction): Promise<RequestOutcome> {
       if (closed) return Promise.resolve({ kind: "closed" });
       pending?.resolve({ kind: "replaced" });
@@ -28,6 +46,7 @@ export function createPageClient(port: ChannelPort) {
       port.removeEventListener("message", receive);
       pending?.resolve({ kind: "closed" });
       pending = undefined;
+      listeners.clear();
     },
   };
 }

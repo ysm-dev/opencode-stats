@@ -6,10 +6,14 @@ export function encodeStore(copy: StoreCopy): Uint8Array {
     Float64Array.from(copy.steps, (step) => step[kind] ?? Number.NaN);
   return new Uint8Array(
     encode({
+      kind: copy.kind,
       generation: copy.generation,
-      fromRevision: 0,
+      fromRevision: copy.fromRevision,
       revision: copy.revision,
       historyCompleteFrom: copy.historyCompleteFrom,
+      ids: copy.facts.map((fact) => fact.id),
+      tombstones: copy.tombstones.map((fact) => fact.id),
+      names: [],
       steps: {
         start: Float64Array.from(copy.steps, (step) => step.start),
         input: column("input"),

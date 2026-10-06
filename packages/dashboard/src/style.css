@@ -34,6 +34,19 @@ body {
 .sidebar footer {
   margin-top: auto;
 }
+.live-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block: 8px;
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--dashboard-live);
+}
 nav {
   display: flex;
   gap: 8px;

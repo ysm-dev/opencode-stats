@@ -1,22 +1,95 @@
-import { tokenKinds, type BrowserCopy } from "@opencode-stats/browser-copy";
-import type { EngineState } from "./protocol.ts";
+import { tokenKinds, type BrowserCopy, type DimensionName } from "@opencode-stats/browser-copy";
+import type { CopyCursor } from "@opencode-stats/browser-copy/api";
+import * as HashMap from "effect/HashMap";
+import * as Option from "effect/Option";
+import type { EngineClock } from "./clock.ts";
 
-export function completeState(copy: BrowserCopy): EngineState {
-  const amounts = { input: 0n, cacheRead: 0n, cacheWrite: 0n, output: 0n, reasoning: 0n };
-  let total = 0n;
+type Amounts = Record<(typeof tokenKinds)[number], bigint>;
+type Fact = { start: number } & Readonly<Record<(typeof tokenKinds)[number], number>>;
+const emptyAmounts = (): Amounts => ({
+  input: 0n,
+  cacheRead: 0n,
+  cacheWrite: 0n,
+  output: 0n,
+  reasoning: 0n,
+});
+const row = (copy: BrowserCopy, index: number): Fact => ({
+  start: copy.steps.start[index]!,
+  input: copy.steps.input[index]!,
+  cacheRead: copy.steps.cacheRead[index]!,
+  cacheWrite: copy.steps.cacheWrite[index]!,
+  output: copy.steps.output[index]!,
+  reasoning: copy.steps.reasoning[index]!,
+});
+const adjust = (amounts: Amounts, fact: Fact, direction: bigint) => {
   for (const kind of tokenKinds) {
-    for (const value of copy.steps[kind]) {
-      if (!Number.isNaN(value)) amounts[kind] += BigInt(value);
-    }
-    total += amounts[kind];
+    if (!Number.isNaN(fact[kind])) amounts[kind] += BigInt(fact[kind]) * direction;
   }
-  const tokens = {
-    total: Number(total),
-    input: Number(amounts.input),
-    cacheRead: Number(amounts.cacheRead),
-    cacheWrite: Number(amounts.cacheWrite),
-    output: Number(amounts.output),
-    reasoning: Number(amounts.reasoning),
+};
+const totals = (amounts: Amounts) => ({
+  total: Number(tokenKinds.reduce((sum, kind) => sum + amounts[kind], 0n)),
+  input: Number(amounts.input),
+  cacheRead: Number(amounts.cacheRead),
+  cacheWrite: Number(amounts.cacheWrite),
+  output: Number(amounts.output),
+  reasoning: Number(amounts.reasoning),
+});
+
+const emptySnapshot = () => ({
+  facts: HashMap.empty<string, Fact>(),
+  names: HashMap.empty<string, DimensionName>(),
+  amounts: emptyAmounts(),
+});
+
+function update(snapshot: ReturnType<typeof emptySnapshot>, id: string, next?: Fact) {
+  const before = Option.getOrUndefined(HashMap.get(snapshot.facts, id));
+  if (before) adjust(snapshot.amounts, before, -1n);
+  if (next) {
+    adjust(snapshot.amounts, next, 1n);
+    snapshot.facts = HashMap.set(snapshot.facts, id, next);
+  } else snapshot.facts = HashMap.remove(snapshot.facts, id);
+}
+
+export function createFacts(clock: EngineClock) {
+  let snapshot = emptySnapshot();
+  let current:
+    | (CopyCursor & { tokens: ReturnType<typeof totals>; historyCompleteFrom: number })
+    | undefined;
+  const apply = async (copy: BrowserCopy, signal: AbortSignal): Promise<boolean> => {
+    if (
+      copy.kind === "changes" &&
+      (copy.generation !== current?.generation || copy.fromRevision !== current.revision)
+    )
+      return false;
+    const next =
+      copy.kind === "whole" ? emptySnapshot() : { ...snapshot, amounts: { ...snapshot.amounts } };
+    let started = clock.workNow();
+    const rowsEnd = copy.tombstones.length + copy.ids.length;
+    for (let index = 0; index < rowsEnd + copy.names.length; index++) {
+      if (signal.aborted) return false;
+      if (index < copy.tombstones.length) update(next, copy.tombstones[index]!);
+      else if (index < rowsEnd) {
+        const position = index - copy.tombstones.length;
+        update(next, copy.ids[position]!, row(copy, position));
+      } else {
+        const name = copy.names[index - rowsEnd]!;
+        next.names = HashMap.set(next.names, `${name.dimension}\0${name.code}`, name);
+      }
+      if (clock.workNow() - started >= 4) {
+        await clock.yield();
+        started = clock.workNow();
+      }
+    }
+    if (signal.aborted) return false;
+    // Persistent maps leave the prior complete copy available throughout every slice.
+    snapshot = next;
+    current = {
+      generation: copy.generation,
+      revision: copy.revision,
+      historyCompleteFrom: copy.historyCompleteFrom,
+      tokens: totals(snapshot.amounts),
+    };
+    return true;
   };
-  return { screen: "dashboard", address: "/?range=all", rangeLabel: "All time", tokens };
+  return { apply, current: () => current };
 }

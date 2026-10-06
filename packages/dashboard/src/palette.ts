@@ -52,6 +52,7 @@ export const dashboardPalette = (theme: DesktopTheme, dark: boolean): Record<str
     palette[`edge-${surface}`] = nearest(tokens, "v2-border-border-strong", "grey", background, 3)!;
     palette[`selected-${surface}`] = nearest(tokens, "v2-icon-icon-accent", "blue", background, 3)!;
   }
+  palette["live"] = nearest(tokens, "v2-state-fg-success", "green", palette["deep"]!, 3)!;
   palette["inverse"] = tokenColour(tokens, "v2-background-bg-inverse");
   const inverseText = nearest(tokens, "v2-text-text-inverse", "grey", palette["inverse"], 4.5);
   palette["inverse-text"] = inverseText ?? tokenColour(tokens, "v2-text-text-inverse");

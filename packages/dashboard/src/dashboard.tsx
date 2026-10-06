@@ -1,4 +1,12 @@
-import { Show, createContext, createSignal, onCleanup, onMount, useContext } from "solid-js";
+import {
+  Show,
+  createContext,
+  createSignal,
+  onCleanup,
+  onMount,
+  useContext,
+  type Accessor,
+} from "solid-js";
 import { render } from "solid-js/web";
 import { MetaProvider } from "@solidjs/meta";
 import { PreferenceProvider } from "./preferences.tsx";
@@ -15,7 +23,7 @@ import type { EngineState, createPageClient } from "@opencode-stats/engine";
 
 type PageClient = ReturnType<typeof createPageClient>;
 type CompletePage = Extract<EngineState, { screen: "dashboard" }>;
-const PageState = createContext<CompletePage>();
+const PageState = createContext<Accessor<CompletePage>>();
 
 const Overview = () => {
   const state = useContext(PageState)!;
@@ -23,13 +31,27 @@ const Overview = () => {
     <>
       <header>
         <h1 tabIndex={-1}>Overview</h1>
-        <p>{state.rangeLabel}</p>
+        <p>{state().rangeLabel}</p>
       </header>
-      <section aria-labelledby="tokens">
+      <section
+        aria-labelledby="tokens"
+        data-generation={state().generation}
+        data-revision={state().revision}
+      >
         <h2 id="tokens">Tokens</h2>
-        <p class="headline-number">{state.tokens.total.toLocaleString("en-US")}</p>
+        <p class="headline-number">{state().tokens.total.toLocaleString("en-US")}</p>
       </section>
     </>
+  );
+};
+
+const LiveStatus = () => {
+  const state = useContext(PageState)!;
+  return (
+    <span class="live-status" data-generation={state().generation} data-revision={state().revision}>
+      <span class="live-dot" aria-hidden="true" />
+      {state().liveLabel}
+    </span>
   );
 };
 
@@ -49,6 +71,7 @@ const Shell = () => (
         </Link>
       </nav>
       <footer>
+        <LiveStatus />
         <Settings />
       </footer>
     </aside>
@@ -86,7 +109,6 @@ const CompleteDashboard = (props: {
               <p>Reload to try again.</p>
             </main>
           }
-          keyed
         >
           {(state) => (
             <PageState.Provider value={state}>
@@ -102,23 +124,35 @@ const CompleteDashboard = (props: {
 export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void | object> }) => {
   const [state, setState] = createSignal<EngineState>();
   const router = makeRouter();
+  let latest: EngineState | undefined;
+  let painted = false;
+  let closed = false;
+  const unsubscribe = props.client.subscribe((next) => {
+    latest = next;
+    if (painted) setState(next);
+  });
   onMount(() => {
     void Promise.all([
       props.ready,
       props.client.request({ kind: "address", address: window.location.href }),
     ]).then(async ([, result]) => {
-      if (result.kind !== "paint") return undefined;
+      if (closed || result.kind !== "paint") return undefined;
       if (result.state.screen === "dashboard") {
         router.history.replace(result.state.address);
         await router.load();
       }
-      return setState(result.state);
+      painted = true;
+      return setState(latest!);
     });
   });
-  onCleanup(() => props.client.dispose());
+  onCleanup(() => {
+    closed = true;
+    unsubscribe();
+    props.client.dispose();
+  });
   return (
-    <Show when={state()} keyed>
-      {(complete) => <CompleteDashboard state={complete} router={router} />}
+    <Show when={state()}>
+      {(complete) => <CompleteDashboard state={complete()} router={router} />}
     </Show>
   );
 };

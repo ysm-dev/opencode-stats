@@ -3,6 +3,19 @@ import type { Check } from "./verify-gates.ts";
 
 const store = "packages/stats-store/src";
 export function* countingChecks(extension: string): Generator<Check> {
+  const wire = "packages/browser-copy/src";
+  yield {
+    gate: `browser-copy format fingerprint (${extension})`,
+    files: {
+      [`${wire}/gate-canary.${extension}`]: readFileSync(`${wire}/binary.ts`, "utf8").replace(
+        "0x5354434f",
+        "0x5354434e",
+      ),
+      [`${wire}/binary.ts`]: `export * from "./gate-canary.${extension}";\n`,
+    },
+    command: ["test", `${wire}/binary.test.ts`],
+    expect: ["change the format version"],
+  };
   const schema = readFileSync(`${store}/schema.ts`, "utf8");
   const source = readFileSync(`${store}/source-reader.ts`, "utf8");
   const types = readFileSync(`${store}/testing/types.ts`, "utf8");

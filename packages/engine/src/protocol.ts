@@ -19,6 +19,9 @@ const State = Schema.Union([
     address: Schema.Literal("/?range=all"),
     rangeLabel: Schema.Literal("All time"),
     tokens: Tokens,
+    generation: Schema.String,
+    revision: Schema.Int,
+    liveLabel: Schema.String,
   }),
   Schema.Struct({
     screen: Schema.Literal("problem"),
@@ -26,8 +29,14 @@ const State = Schema.Union([
   }),
 ]);
 export type EngineState = typeof State.Type;
-export const Request = Schema.Struct({ id: Schema.Int, action: Action });
-export const Answer = Schema.Struct({ id: Schema.Int, state: State });
+export const Request = Schema.Struct({
+  id: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
+  action: Action,
+});
+export const Answer = Schema.Struct({
+  id: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  state: State,
+});
 export type EngineRequest = typeof Request.Type;
 export type RequestOutcome =
   | { readonly kind: "paint"; readonly state: EngineState }

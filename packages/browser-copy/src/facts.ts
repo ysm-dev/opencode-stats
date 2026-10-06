@@ -7,9 +7,20 @@ export type StepColumns = { readonly start: Float64Array } & Readonly<
 >;
 
 export type BrowserCopy = {
+  readonly kind: "whole" | "changes";
   readonly generation: string;
   readonly fromRevision: number;
   readonly revision: number;
   readonly historyCompleteFrom: number;
   readonly steps: StepColumns;
+  readonly ids: readonly string[];
+  readonly tombstones: readonly string[];
+  readonly names: readonly DimensionName[];
+};
+
+export type DimensionName = {
+  readonly dimension: string;
+  readonly code: number;
+  readonly id: string;
+  readonly name: string;
 };

@@ -7,10 +7,14 @@ export function syntheticCopy(
   const tokens = (kind: TokenKind): Float64Array =>
     Float64Array.from(steps, (step) => step[kind] ?? NaN);
   return {
+    kind: header.fromRevision ? "changes" : "whole",
     generation: "01234567-89ab-cdef-0123-456789abcdef",
     fromRevision: 0,
     revision: 1,
     historyCompleteFrom: 0,
+    ids: steps.map((_, index) => `step-${index}`),
+    tombstones: [],
+    names: [],
     ...header,
     steps: {
       start: Float64Array.from(steps, (step) => step.start),

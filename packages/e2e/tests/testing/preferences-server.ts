@@ -25,10 +25,12 @@ export const preferencesBrowser = async (
 export const preferencesServer = async () => {
   const directory = await mkdtemp(join(tmpdir(), "stats-preferences-"));
   let disposeProcess: (() => Promise<void>) | undefined;
+  let disposeWriter: (() => void) | undefined;
   const close = async () => {
     try {
       await disposeProcess?.();
     } finally {
+      disposeWriter?.();
       await rm(directory, { recursive: true, force: true });
     }
   };
@@ -48,18 +50,15 @@ export const preferencesServer = async () => {
     );
     const database = join(directory, "synthetic.db");
     const writer = syntheticDatabase(database);
-    try {
-      writer.session("ses-preferences");
-      writer.message({
-        id: "msg-preferences",
-        session: "ses-preferences",
-        seq: 0,
-        start: 1,
-        tokens: { input: 987 },
-      });
-    } finally {
-      writer.close();
-    }
+    disposeWriter = writer.close;
+    writer.session("ses-preferences");
+    writer.message({
+      id: "msg-preferences",
+      session: "ses-preferences",
+      seq: 0,
+      start: 1,
+      tokens: { input: 987 },
+    });
     const port = await temporaryPort();
     const origin = `http://127.0.0.1:${port}`;
     const child = spawn(
@@ -107,7 +106,7 @@ export const preferencesServer = async () => {
       join(directory, "node_modules/opencode-stats/dashboard/index.html"),
       "utf8",
     );
-    return { origin, html, close, [Symbol.asyncDispose]: close };
+    return { origin, html, writer, close, [Symbol.asyncDispose]: close };
   } catch (error) {
     await close();
     throw error;

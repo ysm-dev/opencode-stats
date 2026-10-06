@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import * as fc from "fast-check";
 import type { Step } from "@opencode-stats/browser-copy";
 import {
@@ -8,6 +8,11 @@ import {
   syntheticSteps,
 } from "@opencode-stats/browser-copy/testing";
 import { inThreadEngine, referenceTokens } from "./index.ts";
+const initial = {
+  generation: "01234567-89ab-cdef-0123-456789abcdef",
+  revision: 1,
+  liveLabel: "Live",
+};
 function loadingEngine() {
   const started = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
@@ -45,14 +50,18 @@ it("paints complete all-time Tokens through the real page-worker channel and Htt
     expect(await engine.client.request({ kind: "address", address: "/?range=all" })).toEqual({
       kind: "paint",
       state: {
+        ...initial,
         screen: "dashboard",
         address: "/?range=all",
         rangeLabel: "All time",
         tokens: { total: 145, input: 11, cacheRead: 2, cacheWrite: 33, output: 44, reasoning: 55 },
       },
     });
-    expect(server.requests).toBe(1);
-    expect(server.addresses).toEqual(["http://127.0.0.1:22440/api/browser-copy"]);
+    await vi.waitFor(() => expect(server.requests).toBe(2));
+    expect(server.addresses).toEqual([
+      "http://127.0.0.1:22440/api/browser-copy",
+      "http://127.0.0.1:22440/api/browser-copy/live",
+    ]);
   } finally {
     await engine.dispose();
     await server.dispose();
@@ -65,6 +74,7 @@ it("equals the independent reference for synthetic history through the channel",
       expect(await allTimeState(steps)).toEqual({
         kind: "paint",
         state: {
+          ...initial,
           screen: "dashboard",
           address: "/?range=all",
           rangeLabel: "All time",
@@ -88,6 +98,7 @@ it("does not lose low-order counts when all-time Tokens exceed a safe integer", 
   expect(await allTimeState(steps)).toEqual({
     kind: "paint",
     state: {
+      ...initial,
       screen: "dashboard",
       address: "/?range=all",
       rangeLabel: "All time",
@@ -121,13 +132,14 @@ it("replaces an unanswered request, emits only the newest complete state and kee
     expect(await engine.client.request({ kind: "all-time" })).toEqual({
       kind: "paint",
       state: {
+        ...initial,
         screen: "dashboard",
         address: "/?range=all",
         rangeLabel: "All time",
         tokens: { total: 0, input: 0, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0 },
       },
     });
-    expect(server.requests).toBe(1);
+    await vi.waitFor(() => expect(server.requests).toBe(2));
   } finally {
     release.resolve();
     await engine.dispose();

@@ -5,12 +5,12 @@ import * as HttpServer from "effect/http/HttpServer";
 import * as Response from "effect/http/HttpServerResponse";
 import { HttpServerRequest } from "effect/http/HttpServerRequest";
 import { dashboardFiles } from "./paths.ts";
-import { copyApi } from "./copy-api.ts";
+import { copyApi, type CopySource } from "./copy-api.ts";
 import { controlResponse, type Lifecycle } from "./lifecycle.ts";
 
 export const startServer = Effect.fnUntraced(function* (
   files: string = dashboardFiles,
-  copy?: () => Uint8Array,
+  copy?: CopySource,
   control?: Lifecycle,
 ) {
   const server = yield* HttpServer.HttpServer;
@@ -33,8 +33,8 @@ export const startServer = Effect.fnUntraced(function* (
       return yield* controlResponse(control, path, request);
     }
     if (!read) return Response.empty({ status: 405 });
-    if (path === "/api/browser-copy" && copy) {
-      if (copy().byteLength === 0) return Response.empty({ status: 503 });
+    if (path.startsWith("/api/browser-copy") && copy) {
+      if (copy.whole().byteLength === 0) return Response.empty({ status: 503 });
       return yield* api!;
     }
     if (

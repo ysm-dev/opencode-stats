@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
+import * as Deferred from "effect/Deferred";
 import { randomBytes } from "node:crypto";
 import {
   accessSync,
@@ -25,6 +26,7 @@ import { startServer } from "./server.ts";
 import { encodeStore } from "./copy.ts";
 import { stayInSync, type StoreCopy, type StoreRuntime } from "@opencode-stats/stats-store";
 import { SqlFailure } from "@opencode-stats/stats-store";
+import { createLiveFeed, type CopyCursor } from "@opencode-stats/browser-copy/api";
 
 export const program = (
   // oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: process arguments pass immediately to the argument parser
@@ -70,6 +72,17 @@ export const program = (
     yield* Effect.gen(function* () {
       let copy: StoreCopy | undefined;
       let bytes: Uint8Array = new Uint8Array();
+      const ready =
+        yield* Deferred.make<(cursor: CopyCursor) => Effect.Effect<StoreCopy, SqlFailure>>();
+      const feed = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          createLiveFeed(
+            () => ({ generation: copy!.generation, revision: copy!.revision }),
+            version,
+          ),
+        ),
+        (value) => Effect.promise(value.close),
+      );
       const record = {
         address: `http://127.0.0.1:${options.port}`,
         pid: process.pid,
@@ -83,7 +96,19 @@ export const program = (
         record,
         Effect.sync(() => log.write({ event: "conflict", kind: "database" })),
       );
-      yield* startServer(undefined, () => bytes, control);
+      yield* startServer(
+        undefined,
+        {
+          whole: () => bytes,
+          changes: (cursor) =>
+            Deferred.await(ready).pipe(
+              Effect.flatMap((read) => read(cursor)),
+              Effect.map(encodeStore),
+            ),
+          live: feed.stream,
+        },
+        control,
+      );
       yield* Effect.acquireRelease(
         Effect.sync(() => {
           publishRecord(folder, record);
@@ -98,7 +123,7 @@ export const program = (
       );
       const started = yield* Clock.currentTimeMillis;
       yield* Effect.sync(() => log.write({ event: "build.start", steps: 0, milliseconds: 0 }));
-      yield* stayInSync(
+      const store = yield* stayInSync(
         {
           source: options.db,
           ...(env["XDG_CACHE_HOME"] ? { cacheHome: env["XDG_CACHE_HOME"] } : {}),
@@ -107,8 +132,10 @@ export const program = (
         (value) => {
           copy = value;
           bytes = encodeStore(value);
+          feed.announce(value);
         },
       );
+      yield* Deferred.succeed(ready, store.read);
       const elapsed = (yield* Clock.currentTimeMillis) - started;
       yield* Effect.sync(() =>
         log.write({ event: "build.end", steps: copy!.steps.length, milliseconds: elapsed }),

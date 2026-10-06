@@ -39,10 +39,14 @@ it("rejects every truncation and extra bytes before constructing a column", () =
 
 it.each([
   [0, 0, "magic"],
-  [4, 2, "format version"],
-  [44, 1, "reserved"],
+  [4, 3, "format version"],
+  [44, 2, "reserved"],
   [72, 0xffffffff, "lengths"],
   [76, 0, "lengths"],
+  [80, 1, "lengths"],
+  [84, 1, "lengths"],
+  [88, 1, "lengths"],
+  [92, 1, "reserved"],
 ])("rejects malformed header at byte %i", (offset, value, message) => {
   const bytes = encode(syntheticCopy([]));
   new DataView(bytes).setUint32(offset, value, true);
@@ -66,6 +70,7 @@ it("pins the format version to a fixed synthetic encoding", () => {
   );
   const fingerprints: Readonly<Record<number, string>> = {
     1: "df5cbbf9f8b1502a42950ad07c1b24e75ff8efd80041b1f789a8a6ad3240a025",
+    2: "72f359659e1d6c1b6b75cceb3c247e8c8b6e56676519c9707b69bdb11185878e",
   };
   expect(
     createHash("sha256").update(new Uint8Array(bytes)).digest("hex"),
