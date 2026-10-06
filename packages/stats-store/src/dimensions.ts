@@ -29,10 +29,7 @@ export const sessionDetails = (row: SourceSession, byId: ReadonlyMap<string, Sou
   fork: row.fork,
 });
 
-export function projectName(
-  project: SourceProject,
-  inventory: ReadonlyArray<SourceProject>,
-): string {
+function projectName(project: SourceProject, inventory: ReadonlyArray<SourceProject>): string {
   if (project.id === "global") return "Global";
   if (project.name) return project.name;
   const folder = basename(project.worktree);
