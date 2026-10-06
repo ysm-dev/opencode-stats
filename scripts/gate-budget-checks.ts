@@ -167,12 +167,12 @@ export function* budgetChecks(): Generator<Check> {
     gate: "public e2e cannot silently omit browser and OS preparation",
     files: {
       "scripts/e2e.ts": readFileSync("scripts/e2e.ts", "utf8").replace(
-        /execFileSync\([\s\S]*?\);\n/u,
+        "run(browser), ",
         "",
       ),
     },
     command: ["scripts/testing/e2e-preparation.ts"],
-    expect: ["public e2e lost its shared deadline"],
+    expect: ["Parallel e2e preparation did not complete"],
   };
   for (const extension of ["ts", "tsx"]) {
     yield {

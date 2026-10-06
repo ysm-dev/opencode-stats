@@ -37,7 +37,11 @@ const packedMatrix = object(object(packed["strategy"])["matrix"]);
 assert.deepEqual(packedMatrix["os"], ["ubuntu-latest", "macos-latest", "windows-latest"]);
 assert.deepEqual(
   packedMatrix["include"],
-  ["1/4", "2/4", "3/4", "4/4"].map((selector) => ({ os: "macos-15-intel", shard: selector })),
+  ["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
+    os: "macos-15-intel",
+    shard: selector,
+    ...(selector === "1/4" || selector === "4/4" ? { browser: "chromium" } : {}),
+  })),
 );
 const packedSteps = packed["steps"];
 assert.ok(Array.isArray(packedSteps));
@@ -55,10 +59,9 @@ assert.equal(intel["if"], "always()");
 assert.deepEqual(intel["steps"], [
   { run: 'test "$PACKED" = success', env: { PACKED: "${{ needs.packed.result }}" } },
 ]);
-for (const name of ["verification", "gates"]) {
-  const needs = object(jobs[name])["needs"];
-  assert.ok(Array.isArray(needs) && needs.includes("packed") && needs.includes("intel"));
-}
+assert.deepEqual(object(jobs["verification"])["needs"], ["checks", "contracts", "packed"]);
+const gateNeeds = object(jobs["gates"])["needs"];
+assert.ok(Array.isArray(gateNeeds) && gateNeeds.includes("packed") && gateNeeds.includes("intel"));
 
 const canaries = [...checks()];
 verifyPartition(
