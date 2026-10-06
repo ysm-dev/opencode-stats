@@ -5,6 +5,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -18,7 +19,12 @@ it("pins the four stable SqlError paths and rejects widened inferred transaction
   try {
     const broken = join(folder, "drizzle-orm");
     const dependencies = fileURLToPath(new URL("../node_modules", import.meta.url));
-    cpSync(realpathSync(join(dependencies, "drizzle-orm")), broken, { recursive: true });
+    cpSync(realpathSync(join(dependencies, "drizzle-orm")), broken, {
+      recursive: true,
+      // The compiler needs the complete declaration graph, not the unused JS/CJS runtime twins.
+      filter: (source) =>
+        statSync(source).isDirectory() || /(?:\.d\.[cm]?ts|package\.json)$/u.test(source),
+    });
     const manifest = join(broken, "package.json");
     writeFileSync(
       manifest,
@@ -59,6 +65,7 @@ it("pins the four stable SqlError paths and rejects widened inferred transaction
     const result = spawnSync("bunx", ["tsc", "--noEmit", "-p", config], { encoding: "utf8" });
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("Type 'true' does not satisfy the constraint 'false'");
+    expect(result.stdout).not.toContain("Cannot find module");
   } finally {
     rmSync(folder, { recursive: true });
   }
