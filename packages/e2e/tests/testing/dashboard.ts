@@ -227,5 +227,7 @@ export async function checkOverview(
   total: string,
   phase: (event: string) => void = () => {},
 ) {
-  await Promise.all([360, 1280].map((width) => checkViewport(browser, origin, total, width, phase)));
+  await Promise.all(
+    [360, 1280].map((width) => checkViewport(browser, origin, total, width, phase)),
+  );
 }
