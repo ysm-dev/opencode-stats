@@ -233,6 +233,7 @@ it.each([
   "Prompts",
 ])("draws %s with exact totals, missing values and the bucket's own basis", async (metric) => {
   await readMetric(metric);
+  expect(readout().textContent).toContain("1 Oct 2026");
 });
 
 it.each([

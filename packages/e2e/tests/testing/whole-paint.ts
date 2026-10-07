@@ -43,21 +43,22 @@ export function installWholePaintObserver(observing = true) {
   const flag = (check: string, cause = check) => {
     frame.failures.push({ check, cause });
   };
+  const regionSelectors = [
+    ".chart-hit",
+    ".chart-readout",
+    ".chart-spoken",
+    ".chart-choices",
+    "svg",
+    "html",
+    ".settings-sheet",
+    ".filter-checklist",
+    ".filter-row",
+    ".range-control",
+    ".live-status",
+    "header",
+  ];
   const regionKind = (region: Element) =>
-    [
-      ".chart-hit",
-      ".chart-readout",
-      ".chart-spoken",
-      ".chart-choices",
-      "svg",
-      "html",
-      ".settings-sheet",
-      ".filter-checklist",
-      ".filter-row",
-      ".range-control",
-      ".live-status",
-      "header",
-    ].find((selector) => region.matches(selector)) ?? "other-region";
+    regionSelectors.find((selector) => region.matches(selector)) ?? "other-region";
   const painted = new WeakMap<Element, { key: string; drawing: string }>();
   const retainDrawing = (region: Element, key: string, drawing: string) => {
     frame.drawings.push({ region, key, drawing });
@@ -242,6 +243,23 @@ export function installWholePaintObserver(observing = true) {
     if (!frame.drawn) evidence.blank++;
     else if (frame.complete) evidence.complete++;
   };
+  const observeCharts = () => {
+    for (const chart of document.querySelectorAll(".usage-chart")) {
+      const surface = chart.querySelector(".chart-hit");
+      const mark = surface?.getAttribute("data-local-state");
+      for (const node of chart.querySelectorAll(
+        ".chart-hit, .chart-hit svg, .chart-readout, .chart-spoken",
+      )) {
+        if (node.getAttribute("data-local-state") !== mark)
+          flag("mixed-frame", `chart-local-marks:${regionKind(node)}`);
+      }
+      if (
+        surface?.getAttribute("data-size-state") !==
+        chart.querySelector("svg")?.getAttribute("data-size-state")
+      )
+        flag("mixed-frame", "chart-size-marks");
+    }
+  };
   const sample = () => {
     const started = performance.now();
     frame = { failures: [], drawings: [], drawn: false, complete: false };
@@ -261,21 +279,7 @@ export function installWholePaintObserver(observing = true) {
       )
         flag("mixed-frame", "checklist-local-marks");
     }
-    for (const chart of document.querySelectorAll(".usage-chart")) {
-      const surface = chart.querySelector(".chart-hit");
-      const mark = surface?.getAttribute("data-local-state");
-      for (const node of chart.querySelectorAll(
-        ".chart-hit, .chart-hit svg, .chart-readout, .chart-spoken",
-      )) {
-        if (node.getAttribute("data-local-state") !== mark)
-          flag("mixed-frame", `chart-local-marks:${regionKind(node)}`);
-      }
-      if (
-        surface?.getAttribute("data-size-state") !==
-        chart.querySelector("svg")?.getAttribute("data-size-state")
-      )
-        flag("mixed-frame", "chart-size-marks");
-    }
+    observeCharts();
     frame.drawn = drawn;
     frame.complete = pageComplete(states, regions);
     if (drawn && !frame.complete) flag("early-load-paint");
