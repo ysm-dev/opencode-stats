@@ -45,10 +45,18 @@ export function createLiveEngine(
   let nextKind: ChangeKind = "live";
   const readTime = () => ({ now: clock.now(), timeZone: clock.timeZone(), locale: clock.locale() });
   let time = readTime();
+  const refreshReadiness = () => {
+    if (incoming?.current() && incoming.coversToday()) {
+      facts = incoming;
+      incoming = undefined;
+    }
+    if (facts.current()) ready ||= facts.coversToday();
+  };
   const updateTime = (force = false) => {
     const next = readTime();
     if (!force && timeKey(next) === timeKey(time)) return false;
     time = next;
+    refreshReadiness();
     return true;
   };
   const cleanups = new Set<Promise<void>>();
@@ -105,11 +113,7 @@ export function createLiveEngine(
     )
       await install(await loadCopy(network, clock, addWork, undefined, signal));
     if (!signal.aborted) {
-      if (incoming?.coversToday()) {
-        facts = incoming;
-        incoming = undefined;
-      }
-      ready ||= facts.coversToday();
+      refreshReadiness();
       readyWork += ownWork;
       readyStarted ??= workStarted;
     }

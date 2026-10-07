@@ -1,7 +1,8 @@
-import { expect, it, vi } from "vitest";
+import { expect, it, vi, onTestFinished } from "vitest";
 import { mapPromptFields } from "@opencode-stats/browser-copy";
-import { syntheticCopy } from "@opencode-stats/browser-copy/testing";
+import { syntheticCopy, inMemoryDashboardServer } from "@opencode-stats/browser-copy/testing";
 import { rangeFixture, rangeStep } from "./range-fixture.ts";
+import { inThreadEngine, manualClock, blockedSlices } from "./index.ts";
 
 const today = Date.parse("2026-10-07T00:00Z");
 const steps = [
@@ -205,5 +206,121 @@ it("a load that loses its server before today is complete leaves the wait for a 
   f.engine.client.signal({ kind: "focus" });
   await vi.waitFor(() =>
     expect(f.states.at(-1)).toMatchObject({ screen: "dashboard", revision: 2 }),
+  );
+});
+
+const beforeMidnight = "2026-10-07T23:59:59Z";
+const tomorrow = today + 86400000;
+const incomplete = { historyComplete: false, historyCompleteFrom: today + 43200000 };
+
+it("an initial load becomes today-ready at midnight without another copy or request", async () => {
+  await using f = rangeFixture(steps, beforeMidnight, "UTC", "en-GB", incomplete);
+  const loaded = f.request({ kind: "all-time" });
+  await vi.waitFor(() => expect(f.server.streams).toBe(1));
+  expect(f.states).toEqual([]);
+  const requests = f.server.requests;
+  await f.clock.advance(2);
+  expect(await loaded).toMatchObject({
+    revision: 1,
+    historyStart: tomorrow,
+    period: { from: "2026-10-08" },
+    tokens: { total: 0 },
+    statusLine: "History from 8 Oct · older history is still being read",
+  });
+  expect(f.server.requests).toBe(requests);
+});
+
+it("a staged generation replaces the old visible copy at midnight without another copy or request", async () => {
+  await using f = rangeFixture(steps, beforeMidnight);
+  const old = await f.request({ kind: "all-time" });
+  await vi.waitFor(() => expect(f.server.streams).toBe(1));
+  const generation = "11234567-89ab-cdef-0123-456789abcdef";
+  f.server.commit(syntheticCopy(steps, { ...incomplete, generation, revision: 2 }));
+  await vi.waitFor(() => expect(f.server.requests).toBe(3));
+  await f.clock.advance(0);
+  expect(await f.request({ kind: "all-time" })).toMatchObject({
+    generation: old.generation,
+    revision: 1,
+  });
+  const requests = f.server.requests;
+  await f.clock.advance(2);
+  expect(f.states.at(-1)).toMatchObject({
+    generation,
+    revision: 2,
+    historyStart: tomorrow,
+    period: { from: "2026-10-08" },
+    tokens: { total: 0 },
+  });
+  expect(f.server.requests).toBe(requests);
+});
+
+it.each(["paused", "hidden"])(
+  "a staged generation does not move with the clock while %s",
+  async (mode) => {
+    await using f = rangeFixture(steps, beforeMidnight);
+    const old = await f.request({ kind: "all-time" });
+    await vi.waitFor(() => expect(f.server.streams).toBe(1));
+    const generation = "11234567-89ab-cdef-0123-456789abcdef";
+    f.server.commit(syntheticCopy(steps, { ...incomplete, generation, revision: 2 }));
+    await vi.waitFor(() => expect(f.server.requests).toBe(3));
+    await f.clock.advance(0);
+    f.engine.client.signal(
+      mode === "paused" ? { kind: "paused", paused: true } : { kind: "visibility", visible: false },
+    );
+    await vi.waitFor(() => expect(f.server.streams).toBe(0));
+    const count = f.states.length;
+    await f.clock.advance(2);
+    f.engine.client.signal({ kind: "focus" });
+    await f.clock.advance(0);
+    expect(f.states).toHaveLength(count);
+    expect(f.states.at(-1)).toMatchObject({
+      generation: old.generation,
+      revision: 1,
+      period: { to: "2026-10-07" },
+    });
+    f.engine.client.signal(
+      mode === "paused" ? { kind: "paused", paused: false } : { kind: "visibility", visible: true },
+    );
+    await vi.waitFor(() =>
+      expect(f.states.at(-1)).toMatchObject({
+        generation,
+        revision: 2,
+        period: { from: "2026-10-08" },
+        paused: false,
+      }),
+    );
+  },
+);
+
+it("midnight never promotes a generation whose first whole copy is still being applied", async () => {
+  const clock = manualClock(Date.parse(beforeMidnight));
+  const slices = blockedSlices();
+  let blocked = false;
+  const server = inMemoryDashboardServer(syntheticCopy(steps));
+  const engine = inThreadEngine(server.fetch, queueMicrotask, {
+    ...clock,
+    workNow: () => (blocked ? slices.clock.workNow() : 0),
+    yield: slices.clock.yield,
+  });
+  onTestFinished(async () => {
+    slices.release();
+    await engine.dispose();
+    await server.dispose();
+  });
+  await engine.client.request({ kind: "all-time" });
+  await vi.waitFor(() => expect(server.streams).toBe(1));
+  blocked = true;
+  const generation = "11234567-89ab-cdef-0123-456789abcdef";
+  server.commit(syntheticCopy(steps, { ...incomplete, generation, revision: 2 }));
+  await slices.entered;
+  await clock.advance(2);
+  expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
+    state: { revision: 1, tokens: { total: 105 }, period: { to: "2026-10-08" } },
+  });
+  slices.release();
+  await vi.waitFor(async () =>
+    expect(await engine.client.request({ kind: "all-time" })).toMatchObject({
+      state: { generation, revision: 2, historyStart: tomorrow, tokens: { total: 0 } },
+    }),
   );
 });

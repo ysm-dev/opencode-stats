@@ -41,15 +41,17 @@ export function storePaths(options: StoreOptions): StorePaths {
     const saved = cachedSource(join(folder, entry));
     if (saved === undefined) continue;
     const name = `${createHash("sha256").update(saved).digest("hex")}.db`;
+    if (`${name}.source` !== entry) continue;
+    const files = ["", "-wal", "-shm", ".source"].map((suffix) => join(folder, `${name}${suffix}`));
     if (
-      `${name}.source` !== entry ||
-      join(folder, name) === store ||
-      join(folder, name) === source ||
+      files.some(
+        (file) =>
+          file === store || file === source || (existsSync(file) && realpathSync(file) === source),
+      ) ||
       existsSync(saved)
     )
       continue;
-    for (const suffix of ["", "-wal", "-shm", ".source"])
-      rmSync(join(folder, `${name}${suffix}`), { force: true });
+    for (const file of files) rmSync(file, { force: true });
   }
   closeSync(openSync(store, "a", 0o600));
   chmodSync(store, 0o600);

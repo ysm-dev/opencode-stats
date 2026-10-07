@@ -7,16 +7,28 @@ import {
   statSync,
   renameSync,
   symlinkSync,
+  realpathSync,
 } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { nodeRuntime } from "./runtime.node.ts";
 import type { BuildEvent, StoreCopy } from "./store.ts";
 
+vi.mock("node:fs", async (original) => {
+  const fs = await original<typeof import("node:fs")>();
+  return { ...fs, rmSync: vi.fn<typeof fs.rmSync>(fs.rmSync) };
+});
+
 const filename = (source: string, folder: string) =>
-  join(folder, "opencode-stats", `${createHash("sha256").update(source).digest("hex")}.db`);
+  join(
+    folder,
+    "opencode-stats",
+    `${createHash("sha256")
+      .update(existsSync(source) ? realpathSync(source) : source)
+      .digest("hex")}.db`,
+  );
 
 it("reports first builds once, not ordinary starts, and reports release rebuilds with fresh generations", async () => {
   const f = syntheticFixture();
@@ -219,3 +231,112 @@ it("never removes the served OpenCode file even when it occupies an obsolete sta
     f.dispose();
   }
 });
+
+it.each([
+  ["", false],
+  ["-wal", false],
+  ["-shm", false],
+  [".source", false],
+  ["-wal", true],
+] as const)(
+  "protects exact source bytes at a vanished database's derived %s path (aliased cache: %s) without deleting any of its files",
+  async (suffix, aliased) => {
+    const f = syntheticFixture();
+    try {
+      const source = realpathSync(f.source);
+      const cacheHome = aliased ? join(f.folder, "cache-alias") : f.folder;
+      if (aliased) symlinkSync(f.folder, cacheHome, "dir");
+      await readBuilt({ source, cacheHome }, () => {}, nodeRuntime);
+      f.writer.close();
+      const stale = filename(source, cacheHome);
+      const served = `${stale}${suffix}`;
+      const bytes = readFileSync(source);
+      renameSync(source, served);
+      vi.mocked(rmSync).mockClear();
+      const copy = await readBuilt({ source: served, cacheHome }, () => {}, nodeRuntime);
+      expect(copy.historyComplete).toBe(true);
+      expect(readFileSync(served).equals(bytes)).toBe(true);
+      const deleted = vi.mocked(rmSync).mock.calls.map(([file]) => String(file));
+      for (const part of ["", "-wal", "-shm", ".source"])
+        expect(deleted).not.toContain(`${stale}${part}`);
+    } finally {
+      f.dispose();
+    }
+  },
+);
+
+it("never deletes a served source that is itself an authenticated .source marker, even when it is not an OpenCode database", async () => {
+  const f = syntheticFixture();
+  try {
+    const source = realpathSync(f.source);
+    await readBuilt({ source, cacheHome: f.folder }, () => {}, nodeRuntime);
+    f.writer.close();
+    const stale = filename(source, f.folder);
+    const served = `${stale}.source`;
+    const bytes = readFileSync(served);
+    renameSync(source, `${source}.away`);
+    vi.mocked(rmSync).mockClear();
+    await expect(
+      readBuilt({ source: served, cacheHome: f.folder }, () => {}, nodeRuntime),
+    ).rejects.toMatchObject({ statement: "readSource" });
+    expect(readFileSync(served).equals(bytes)).toBe(true);
+    const deleted = vi.mocked(rmSync).mock.calls.map(([file]) => String(file));
+    expect(deleted).not.toContain(served);
+  } finally {
+    f.dispose();
+  }
+});
+
+it.each([
+  ["step", "output"],
+  ["prompt", "provider"],
+  ["session_fact", "title"],
+  ["project_fact", "name"],
+  ["dimension_name", "name"],
+  ["tombstone", "deleted_at"],
+  ["session_sync", "counter"],
+  ["step", "table"],
+  ["step", "view"],
+  ["metadata", "rows"],
+])(
+  "rebuilds damaged derived %s %s even when SQLite integrity is clean and the source is unchanged",
+  async (table, column) => {
+    const f = syntheticFixture();
+    try {
+      f.writer.session("root");
+      f.writer.message({ id: "step", session: "root", seq: 0, start: 1, tokens: { output: 7 } });
+      f.writer.message({ id: "prompt", session: "root", seq: 1, start: 2, type: "user" });
+      const options = { source: f.source, cacheHome: f.folder };
+      const old = await readBuilt(options, () => {}, nodeRuntime);
+      const db = new DatabaseSync(filename(f.source, f.folder));
+      db.exec(
+        column === "table"
+          ? `DROP TABLE ${table}`
+          : column === "view"
+            ? `ALTER TABLE ${table} RENAME TO backup_${table}; CREATE VIEW ${table} AS SELECT * FROM backup_${table}`
+            : column === "rows"
+              ? `DELETE FROM ${table}`
+              : `ALTER TABLE ${table} DROP COLUMN ${column}`,
+      );
+      expect(db.prepare("PRAGMA quick_check").get()).toMatchObject({ quick_check: "ok" });
+      db.close();
+      const events: BuildEvent[] = [];
+      const next = await readBuilt(
+        options,
+        () => {},
+        nodeRuntime,
+        (event) => events.push(event),
+      );
+      expect(next.generation).not.toBe(old.generation);
+      expect(next.steps).toEqual(old.steps);
+      expect(next.prompts).toEqual(old.prompts);
+      expect(next.historyComplete).toBe(true);
+      expect(events.map((event) => [event.kind, event.reason])).toEqual([
+        ["build.start", "damaged"],
+        ["build.end", "damaged"],
+      ]);
+    } finally {
+      f.dispose();
+    }
+  },
+);

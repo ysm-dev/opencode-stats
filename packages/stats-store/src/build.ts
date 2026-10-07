@@ -1,16 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync, rmSync } from "node:fs";
-import { eq, lte } from "drizzle-orm";
+import { eq, lte, getTableName, getTableColumns } from "drizzle-orm";
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
 import { sqlFailure } from "./errors.ts";
 import { Database, type DatabaseAdapter, type StorePaths } from "./database.ts";
-import { metadata, sessions, sessionFacts, projectFacts, tombstones } from "./schema.ts";
+import * as schema from "./schema.ts";
 import type { SourceReader, SourceSession, SourceProject } from "./source-reader.ts";
 import { owningSession, sessionDetails, detailKeys, makeDimensions } from "./dimensions.ts";
 import statements from "./statements.json" with { type: "json" };
 import { commitUnit } from "./write-facts.ts";
 import type { StepPricer } from "./pricing.ts";
+
+const { metadata, sessions, sessionFacts, projectFacts, tombstones } = schema;
 
 class RebuildNeeded extends Error {
   readonly reason: "version" | "damaged";
@@ -44,8 +46,11 @@ export const initializeStore = Effect.fnUntraced(function* (
 ) {
   const initialize = Effect.gen(function* () {
     const db = yield* Database;
-    for (const statement of statements)
-      yield* db.$client.unsafe(statement.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "));
+    const tables = yield* db.$client.unsafe<{ name: string }>(
+      "SELECT name FROM sqlite_schema WHERE type='table'",
+    );
+    if (tables.length === 0)
+      for (const statement of statements) yield* db.$client.unsafe(statement);
     yield* db.$client.unsafe("PRAGMA synchronous=NORMAL");
     const old = yield* Effect.gen(function* () {
       const versions = yield* db.$client.unsafe<{ version: number }>(
@@ -53,7 +58,20 @@ export const initializeStore = Effect.fnUntraced(function* (
       );
       if (versions[0] && versions[0].version !== statsStoreVersion)
         yield* Effect.fail(new RebuildNeeded("version"));
-      return (yield* db.select().from(metadata))[0];
+      // Probe every required column from the generated schema before changing an
+      // existing layout. Recreating a missing table would conceal lost facts.
+      for (const table of Object.values(schema)) {
+        const name = getTableName(table);
+        if (tables.length > 0 && !tables.some((stored) => stored.name === name))
+          yield* Effect.fail(new RebuildNeeded("damaged"));
+        const columns = Object.values(getTableColumns(table)).map(
+          (column) => `\`${name}\`.\`${column.name}\``,
+        );
+        yield* db.$client.unsafe(`SELECT ${columns.join(",")} FROM \`${name}\` LIMIT 1`);
+      }
+      const header = (yield* db.select().from(metadata))[0];
+      if (tables.length > 0 && !header) yield* Effect.fail(new RebuildNeeded("damaged"));
+      return header;
     }).pipe(
       Effect.catchCause((cause) => {
         const error = Cause.squash(cause);
