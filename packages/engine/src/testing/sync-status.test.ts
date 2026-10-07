@@ -7,6 +7,8 @@ import {
 import { inThreadEngine, manualClock } from "./index.ts";
 import type { EngineState } from "../index.ts";
 
+const replacementGeneration = "11234567-89ab-cdef-0123-456789abcdef";
+
 function fixture(partial = false) {
   const clock = manualClock();
   let zone = "UTC";
@@ -163,7 +165,7 @@ it.each(["same", "replacement"])(
     f.server.commit(
       syntheticCopy([{ ...f.facts[0]!, start: 1, input: 987 }], {
         revision: 1,
-        ...(generation === "replacement" ? { generation: "recovered-generation" } : {}),
+        ...(generation === "replacement" ? { generation: replacementGeneration } : {}),
       }),
     );
     f.server.status(null);
@@ -188,7 +190,7 @@ it("a stopped incoming generation warns over the retained page, without crossing
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
   f.server.commit(
     syntheticCopy([{ ...f.facts[0]!, input: 20 }], {
-      generation: "replacement",
+      generation: replacementGeneration,
       revision: 1,
       historyComplete: false,
       historyCompleteFrom: Date.parse("2026-10-07T14:00Z"),
@@ -212,12 +214,15 @@ it("a stopped incoming generation warns over the retained page, without crossing
     stop: { reason: "schema.newer" },
   });
   f.server.commit(
-    syntheticCopy([{ ...f.facts[0]!, input: 20 }], { generation: "replacement", revision: 2 }),
+    syntheticCopy([{ ...f.facts[0]!, input: 20 }], {
+      generation: replacementGeneration,
+      revision: 2,
+    }),
   );
   f.server.status(null);
   await vi.waitFor(() =>
     expect(f.states.at(-1)).toMatchObject({
-      generation: "replacement",
+      generation: replacementGeneration,
       tokens: { total: 20 },
       statusLine: "",
       announcement: "Up to date again",

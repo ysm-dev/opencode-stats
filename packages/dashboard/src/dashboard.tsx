@@ -371,8 +371,10 @@ export const Dashboard = (props: {
       if (closed || result.kind !== "paint") return undefined;
       if (result.state.screen === "dashboard") {
         router.history.replace(result.state.address);
-        await router.load();
       }
+      // A stopped first load can recover without another request from the user.
+      // Its route must be ready before the media provider can mount the page.
+      await router.load();
       painted = true;
       return paint(latest!, latestTiming);
     });

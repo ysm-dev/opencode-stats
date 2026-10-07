@@ -136,6 +136,7 @@ it("a first packed load against an unknown-newer schema shows its actionable fix
       const recovered = decode(Uint8Array.from(await response.body()).buffer);
       expect(recovered.historyComplete).toBe(true);
       expect([...recovered.steps.input]).toEqual([987]);
+      return undefined;
     }),
     page.getByRole("region", { name: "Tokens" }).getByText("987", { exact: true }).waitFor(),
   ]);

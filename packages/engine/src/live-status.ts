@@ -7,7 +7,9 @@ function statusStamp(since: number | undefined, clock: EngineClock) {
   if (since === undefined) return "";
   const date = localDate(since, clock.timeZone());
   const prefix =
-    date === localDate(clock.now(), clock.timeZone()) ? "" : `${dateLabel(date, clock.locale())}, `;
+    date === localDate(clock.now(), clock.timeZone())
+      ? ""
+      : `${dateLabel(date, clock.locale(), false)}, `;
   return `${prefix}${clockLabel(since, clock.timeZone(), clock.locale())}`;
 }
 

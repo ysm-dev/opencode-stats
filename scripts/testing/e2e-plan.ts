@@ -98,6 +98,9 @@ for (const file of [
   "filters.test.ts",
   "whole-paint-canaries.test.ts",
   "chart-paint-canaries.test.ts",
+  "contribution-canaries.test.ts",
+  "contribution-contrast.test.ts",
+  "contributions.test.ts",
 ])
   assert.deepEqual(prepareE2e([file]), {
     browsers: ["chromium", "webkit"],

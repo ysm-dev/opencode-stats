@@ -16,6 +16,7 @@ const work: Readonly<Record<string, Work>> = {
   "ranges.test.ts": [30, ["chromium", "webkit"]],
   "contributions.test.ts": [30, ["chromium", "webkit"]],
   "contribution-canaries.test.ts": [30, ["chromium", "webkit"]],
+  "contribution-contrast.test.ts": [30, ["chromium", "webkit"]],
   "filters.test.ts": [23, ["chromium", "webkit"]],
   // Synthetic whole-paint tours retain the native per-test/job budgets. Split
   // engines at the existing file/shard seam; refine these estimates on hosted CI.

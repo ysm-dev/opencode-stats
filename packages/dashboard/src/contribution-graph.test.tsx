@@ -76,6 +76,7 @@ const graphScrolling = (media: Accessor<MediaSize>) => {
     positions.set(this, Math.max(0, Math.min(value, content() - width())));
   });
 };
+const narrowMedia = () => ({ ...initialMedia, columnWidth: 272 });
 
 it("draws Monday-first 365-day geometry, outlines only the range, and presents ten headlines and accessible readouts", async () => {
   await using f = dashboardFixture(syntheticCopy(rows));
@@ -320,9 +321,8 @@ it("holds drawn metric/selection state while answers wait and never announces li
 });
 
 it("opens sideways scrolling at today and scrolls keyboard reading into view", async () => {
-  const media = () => ({ ...initialMedia, columnWidth: 272 });
-  graphScrolling(media);
-  await using f = dashboardFixture(syntheticCopy(rows), queueMicrotask, media);
+  graphScrolling(narrowMedia);
+  await using f = dashboardFixture(syntheticCopy(rows), queueMicrotask, narrowMedia);
   const svg = await surface(f.view);
   const scroll = document.querySelector<HTMLElement>(".graph-scroll")!;
   expect(scroll.scrollLeft).toBe(608);

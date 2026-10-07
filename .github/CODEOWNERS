@@ -107,4 +107,5 @@
 /packages/e2e/tests/chart-paint-canaries.test.ts @ysm-dev
 /packages/e2e/tests/testing/chart-tour.ts @ysm-dev
 /packages/e2e/tests/contribution-canaries.test.ts @ysm-dev
+/packages/e2e/tests/contribution-contrast.test.ts @ysm-dev
 /packages/e2e/tests/contributions.test.ts @ysm-dev
