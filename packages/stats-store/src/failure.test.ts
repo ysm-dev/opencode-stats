@@ -4,6 +4,7 @@ import { join } from "node:path";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as TestClock from "effect/testing/TestClock";
 import { expect, it } from "vitest";
 import { stayInSync, type StoreEvent } from "./store.ts";
 import { syntheticFixture, inThreadRuntime, readBuilt } from "./testing/index.ts";
@@ -115,16 +116,28 @@ it("an interrupted writable connection exits without reporting a recoverable fai
   try {
     const options = { source: fixture.source, cacheHome: fixture.folder };
     const before = await readBuilt(options);
-    const fiber = Effect.runFork(
-      Effect.scoped(stayInSync(options, runtime, () => {}, (event) => events.push(event))),
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fiber = yield* Effect.forkChild(
+          Effect.scoped(
+            stayInSync(
+              options,
+              runtime,
+              () => {},
+              (event) => events.push(event),
+            ).pipe(Effect.andThen(Effect.never)),
+          ),
+        );
+        try {
+          yield* Effect.promise(() => interrupted.promise);
+          yield* TestClock.adjust("1 second");
+          expect(opens).toBe(2);
+          expect(events.filter((event) => event.kind === "sync.stopped")).toEqual([]);
+        } finally {
+          yield* Fiber.interrupt(fiber);
+        }
+      }).pipe(Effect.provide(TestClock.layer())),
     );
-    try {
-      await interrupted.promise;
-    } finally {
-      await Effect.runPromise(Fiber.interrupt(fiber));
-    }
-    expect(opens).toBe(2);
-    expect(events.filter((event) => event.kind === "sync.stopped")).toEqual([]);
     expect(await readBuilt(options)).toEqual(before);
   } finally {
     fixture.dispose();

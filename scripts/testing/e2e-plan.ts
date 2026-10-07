@@ -101,8 +101,8 @@ assert.deepEqual(
     2,
   ),
   [
-    ["preferences-webkit.test.ts", "smoke.test.ts"],
-    ["plugin.test.ts", "preferences.test.ts", "preferences-chromium.test.ts"],
+    ["preferences-webkit.test.ts", "preferences-chromium.test.ts", "smoke.test.ts"],
+    ["plugin.test.ts", "preferences.test.ts"],
   ],
 );
 assert.deepEqual(
