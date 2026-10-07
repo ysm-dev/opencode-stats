@@ -60,6 +60,7 @@ if (process.env["FAIL_PREPARATION"] === stage) {
   while (!existsSync(${JSON.stringify(pids)}) || readFileSync(${JSON.stringify(pids)}, "utf8").trim().split("\\n").length !== 2) await Bun.sleep(5);
   process.exit(42);
 }
+if (stage === "tests" && process.env["FAIL_TESTS"] === "1") process.exit(42);
 `,
 );
 fs.writeFileSync(
@@ -92,6 +93,34 @@ try {
     fs.readFileSync(record, "utf8").trim().split("\n").toSorted(),
     stages.toSorted(),
   );
+  fs.rmSync(record);
+  if (process.platform !== "win32")
+    fs.writeFileSync(
+      join(folder, "ps"),
+      '#!/bin/sh\necho PRIVATE-lifetime-sentinel\necho PRIVATE-lifetime-sentinel >&2\nexec /bin/ps "$@"\n',
+      { mode: 0o755 },
+    );
+  const failedTests = await runTimed(["bun", "run", "e2e"], 5000, {
+    capture: true,
+    cwd: folder,
+    env: {
+      ...process.env,
+      FAIL_TESTS: "1",
+      PATH: `${folder}${process.platform === "win32" ? ";" : ":"}${process.env["PATH"]}`,
+    },
+  });
+  assert.notEqual(failedTests.status, 0);
+  assert.match(failedTests.output, /E2e command failed/u);
+  if (process.platform !== "win32") {
+    assert.match(failedTests.output, /\[DEBUG-intel-lifetime\] inventory-start/u);
+    assert.match(failedTests.output, /\[DEBUG-intel-lifetime\] inventory-end elapsedMs=\d+ status=0/u);
+    assert.match(
+      failedTests.output,
+      /\[DEBUG-intel-lifetime\] pid=\d+ ppid=\d+ pgid=\d+ state=[A-Za-z+<]+/u,
+    );
+  }
+  assert.doesNotMatch(failedTests.output, /PRIVATE-lifetime-sentinel/u);
+  assert.doesNotMatch(overlap.output, /DEBUG-intel-lifetime/u);
   fs.rmSync(record);
   for (const [failure, blocked] of [
     ["OpenCode", "browser"],
