@@ -29,7 +29,7 @@ const number = (value: number | null, digits = 2) =>
   value === null ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: digits });
 const percent = (value: number | null) => (value === null ? "—" : `${number(value * 100)}%`);
 const duration = (value: number | null) => (value === null ? "—" : `${number(value / 1000, 3)} s`);
-const HeadlineText = (props: { text: string; about: boolean }) => (
+export const HeadlineText = (props: { text: string; about: boolean }) => (
   <>
     <span aria-hidden={props.about || undefined}>
       {props.about ? "≈ " : ""}

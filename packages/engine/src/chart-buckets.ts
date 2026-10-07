@@ -14,7 +14,7 @@ export const ChartBucket = Schema.Struct({
   title: Schema.String,
   partial: Schema.Boolean,
 });
-export const bucketUnit = (days: number): typeof BucketUnit.Type =>
+const bucketUnit = (days: number): typeof BucketUnit.Type =>
   days === 1 ? "hour" : days <= 90 ? "day" : days <= 365 ? "week" : "month";
 const labels = new Map<string, string>();
 const labelFor = (date: string, locale: string) => {

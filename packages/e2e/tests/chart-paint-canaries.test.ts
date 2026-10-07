@@ -43,5 +43,16 @@ it.each([chromium, webkit])(
       await expect(paintEvidence(page)).rejects.toThrow("whole-paint:mixed-frame");
       await page.reload();
     }
+    await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
+    await wholeChange(page, "chart-menu", () =>
+      page.getByRole("button", { name: /^Chart metric/ }).click(),
+    );
+    await wholeChange(page, "chart-metric", () =>
+      page.getByRole("option", { name: "≈ Estimated cost", exact: true }).click(),
+    );
+    await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    const axe = await page.evaluate(() => window.axe.run());
+    expect(axe.violations).toEqual([]);
+    expect(axe.incomplete).toEqual([]);
   },
 );

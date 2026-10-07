@@ -25,7 +25,7 @@ export const initialMedia: MediaSize = {
   forcedColours: false,
   short: false,
 };
-export const MediaSizeContext = createContext<Accessor<MediaSize>>();
+const MediaSizeContext = createContext<Accessor<MediaSize>>();
 export const useMediaSize = () => useContext(MediaSizeContext)!;
 
 // Only this boundary reads browser sensors. All drawing consumes the same six

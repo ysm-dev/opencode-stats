@@ -27,7 +27,7 @@ export const Chart = Schema.Struct({
     }),
   ),
 });
-export type ChartData = typeof Chart.Type;
+type ChartData = typeof Chart.Type;
 type Rows = { steps: Fact[]; prompts: PromptFact[]; tools: ToolFact[]; sessions: number[] };
 const emptyRows = (): Rows => ({ steps: [], prompts: [], tools: [], sessions: [] });
 const percent = (value: number | null) =>

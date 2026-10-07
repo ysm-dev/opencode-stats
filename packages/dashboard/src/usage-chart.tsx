@@ -26,6 +26,7 @@ import {
   chartMargin,
 } from "./chart-drawing.ts";
 import { changes, stateMark } from "./change-time.ts";
+import { HeadlineText } from "./step-headlines.tsx";
 
 type ReadState = {
   chart: CompletePage["chart"];
@@ -39,6 +40,12 @@ const atRest = (chart: CompletePage["chart"]): ReadState => ({
   highlighted: null,
   spoken: chart.announcement,
 });
+const ChartAmount = (props: { metric: CompletePage["chart"]["metric"]; value: number | null }) => (
+  <HeadlineText
+    about={props.metric === "cost"}
+    text={chartValue(props.metric, props.value).replace(/^≈ /, "")}
+  />
+);
 
 const ChoiceForm = (props: ParentProps) => {
   let focused: "metric" | "split" | null = null;
@@ -312,7 +319,7 @@ export const UsageChart = () => {
         role="group"
         aria-roledescription="chart"
         tabIndex={0}
-        aria-label={`${local().chart.name}, ${state().rangeLabel}, by ${local().chart.unit}`}
+        aria-label={`${local().chart.name.replace("≈", "about")}, ${state().rangeLabel}, by ${local().chart.unit}`}
         aria-describedby="chart-instructions"
         data-state={stateMark(state())}
         data-local-state={stateMark(local())}
@@ -365,7 +372,10 @@ export const UsageChart = () => {
         <h3>{bucket()?.title ?? "Range totals"}</h3>
         <p class="chart-total">
           Total ·{" "}
-          {chartValue(local().chart.metric, bucket() ? bucket()!.total : local().chart.total)}
+          <ChartAmount
+            metric={local().chart.metric}
+            value={bucket() ? bucket()!.total : local().chart.total}
+          />
         </p>
         <p>{bucket()?.basis ?? local().chart.basis}</p>
         <Show when={bucket()}>
@@ -407,10 +417,10 @@ export const UsageChart = () => {
                     />
                     {series().name}
                     <span>
-                      {chartValue(
-                        local().chart.metric,
-                        bucket() ? bucket()!.values[index()]! : series().total,
-                      )}
+                      <ChartAmount
+                        metric={local().chart.metric}
+                        value={bucket() ? bucket()!.values[index()]! : series().total}
+                      />
                     </span>
                   </button>
                 </li>

@@ -226,7 +226,9 @@ it.each([
   onTestFinished(f.close);
   await f.view.findByRole("heading", { name: "Overview" });
   await choose(f, "Chart metric", metric);
-  await vi.waitFor(() => expect(chart().getAttribute("aria-label")).toContain(metric));
+  await vi.waitFor(() =>
+    expect(chart().getAttribute("aria-label")).toContain(metric.replace("≈", "about")),
+  );
   fireEvent.keyDown(chart(), { key: "Home" });
   if (metric === "Response time p50") {
     expect(readout().textContent).toContain("Total · —");
@@ -256,6 +258,36 @@ it("wide segmented controls dispatch the same full-state choices", async () => {
     }),
   );
   await vi.waitFor(() => expect(chart().getAttribute("aria-label")).toContain("by agent"));
+});
+
+it("estimated chart amounts keep the symbol and value together and expose the complete about text", async () => {
+  const f = dashboardFixture(
+    syntheticCopy([
+      {
+        start: Date.parse("2026-10-07T12:00Z"),
+        input: 1000,
+        cacheRead: 0,
+        cacheWrite: 0,
+        output: 1000,
+        reasoning: 0,
+        estimatedCost: 0.75,
+        recordedCost: 0.12,
+      },
+    ]),
+  );
+  onTestFinished(f.close);
+  await f.view.findByRole("heading", { name: "Overview" });
+  await choose(f, "Chart metric", "≈ Estimated cost");
+  await vi.waitFor(() =>
+    expect(readout().querySelector('.chart-total [aria-hidden="true"]')?.textContent).toBe(
+      "≈ $0.75",
+    ),
+  );
+  expect(readout().querySelector(".chart-total .sr-only")?.textContent).toBe("about $0.75");
+  expect(
+    [...readout().querySelectorAll("span")].some((node) => node.textContent?.trim() === "≈"),
+  ).toBe(false);
+  await accessible(f.view.container);
 });
 
 it("the published pickers cannot clear a metric or split when their current option is activated", async () => {
