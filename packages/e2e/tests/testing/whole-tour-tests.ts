@@ -19,18 +19,22 @@ import { createTourEvidence, trackTourEvidence } from "./tour-evidence.ts";
 import { createTourOwner, type TourScope } from "./tour-owner.ts";
 
 const tourBrowser = (browser: BrowserType, width: number) =>
-  preferencesBrowser(browser, {
-    hasTouch: width === 360,
-    viewport: { width, height: 720 },
-    timezoneId: "UTC",
-    locale: "en-GB",
-    colorScheme: "light",
-  });
+  preferencesBrowser(
+    browser,
+    {
+      hasTouch: width === 360,
+      viewport: { width, height: 720 },
+      timezoneId: "UTC",
+      locale: "en-GB",
+      colorScheme: "light",
+    },
+    seedTour,
+  );
 
-function seedTour(server: Awaited<ReturnType<typeof preferencesServer>>) {
-  server.writer.reset();
-  server.writer.session("ses-tour");
-  server.writer.message({
+function seedTour(writer: Awaited<ReturnType<typeof preferencesServer>>["writer"]) {
+  writer.reset();
+  writer.session("ses-tour");
+  writer.message({
     id: "msg-tour",
     session: "ses-tour",
     seq: 0,
@@ -55,8 +59,8 @@ function seedTour(server: Awaited<ReturnType<typeof preferencesServer>>) {
       },
     ],
   });
-  server.writer.session("ses-tour-before");
-  server.writer.message({
+  writer.session("ses-tour-before");
+  writer.message({
     id: "msg-tour-before",
     session: "ses-tour-before",
     seq: 0,
@@ -67,8 +71,8 @@ function seedTour(server: Awaited<ReturnType<typeof preferencesServer>>) {
   });
   for (const letter of ["c", "d", "e", "f", "g"]) {
     const session = `ses-tour-${letter}`;
-    server.writer.session(session);
-    server.writer.message({
+    writer.session(session);
+    writer.message({
       id: `msg-tour-${letter}`,
       session,
       seq: 0,
@@ -123,7 +127,6 @@ async function openChangeTour(
   scope: TourScope,
 ) {
   const f = await scope.use(tourBrowser(browser, width));
-  seedTour(f.server);
   await installTourClock(f.context, tourStart);
   await f.context.addInitScript(installWholePaintObserver, observing);
   const page = await f.context.newPage();
@@ -152,21 +155,19 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
     `${label} complete packed first-visit and reload paints at %i retain font and copy barriers`,
     async (width) => {
       await using f = await tourBrowser(browser, width);
-      seedTour(f.server);
       await installTourClock(f.context, tourStart);
       await f.context.addInitScript(installWholePaintObserver);
       await f.context.addInitScript(() => {
         const load = document.fonts.load.bind(document.fonts);
         document.fonts.load = (...args) => {
+          const links = document.querySelectorAll<HTMLLinkElement>("link[rel=stylesheet]");
           console.debug(
             "[DEBUG-font-barrier] before",
             JSON.stringify({
               args,
               status: document.fonts.status,
               faces: [...document.fonts].map((face) => [face.family, face.weight, face.status]),
-              styles: [
-                ...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
-              ].map((link) => [link.href, !!link.sheet]),
+              styles: [...links].map((link) => [link.href, !!link.sheet]),
             }),
           );
           return load(...args).then((faces) => {
