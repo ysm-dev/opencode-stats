@@ -14,7 +14,7 @@ import {
 import { rangeFixture } from "./range-fixture.ts";
 import { toolCopy, toolCalls, toolNames } from "./tool-fixture.ts";
 import { referenceTools } from "./tool-reference.ts";
-import { filterSteps, filterMetadata } from "./filter-fixture.ts";
+import { filterSteps, filterMetadata, filtersForNames } from "./filter-fixture.ts";
 import { metricSteps } from "./metrics-fixture.ts";
 import { blockedSlices, manualClock, inThreadEngine } from "./index.ts";
 
@@ -288,16 +288,7 @@ it("matches a straightforward reference for generated filters, ranges, missing t
           tools: mapToolFields((field) => Float64Array.from(calls, (call) => call[field] ?? NaN)),
         });
         await using f = rangeFixture(filterSteps, undefined, undefined, undefined, copy);
-        const filters = selected.flatMap((name) =>
-          name.dimension === "project" ||
-          name.dimension === "provider" ||
-          name.dimension === "model" ||
-          name.dimension === "variant" ||
-          name.dimension === "agent" ||
-          name.dimension === "tool"
-            ? [{ dimension: name.dimension, id: name.id }]
-            : [],
-        );
+        const filters = filtersForNames(selected);
         const params = new URLSearchParams({ range: preset });
         for (const filter of filters) params.append(`f.${filter.dimension}`, filter.id);
         const state = await f.request({ kind: "address", address: `/?${params}` });

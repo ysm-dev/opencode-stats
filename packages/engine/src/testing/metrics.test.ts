@@ -16,7 +16,7 @@ import {
   metricStep,
 } from "./metrics-fixture.ts";
 import { referenceMetrics } from "./metrics-reference.ts";
-import { filterMetadata, filterSteps } from "./filter-fixture.ts";
+import { filterMetadata, filterSteps, filtersForNames } from "./filter-fixture.ts";
 
 it("uses exact observed nearest ranks, counts incomplete failures and interruptions apart, and attributes prompt filters through the next step", async () => {
   const copy = metricCopy();
@@ -206,16 +206,7 @@ it("matches a row-oriented reference for generated ranges, every filter dimensio
         );
         const engine = inThreadEngine(server.fetch, queueMicrotask, manualClock());
         try {
-          const filters = selected.flatMap((name) =>
-            name.dimension === "project" ||
-            name.dimension === "provider" ||
-            name.dimension === "model" ||
-            name.dimension === "variant" ||
-            name.dimension === "agent" ||
-            name.dimension === "session"
-              ? [{ dimension: name.dimension, id: name.id }]
-              : [],
-          );
+          const filters = filtersForNames(selected);
           const params = new URLSearchParams({ range: preset });
           if (preset === "fixed") {
             params.set("from", `2026-10-0${Math.min(...dates)}`);

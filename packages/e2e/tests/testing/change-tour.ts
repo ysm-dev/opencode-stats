@@ -204,7 +204,7 @@ export async function changeTour(page: Page, server: Server, guard: Guard, touch
   }
   for (let repeat = 0; repeat < 2; repeat++) {
     guard.live(true);
-    await buildCommitPaints(page, write, now);
+    await buildCommitPaints(page, (amount) => write(server, amount), now);
     guard.live(false);
     await rangesAndFilters(input);
     await appearance(input, repeat);

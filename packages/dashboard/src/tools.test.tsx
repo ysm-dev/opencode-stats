@@ -14,7 +14,7 @@ afterEach(() => {
 it("shows the calls headline and outcome bar with readable exact outcome text, including calls with no outcome yet", async () => {
   const f = dashboardFixture(toolCopy());
   onTestFinished(f.close);
-  const headline = await f.view.findByRole("region", { name: "Tool calls", exact: true });
+  const headline = await f.view.findByRole("region", { name: "Tool calls" });
   expect(headline.querySelector(".headline-number")!.textContent).toBe("11");
   expect(headline.textContent).toContain("6 succeeded, 2 failed, 2 stopped, 1 none yet");
   expect(headline.querySelector(".previous-period")!.textContent).toContain("↑ 1,000%");
@@ -34,11 +34,11 @@ it("shows the calls headline and outcome bar with readable exact outcome text, i
 it("puts the native Tool checklist under Tool calls only, counts calls not tokens, and keeps other headlines unchanged", async () => {
   const f = dashboardFixture(toolCopy());
   onTestFinished(f.close);
-  const region = await f.view.findByRole("region", { name: "Tool", exact: true });
+  const region = await f.view.findByRole("region", { name: "Tool" });
   expect(region.previousElementSibling!.textContent).toBe("Tool calls only");
   const tools = within(region);
   expect(tools.getByText("5 tool calls")).toBeTruthy();
-  const headline = f.view.getByRole("region", { name: "Tool calls", exact: true });
+  const headline = f.view.getByRole("region", { name: "Tool calls" });
   const otherNumbers = () =>
     [...f.view.container.querySelectorAll(".headline-number")]
       .filter((element) => !headline.contains(element))

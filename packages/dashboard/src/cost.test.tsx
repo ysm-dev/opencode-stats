@@ -61,7 +61,7 @@ it("marks estimated Cost visibly and as 'about', presents recorded cost and pric
     ).size,
   ).toBe(1);
   await f.user.click(f.view.getByRole("button", { name: /^Time range/ }));
-  await f.user.click(await screen.findByRole("option", { name: "All time", exact: true }));
+  await f.user.click(await screen.findByRole("option", { name: "All time" }));
   await vi.waitFor(() => expect(region.querySelector(".previous-period")).toBeNull());
 });
 

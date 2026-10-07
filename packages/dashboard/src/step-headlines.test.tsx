@@ -16,11 +16,9 @@ it("paints the five headline numbers, bases and previous-period changes from the
   try {
     const range = await f.view.findByRole("button", { name: /^Time range/ });
     await f.user.click(range);
-    await f.user.click(await screen.findByRole("option", { name: "Today", exact: true }));
+    await f.user.click(await screen.findByRole("option", { name: "Today" }));
     await vi.waitFor(() =>
-      expect(f.view.getByRole("region", { name: "Steps", exact: true }).textContent).toContain(
-        "2 per prompt",
-      ),
+      expect(f.view.getByRole("region", { name: "Steps" }).textContent).toContain("2 per prompt"),
     );
     for (const [name, value, line, change] of [
       ["Steps", "4", "2 per prompt", "↑ 300%"],
@@ -28,8 +26,8 @@ it("paints the five headline numbers, bases and previous-period changes from the
       ["Failed steps", "2", "50% failure rate · 1 interrupted", "↑ 100%"],
       ["Response time p50", "2 s", "p95 8 s · 75% of steps timed", "↑ 100%"],
       ["Cache hit rate", "50%", "context size median 200", "↑ 0%"],
-    ]) {
-      const region = f.view.getByRole("region", { name, exact: true });
+    ] as const) {
+      const region = f.view.getByRole("region", { name });
       expect(region.querySelector(".headline-number")!.textContent).toBe(value);
       expect(region.textContent).toContain(line);
       expect(region.querySelector(".previous-period")!.textContent).toContain(change);
@@ -41,11 +39,11 @@ it("paints the five headline numbers, bases and previous-period changes from the
     );
     expect(
       f.view
-        .getByRole("region", { name: "Prompts", exact: true })
+        .getByRole("region", { name: "Prompts" })
         .querySelectorAll("p:not(.headline-number):not(.previous-period)"),
     ).toHaveLength(0);
     await f.user.click(range);
-    await f.user.click(await screen.findByRole("option", { name: "All time", exact: true }));
+    await f.user.click(await screen.findByRole("option", { name: "All time" }));
     await vi.waitFor(() => expect(f.view.container.querySelector(".previous-period")).toBeNull());
   } finally {
     await f.close();
@@ -62,7 +60,7 @@ it("shows missing measurements as unavailable, never zero, and removes the recor
     const response = f.view.getByRole("region", { name: "Response time p50" });
     expect(response.querySelector(".headline-number")!.textContent).toBe("—");
     expect(response.textContent).toContain("p95 — · — of steps timed");
-    const steps = f.view.getByRole("region", { name: "Steps", exact: true });
+    const steps = f.view.getByRole("region", { name: "Steps" });
     expect(steps.textContent).toContain("— per prompt");
     const cache = f.view.getByRole("region", { name: "Cache hit rate" });
     expect(cache.querySelector(".headline-number")!.textContent).toBe("—");

@@ -5,6 +5,14 @@ import {
   type SessionFact,
 } from "@opencode-stats/browser-copy";
 import { syntheticCopy } from "@opencode-stats/browser-copy/testing";
+import { filterDimensions } from "../filters.ts";
+
+export const filtersForNames = (names: readonly DimensionName[]) =>
+  filterDimensions.flatMap((dimension) =>
+    names
+      .filter((name) => name.dimension === dimension)
+      .map((name) => ({ dimension, id: name.id })),
+  );
 
 export const filterNames: readonly DimensionName[] = [
   ...Array.from({ length: 7 }, (_, code) => ({

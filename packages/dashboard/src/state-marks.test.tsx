@@ -38,7 +38,7 @@ it("each region retains its drawn answer's mark while a newer complete filter an
   const before = marks();
   expect(before.length).toBeGreaterThan(12);
   expect(new Set(before).size).toBe(1);
-  const models = within(f.view.getByRole("region", { name: "Model", exact: true }));
+  const models = within(f.view.getByRole("region", { name: "Model" }));
   held = true;
   const tick = models.getByRole("checkbox", { name: "Model 6" });
   await f.user.click(tick);
@@ -89,7 +89,7 @@ it("marks the palette object actually applied and keeps Settings choices coheren
   await vi.waitFor(() => expect(root.dataset["paletteTheme"]).toBe("oc-2"));
   const before = root.dataset["paletteState"];
   await f.user.click(sheet.getByRole("button", { name: /^Theme / }));
-  await f.user.click(screen.getByRole("option", { name: "Matrix", exact: true }));
+  await f.user.click(screen.getByRole("option", { name: "Matrix" }));
   await vi.waitFor(() => expect(root.dataset["paletteTheme"]).toBe("matrix"));
   expect(root.dataset["paletteState"]).not.toBe(before);
   expect(root.dataset["paletteTheme"]).toBe(root.dataset["theme"]);
@@ -97,7 +97,7 @@ it("marks the palette object actually applied and keeps Settings choices coheren
     root.dataset["paletteTheme"],
   );
   await f.user.click(sheet.getByRole("button", { name: /^Color scheme/ }));
-  await f.user.click(screen.getByRole("option", { name: "Dark", exact: true }));
+  await f.user.click(screen.getByRole("option", { name: "Dark" }));
   await vi.waitFor(() => expect(root.dataset["paletteScheme"]).toBe("dark"));
   expect(root.style.colorScheme).toBe("dark");
   expect(root.dataset["colorScheme"]).toBe(root.dataset["paletteScheme"]);

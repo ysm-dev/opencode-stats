@@ -3,9 +3,14 @@ import * as fc from "fast-check";
 import { mapSessionFields } from "@opencode-stats/browser-copy";
 import { syntheticCopy, propertyParameters } from "@opencode-stats/browser-copy/testing";
 import { rangeFixture, type CompleteState } from "./range-fixture.ts";
-import { filterSteps, filterMetadata, filterNames, filterSessions } from "./filter-fixture.ts";
+import {
+  filterSteps,
+  filterMetadata,
+  filterNames,
+  filterSessions,
+  filtersForNames,
+} from "./filter-fixture.ts";
 import { referenceFilters } from "./filter-reference.ts";
-import { filterDimensions } from "../filters.ts";
 
 const expectReference = (state: CompleteState, reference: ReturnType<typeof referenceFilters>) => {
   expect(state.tokens).toEqual(reference.tokens);
@@ -300,11 +305,7 @@ it("equals the independent row reference for arbitrary multi-dimension combinati
           params.set("from", "2026-10-01");
           params.set("to", "2026-10-01");
         }
-        const filters = filterDimensions.flatMap((dimension) =>
-          selected
-            .filter((name) => name.dimension === dimension)
-            .map((name) => ({ dimension, id: name.id })),
-        );
+        const filters = filtersForNames(selected);
         for (const filter of filters) params.append(`f.${filter.dimension}`, filter.id);
         const state = await f.request({ kind: "address", address: `/?${params}` });
         const reference = referenceFilters(

@@ -19,7 +19,7 @@ it("rejects inconsistent call columns and identities before accepting a copy", (
   expect(() => encode({ ...copy, tools: { ...copy.tools, outcome: new Float64Array() } })).toThrow(
     "tool columns",
   );
-  expect(() => encode({ ...copy, toolIds: [copy.ids[0], ...copy.toolIds.slice(1)] })).toThrow(
+  expect(() => encode({ ...copy, toolIds: ["step-0", ...copy.toolIds.slice(1)] })).toThrow(
     "fact IDs",
   );
 });
