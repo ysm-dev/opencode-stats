@@ -126,9 +126,6 @@ function stateFor(
       status.statusLine,
       status.paused,
     ),
-    announcement: status.announcement.startsWith("Not updating")
-      ? historyLine(current.historyComplete, historyLabel, status.announcement, status.paused)
-      : status.announcement,
     filterAnnouncement: "",
   };
 }

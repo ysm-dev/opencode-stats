@@ -4,139 +4,139 @@
       "release": "2.0.0",
       "commit": "63f7ceecbed2d7d9a627518d935dd963b9d4ac9f",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.1",
       "commit": "afc3359eda634d9df012df5fe599e6bbfe26a655",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.2",
       "commit": "ea5ae2329569e4fbf063be451480b58e29de6816",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.3",
       "commit": "d44b52ca66b6bf69626c0384626d1a9cd9555977",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.4",
       "commit": "466b3e594d3df396a57340249590a70c5c358c8a",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.5",
       "commit": "79169fe966d58fb0e0a5e41133716184a0ab4ca6",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.6",
       "commit": "b084acc55ea2cdb50e9c2ec49a8d9ab3608d43ad",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.7",
       "commit": "ca27d3328fcd0d470588149c902a963452f1abaf",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.8",
       "commit": "7673ed6bd6547ee0dcb81aab55f1392fb751d652",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.9",
       "commit": "6608799d35d96c2821a48ac1d4b26a3b84b4e433",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.10",
       "commit": "b8cedc1a7a5e2916bbb65dc1d4b620729c261638",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.11",
       "commit": "9eb6902aaf3c35ce985b67c605a775992249066b",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.12",
       "commit": "2670273ff17da96f85c5826ced57aa1b368754fa",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.13",
       "commit": "3180aab16e050128678e590afcbd2dc85c259cb7",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.14",
       "commit": "08462140ec0de1e4b17d4a353d8d5827f53cf7b0",
       "schema": "2.0.0",
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     {
       "release": "2.0.15",
       "commit": "6f3639d82ed0760091792189b78f8eeb44f699b1",
       "schema": "2.0.15",
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     },
     {
       "release": "2.0.16",
       "commit": "3a103fe0aff726a4edc7492f03f7b88195d9e4c9",
       "schema": "2.0.15",
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     },
     {
       "release": "2.0.17",
       "commit": "04f4b0610c79e3692f3b91bd7e4489c2c7010e4b",
       "schema": "2.0.15",
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     },
     {
       "release": "2.0.18",
       "commit": "cd9a14a6b688d4021bee381dfd39d2cef9c0f862",
       "schema": "2.0.15",
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     },
     {
       "release": "2.0.19",
       "commit": "1fd016ef32286de9489b7b24f1029f52c49a27b3",
       "schema": "2.0.15",
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     },
     {
       "release": "2.0.20",
       "commit": "84c9be93a56304a108f1a22df0c5d62c26d5b6ca",
       "schema": "2.0.15",
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     },
     {
       "release": "2.0.21",
       "commit": "8a8bd622a3d7dc29ccf30ec17f84e363ed95ed72",
       "schema": "2.0.15",
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     },
     {
       "release": "2.0.22",
       "commit": "527f0b931d1f9b3ebd34e106c51b31ce5db5b075",
       "schema": "2.0.15",
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     }
   ],
   "profiles": {
@@ -145,14 +145,14 @@
         {
           "name": "account",
           "columns": [
-            ["access_token", "TEXT", 1, null, 0],
-            ["email", "TEXT", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["refresh_token", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["token_expiry", "INTEGER", 0, null, 0],
-            ["url", "TEXT", 1, null, 0]
+            ["access_token", "TEXT", 1, null, 0, 0],
+            ["email", "TEXT", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["refresh_token", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["token_expiry", "INTEGER", 0, null, 0, 0],
+            ["url", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_account_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -160,9 +160,9 @@
         {
           "name": "account_state",
           "columns": [
-            ["active_account_id", "TEXT", 0, null, 0],
-            ["active_org_id", "TEXT", 0, null, 0],
-            ["id", "INTEGER", 0, null, 1]
+            ["active_account_id", "TEXT", 0, null, 0, 0],
+            ["active_org_id", "TEXT", 0, null, 0, 0],
+            ["id", "INTEGER", 0, null, 1, 0]
           ],
           "indexes": [],
           "foreignKeys": [
@@ -172,14 +172,14 @@
         {
           "name": "control_account",
           "columns": [
-            ["access_token", "TEXT", 1, null, 0],
-            ["active", "INTEGER", 1, null, 0],
-            ["email", "TEXT", 1, null, 1],
-            ["refresh_token", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["token_expiry", "INTEGER", 0, null, 0],
-            ["url", "TEXT", 1, null, 2]
+            ["access_token", "TEXT", 1, null, 0, 0],
+            ["active", "INTEGER", 1, null, 0, 0],
+            ["email", "TEXT", 1, null, 1, 0],
+            ["refresh_token", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["token_expiry", "INTEGER", 0, null, 0, 0],
+            ["url", "TEXT", 1, null, 2, 0]
           ],
           "indexes": [
             [
@@ -199,15 +199,15 @@
         {
           "name": "credential",
           "columns": [
-            ["active", "INTEGER", 0, null, 0],
-            ["connector_id", "TEXT", 0, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["integration_id", "TEXT", 0, null, 0],
-            ["label", "TEXT", 1, null, 0],
-            ["method_id", "TEXT", 0, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["value", "TEXT", 1, null, 0]
+            ["active", "INTEGER", 0, null, 0, 0],
+            ["connector_id", "TEXT", 0, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["integration_id", "TEXT", 0, null, 0, 0],
+            ["label", "TEXT", 1, null, 0, 0],
+            ["method_id", "TEXT", 0, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["value", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_credential_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -215,12 +215,12 @@
         {
           "name": "event",
           "columns": [
-            ["aggregate_id", "TEXT", 1, null, 0],
-            ["created", "INTEGER", 1, "0", 0],
-            ["data", "TEXT", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["seq", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 1, null, 0]
+            ["aggregate_id", "TEXT", 1, null, 0, 0],
+            ["created", "INTEGER", 1, "0", 0, 0],
+            ["data", "TEXT", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["seq", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -255,9 +255,9 @@
         {
           "name": "event_sequence",
           "columns": [
-            ["aggregate_id", "TEXT", 0, null, 1],
-            ["owner_id", "TEXT", 0, null, 0],
-            ["seq", "INTEGER", 1, null, 0]
+            ["aggregate_id", "TEXT", 0, null, 1, 0],
+            ["owner_id", "TEXT", 0, null, 0, 0],
+            ["seq", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [
             ["sqlite_autoindex_event_sequence_1", 1, "pk", 0, [["aggregate_id", 0, "BINARY"]], null]
@@ -267,8 +267,8 @@
         {
           "name": "instruction_blob",
           "columns": [
-            ["hash", "TEXT", 0, null, 1],
-            ["value", "TEXT", 0, null, 0]
+            ["hash", "TEXT", 0, null, 1, 0],
+            ["value", "TEXT", 0, null, 0, 0]
           ],
           "indexes": [
             ["sqlite_autoindex_instruction_blob_1", 1, "pk", 0, [["hash", 0, "BINARY"]], null]
@@ -278,12 +278,12 @@
         {
           "name": "instruction_entry",
           "columns": [
-            ["key", "TEXT", 1, null, 2],
-            ["removed", "INTEGER", 1, "false", 0],
-            ["session_id", "TEXT", 1, null, 1],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["value", "TEXT", 0, null, 0]
+            ["key", "TEXT", 1, null, 2, 0],
+            ["removed", "INTEGER", 1, "false", 0, 0],
+            ["session_id", "TEXT", 1, null, 1, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["value", "TEXT", 0, null, 0, 0]
           ],
           "indexes": [
             [
@@ -303,11 +303,11 @@
         {
           "name": "instruction_state",
           "columns": [
-            ["current_values", "TEXT", 1, null, 0],
-            ["epoch_start", "INTEGER", 1, null, 0],
-            ["initial_values", "TEXT", 1, null, 0],
-            ["session_id", "TEXT", 0, null, 1],
-            ["through_seq", "INTEGER", 1, null, 0]
+            ["current_values", "TEXT", 1, null, 0, 0],
+            ["epoch_start", "INTEGER", 1, null, 0, 0],
+            ["initial_values", "TEXT", 1, null, 0, 0],
+            ["session_id", "TEXT", 0, null, 1, 0],
+            ["through_seq", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -324,10 +324,10 @@
         {
           "name": "kv",
           "columns": [
-            ["key", "TEXT", 0, null, 1],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["value", "TEXT", 1, null, 0]
+            ["key", "TEXT", 0, null, 1, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["value", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_kv_1", 1, "pk", 0, [["key", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -335,8 +335,8 @@
         {
           "name": "migration",
           "columns": [
-            ["id", "TEXT", 0, null, 1],
-            ["time_completed", "INTEGER", 1, null, 0]
+            ["id", "TEXT", 0, null, 1, 0],
+            ["time_completed", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_migration_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -344,12 +344,12 @@
         {
           "name": "permission",
           "columns": [
-            ["action", "TEXT", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["project_id", "TEXT", 1, null, 0],
-            ["resource", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0]
+            ["action", "TEXT", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["project_id", "TEXT", 1, null, 0, 0],
+            ["resource", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -371,18 +371,18 @@
         {
           "name": "project",
           "columns": [
-            ["commands", "TEXT", 0, null, 0],
-            ["icon_color", "TEXT", 0, null, 0],
-            ["icon_url", "TEXT", 0, null, 0],
-            ["icon_url_override", "TEXT", 0, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["name", "TEXT", 0, null, 0],
-            ["sandboxes", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_initialized", "INTEGER", 0, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["vcs", "TEXT", 0, null, 0],
-            ["worktree", "TEXT", 1, null, 0]
+            ["commands", "TEXT", 0, null, 0, 0],
+            ["icon_color", "TEXT", 0, null, 0, 0],
+            ["icon_url", "TEXT", 0, null, 0, 0],
+            ["icon_url_override", "TEXT", 0, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["name", "TEXT", 0, null, 0, 0],
+            ["sandboxes", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_initialized", "INTEGER", 0, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["vcs", "TEXT", 0, null, 0, 0],
+            ["worktree", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_project_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -390,11 +390,11 @@
         {
           "name": "project_directory",
           "columns": [
-            ["directory", "TEXT", 1, null, 2],
-            ["project_id", "TEXT", 1, null, 1],
-            ["strategy", "TEXT", 0, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 0, null, 0]
+            ["directory", "TEXT", 1, null, 2, 0],
+            ["project_id", "TEXT", 1, null, 1, 0],
+            ["strategy", "TEXT", 0, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 0, null, 0, 0]
           ],
           "indexes": [
             [
@@ -414,13 +414,13 @@
         {
           "name": "session_inbox",
           "columns": [
-            ["delivery", "TEXT", 1, null, 0],
-            ["enqueued_seq", "INTEGER", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["payload", "TEXT", 1, null, 0],
-            ["session_id", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 1, null, 0]
+            ["delivery", "TEXT", 1, null, 0, 0],
+            ["enqueued_seq", "INTEGER", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["payload", "TEXT", 1, null, 0, 0],
+            ["session_id", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -453,13 +453,13 @@
         {
           "name": "session_message",
           "columns": [
-            ["data", "TEXT", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["seq", "INTEGER", 1, null, 0],
-            ["session_id", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 1, null, 0]
+            ["data", "TEXT", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["seq", "INTEGER", 1, null, 0, 0],
+            ["session_id", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -505,13 +505,13 @@
         {
           "name": "session_pending",
           "columns": [
-            ["admitted_seq", "INTEGER", 1, null, 0],
-            ["data", "TEXT", 1, null, 0],
-            ["delivery", "TEXT", 0, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["session_id", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 1, null, 0]
+            ["admitted_seq", "INTEGER", 1, null, 0, 0],
+            ["data", "TEXT", 1, null, 0, 0],
+            ["delivery", "TEXT", 0, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["session_id", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -552,42 +552,42 @@
         {
           "name": "session_v2",
           "columns": [
-            ["agent", "TEXT", 0, null, 0],
-            ["cost", "REAL", 1, "0", 0],
-            ["directory", "TEXT", 1, null, 0],
-            ["fork_boundary", "TEXT", 0, null, 0],
-            ["fork_session_id", "TEXT", 0, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["idle_outcome", "TEXT", 0, null, 0],
-            ["metadata", "TEXT", 0, null, 0],
-            ["model", "TEXT", 0, null, 0],
-            ["parent_id", "TEXT", 0, null, 0],
-            ["path", "TEXT", 0, null, 0],
-            ["permission", "TEXT", 0, null, 0],
-            ["project_id", "TEXT", 1, null, 0],
-            ["resume_attempts", "INTEGER", 1, "0", 0],
-            ["revert", "TEXT", 0, null, 0],
-            ["share_url", "TEXT", 0, null, 0],
-            ["slug", "TEXT", 1, null, 0],
-            ["summary_additions", "INTEGER", 0, null, 0],
-            ["summary_deletions", "INTEGER", 0, null, 0],
-            ["summary_diffs", "TEXT", 0, null, 0],
-            ["summary_files", "INTEGER", 0, null, 0],
-            ["time_archived", "INTEGER", 0, null, 0],
-            ["time_compacting", "INTEGER", 0, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_idle", "INTEGER", 0, null, 0],
-            ["time_suspended", "INTEGER", 0, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["time_viewed", "INTEGER", 0, null, 0],
-            ["title", "TEXT", 0, null, 0],
-            ["tokens_cache_read", "INTEGER", 1, "0", 0],
-            ["tokens_cache_write", "INTEGER", 1, "0", 0],
-            ["tokens_input", "INTEGER", 1, "0", 0],
-            ["tokens_output", "INTEGER", 1, "0", 0],
-            ["tokens_reasoning", "INTEGER", 1, "0", 0],
-            ["version", "TEXT", 1, null, 0],
-            ["workspace_id", "TEXT", 0, null, 0]
+            ["agent", "TEXT", 0, null, 0, 0],
+            ["cost", "REAL", 1, "0", 0, 0],
+            ["directory", "TEXT", 1, null, 0, 0],
+            ["fork_boundary", "TEXT", 0, null, 0, 0],
+            ["fork_session_id", "TEXT", 0, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["idle_outcome", "TEXT", 0, null, 0, 0],
+            ["metadata", "TEXT", 0, null, 0, 0],
+            ["model", "TEXT", 0, null, 0, 0],
+            ["parent_id", "TEXT", 0, null, 0, 0],
+            ["path", "TEXT", 0, null, 0, 0],
+            ["permission", "TEXT", 0, null, 0, 0],
+            ["project_id", "TEXT", 1, null, 0, 0],
+            ["resume_attempts", "INTEGER", 1, "0", 0, 0],
+            ["revert", "TEXT", 0, null, 0, 0],
+            ["share_url", "TEXT", 0, null, 0, 0],
+            ["slug", "TEXT", 1, null, 0, 0],
+            ["summary_additions", "INTEGER", 0, null, 0, 0],
+            ["summary_deletions", "INTEGER", 0, null, 0, 0],
+            ["summary_diffs", "TEXT", 0, null, 0, 0],
+            ["summary_files", "INTEGER", 0, null, 0, 0],
+            ["time_archived", "INTEGER", 0, null, 0, 0],
+            ["time_compacting", "INTEGER", 0, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_idle", "INTEGER", 0, null, 0, 0],
+            ["time_suspended", "INTEGER", 0, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["time_viewed", "INTEGER", 0, null, 0, 0],
+            ["title", "TEXT", 0, null, 0, 0],
+            ["tokens_cache_read", "INTEGER", 1, "0", 0, 0],
+            ["tokens_cache_write", "INTEGER", 1, "0", 0, 0],
+            ["tokens_input", "INTEGER", 1, "0", 0, 0],
+            ["tokens_output", "INTEGER", 1, "0", 0, 0],
+            ["tokens_reasoning", "INTEGER", 1, "0", 0, 0],
+            ["version", "TEXT", 1, null, 0, 0],
+            ["workspace_id", "TEXT", 0, null, 0, 0]
           ],
           "indexes": [
             ["session_v2_parent_idx", 0, "c", 0, [["parent_id", 0, "BINARY"]], null],
@@ -608,11 +608,11 @@
         {
           "name": "workspace",
           "columns": [
-            ["binding", "TEXT", 0, null, 0],
-            ["created_at", "INTEGER", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["last_used_at", "INTEGER", 1, null, 0],
-            ["provider", "TEXT", 1, null, 0]
+            ["binding", "TEXT", 0, null, 0, 0],
+            ["created_at", "INTEGER", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["last_used_at", "INTEGER", 1, null, 0, 0],
+            ["provider", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_workspace_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -620,10 +620,10 @@
         {
           "name": "worktree",
           "columns": [
-            ["directory", "TEXT", 1, null, 2],
-            ["project_id", "TEXT", 1, null, 1],
-            ["strategy", "TEXT", 0, null, 0],
-            ["time_created", "INTEGER", 1, null, 0]
+            ["directory", "TEXT", 1, null, 2, 0],
+            ["project_id", "TEXT", 1, null, 1, 0],
+            ["strategy", "TEXT", 0, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -690,21 +690,21 @@
         "20260823191254_nullable_workspace_binding",
         "20260910120000_clear_v1_session_permission"
       ],
-      "fingerprint": "d04ca2e12279c5efa2c571524c1fd22e1b8586b272277ab43d831d73f2742b3f"
+      "fingerprint": "d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab"
     },
     "2.0.15": {
       "manifest": [
         {
           "name": "account",
           "columns": [
-            ["access_token", "TEXT", 1, null, 0],
-            ["email", "TEXT", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["refresh_token", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["token_expiry", "INTEGER", 0, null, 0],
-            ["url", "TEXT", 1, null, 0]
+            ["access_token", "TEXT", 1, null, 0, 0],
+            ["email", "TEXT", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["refresh_token", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["token_expiry", "INTEGER", 0, null, 0, 0],
+            ["url", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_account_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -712,9 +712,9 @@
         {
           "name": "account_state",
           "columns": [
-            ["active_account_id", "TEXT", 0, null, 0],
-            ["active_org_id", "TEXT", 0, null, 0],
-            ["id", "INTEGER", 0, null, 1]
+            ["active_account_id", "TEXT", 0, null, 0, 0],
+            ["active_org_id", "TEXT", 0, null, 0, 0],
+            ["id", "INTEGER", 0, null, 1, 0]
           ],
           "indexes": [],
           "foreignKeys": [
@@ -724,14 +724,14 @@
         {
           "name": "control_account",
           "columns": [
-            ["access_token", "TEXT", 1, null, 0],
-            ["active", "INTEGER", 1, null, 0],
-            ["email", "TEXT", 1, null, 1],
-            ["refresh_token", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["token_expiry", "INTEGER", 0, null, 0],
-            ["url", "TEXT", 1, null, 2]
+            ["access_token", "TEXT", 1, null, 0, 0],
+            ["active", "INTEGER", 1, null, 0, 0],
+            ["email", "TEXT", 1, null, 1, 0],
+            ["refresh_token", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["token_expiry", "INTEGER", 0, null, 0, 0],
+            ["url", "TEXT", 1, null, 2, 0]
           ],
           "indexes": [
             [
@@ -751,15 +751,15 @@
         {
           "name": "credential",
           "columns": [
-            ["active", "INTEGER", 0, null, 0],
-            ["connector_id", "TEXT", 0, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["integration_id", "TEXT", 0, null, 0],
-            ["label", "TEXT", 1, null, 0],
-            ["method_id", "TEXT", 0, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["value", "TEXT", 1, null, 0]
+            ["active", "INTEGER", 0, null, 0, 0],
+            ["connector_id", "TEXT", 0, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["integration_id", "TEXT", 0, null, 0, 0],
+            ["label", "TEXT", 1, null, 0, 0],
+            ["method_id", "TEXT", 0, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["value", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_credential_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -767,12 +767,12 @@
         {
           "name": "event",
           "columns": [
-            ["aggregate_id", "TEXT", 1, null, 0],
-            ["created", "INTEGER", 1, "0", 0],
-            ["data", "TEXT", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["seq", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 1, null, 0]
+            ["aggregate_id", "TEXT", 1, null, 0, 0],
+            ["created", "INTEGER", 1, "0", 0, 0],
+            ["data", "TEXT", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["seq", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -807,9 +807,9 @@
         {
           "name": "event_sequence",
           "columns": [
-            ["aggregate_id", "TEXT", 0, null, 1],
-            ["owner_id", "TEXT", 0, null, 0],
-            ["seq", "INTEGER", 1, null, 0]
+            ["aggregate_id", "TEXT", 0, null, 1, 0],
+            ["owner_id", "TEXT", 0, null, 0, 0],
+            ["seq", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [
             ["sqlite_autoindex_event_sequence_1", 1, "pk", 0, [["aggregate_id", 0, "BINARY"]], null]
@@ -819,8 +819,8 @@
         {
           "name": "instruction_blob",
           "columns": [
-            ["hash", "TEXT", 0, null, 1],
-            ["value", "TEXT", 0, null, 0]
+            ["hash", "TEXT", 0, null, 1, 0],
+            ["value", "TEXT", 0, null, 0, 0]
           ],
           "indexes": [
             ["sqlite_autoindex_instruction_blob_1", 1, "pk", 0, [["hash", 0, "BINARY"]], null]
@@ -830,12 +830,12 @@
         {
           "name": "instruction_entry",
           "columns": [
-            ["key", "TEXT", 1, null, 2],
-            ["removed", "INTEGER", 1, "false", 0],
-            ["session_id", "TEXT", 1, null, 1],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["value", "TEXT", 0, null, 0]
+            ["key", "TEXT", 1, null, 2, 0],
+            ["removed", "INTEGER", 1, "false", 0, 0],
+            ["session_id", "TEXT", 1, null, 1, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["value", "TEXT", 0, null, 0, 0]
           ],
           "indexes": [
             [
@@ -855,11 +855,11 @@
         {
           "name": "instruction_state",
           "columns": [
-            ["current_values", "TEXT", 1, null, 0],
-            ["epoch_start", "INTEGER", 1, null, 0],
-            ["initial_values", "TEXT", 1, null, 0],
-            ["session_id", "TEXT", 0, null, 1],
-            ["through_seq", "INTEGER", 1, null, 0]
+            ["current_values", "TEXT", 1, null, 0, 0],
+            ["epoch_start", "INTEGER", 1, null, 0, 0],
+            ["initial_values", "TEXT", 1, null, 0, 0],
+            ["session_id", "TEXT", 0, null, 1, 0],
+            ["through_seq", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -876,10 +876,10 @@
         {
           "name": "kv",
           "columns": [
-            ["key", "TEXT", 0, null, 1],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["value", "TEXT", 1, null, 0]
+            ["key", "TEXT", 0, null, 1, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["value", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_kv_1", 1, "pk", 0, [["key", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -887,8 +887,8 @@
         {
           "name": "migration",
           "columns": [
-            ["id", "TEXT", 0, null, 1],
-            ["time_completed", "INTEGER", 1, null, 0]
+            ["id", "TEXT", 0, null, 1, 0],
+            ["time_completed", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_migration_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -896,12 +896,12 @@
         {
           "name": "permission",
           "columns": [
-            ["action", "TEXT", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["project_id", "TEXT", 1, null, 0],
-            ["resource", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0]
+            ["action", "TEXT", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["project_id", "TEXT", 1, null, 0, 0],
+            ["resource", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -923,19 +923,19 @@
         {
           "name": "project",
           "columns": [
-            ["commands", "TEXT", 0, null, 0],
-            ["icon_color", "TEXT", 0, null, 0],
-            ["icon_url", "TEXT", 0, null, 0],
-            ["icon_url_override", "TEXT", 0, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["name", "TEXT", 0, null, 0],
-            ["sandboxes", "TEXT", 1, null, 0],
-            ["time_active", "INTEGER", 1, "0", 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_initialized", "INTEGER", 0, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["vcs", "TEXT", 0, null, 0],
-            ["worktree", "TEXT", 1, null, 0]
+            ["commands", "TEXT", 0, null, 0, 0],
+            ["icon_color", "TEXT", 0, null, 0, 0],
+            ["icon_url", "TEXT", 0, null, 0, 0],
+            ["icon_url_override", "TEXT", 0, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["name", "TEXT", 0, null, 0, 0],
+            ["sandboxes", "TEXT", 1, null, 0, 0],
+            ["time_active", "INTEGER", 1, "0", 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_initialized", "INTEGER", 0, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["vcs", "TEXT", 0, null, 0, 0],
+            ["worktree", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_project_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -943,11 +943,11 @@
         {
           "name": "project_directory",
           "columns": [
-            ["directory", "TEXT", 1, null, 2],
-            ["project_id", "TEXT", 1, null, 1],
-            ["strategy", "TEXT", 0, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 0, null, 0]
+            ["directory", "TEXT", 1, null, 2, 0],
+            ["project_id", "TEXT", 1, null, 1, 0],
+            ["strategy", "TEXT", 0, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 0, null, 0, 0]
           ],
           "indexes": [
             [
@@ -967,13 +967,13 @@
         {
           "name": "session_inbox",
           "columns": [
-            ["delivery", "TEXT", 1, null, 0],
-            ["enqueued_seq", "INTEGER", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["payload", "TEXT", 1, null, 0],
-            ["session_id", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 1, null, 0]
+            ["delivery", "TEXT", 1, null, 0, 0],
+            ["enqueued_seq", "INTEGER", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["payload", "TEXT", 1, null, 0, 0],
+            ["session_id", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -1006,13 +1006,13 @@
         {
           "name": "session_message",
           "columns": [
-            ["data", "TEXT", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["seq", "INTEGER", 1, null, 0],
-            ["session_id", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 1, null, 0]
+            ["data", "TEXT", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["seq", "INTEGER", 1, null, 0, 0],
+            ["session_id", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -1058,13 +1058,13 @@
         {
           "name": "session_pending",
           "columns": [
-            ["admitted_seq", "INTEGER", 1, null, 0],
-            ["data", "TEXT", 1, null, 0],
-            ["delivery", "TEXT", 0, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["session_id", "TEXT", 1, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["type", "TEXT", 1, null, 0]
+            ["admitted_seq", "INTEGER", 1, null, 0, 0],
+            ["data", "TEXT", 1, null, 0, 0],
+            ["delivery", "TEXT", 0, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["session_id", "TEXT", 1, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["type", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -1105,42 +1105,42 @@
         {
           "name": "session_v2",
           "columns": [
-            ["agent", "TEXT", 0, null, 0],
-            ["cost", "REAL", 1, "0", 0],
-            ["directory", "TEXT", 1, null, 0],
-            ["fork_boundary", "TEXT", 0, null, 0],
-            ["fork_session_id", "TEXT", 0, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["idle_outcome", "TEXT", 0, null, 0],
-            ["metadata", "TEXT", 0, null, 0],
-            ["model", "TEXT", 0, null, 0],
-            ["parent_id", "TEXT", 0, null, 0],
-            ["path", "TEXT", 0, null, 0],
-            ["permission", "TEXT", 0, null, 0],
-            ["project_id", "TEXT", 1, null, 0],
-            ["resume_attempts", "INTEGER", 1, "0", 0],
-            ["revert", "TEXT", 0, null, 0],
-            ["share_url", "TEXT", 0, null, 0],
-            ["slug", "TEXT", 1, null, 0],
-            ["summary_additions", "INTEGER", 0, null, 0],
-            ["summary_deletions", "INTEGER", 0, null, 0],
-            ["summary_diffs", "TEXT", 0, null, 0],
-            ["summary_files", "INTEGER", 0, null, 0],
-            ["time_archived", "INTEGER", 0, null, 0],
-            ["time_compacting", "INTEGER", 0, null, 0],
-            ["time_created", "INTEGER", 1, null, 0],
-            ["time_idle", "INTEGER", 0, null, 0],
-            ["time_suspended", "INTEGER", 0, null, 0],
-            ["time_updated", "INTEGER", 1, null, 0],
-            ["time_viewed", "INTEGER", 0, null, 0],
-            ["title", "TEXT", 0, null, 0],
-            ["tokens_cache_read", "INTEGER", 1, "0", 0],
-            ["tokens_cache_write", "INTEGER", 1, "0", 0],
-            ["tokens_input", "INTEGER", 1, "0", 0],
-            ["tokens_output", "INTEGER", 1, "0", 0],
-            ["tokens_reasoning", "INTEGER", 1, "0", 0],
-            ["version", "TEXT", 1, null, 0],
-            ["workspace_id", "TEXT", 0, null, 0]
+            ["agent", "TEXT", 0, null, 0, 0],
+            ["cost", "REAL", 1, "0", 0, 0],
+            ["directory", "TEXT", 1, null, 0, 0],
+            ["fork_boundary", "TEXT", 0, null, 0, 0],
+            ["fork_session_id", "TEXT", 0, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["idle_outcome", "TEXT", 0, null, 0, 0],
+            ["metadata", "TEXT", 0, null, 0, 0],
+            ["model", "TEXT", 0, null, 0, 0],
+            ["parent_id", "TEXT", 0, null, 0, 0],
+            ["path", "TEXT", 0, null, 0, 0],
+            ["permission", "TEXT", 0, null, 0, 0],
+            ["project_id", "TEXT", 1, null, 0, 0],
+            ["resume_attempts", "INTEGER", 1, "0", 0, 0],
+            ["revert", "TEXT", 0, null, 0, 0],
+            ["share_url", "TEXT", 0, null, 0, 0],
+            ["slug", "TEXT", 1, null, 0, 0],
+            ["summary_additions", "INTEGER", 0, null, 0, 0],
+            ["summary_deletions", "INTEGER", 0, null, 0, 0],
+            ["summary_diffs", "TEXT", 0, null, 0, 0],
+            ["summary_files", "INTEGER", 0, null, 0, 0],
+            ["time_archived", "INTEGER", 0, null, 0, 0],
+            ["time_compacting", "INTEGER", 0, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0],
+            ["time_idle", "INTEGER", 0, null, 0, 0],
+            ["time_suspended", "INTEGER", 0, null, 0, 0],
+            ["time_updated", "INTEGER", 1, null, 0, 0],
+            ["time_viewed", "INTEGER", 0, null, 0, 0],
+            ["title", "TEXT", 0, null, 0, 0],
+            ["tokens_cache_read", "INTEGER", 1, "0", 0, 0],
+            ["tokens_cache_write", "INTEGER", 1, "0", 0, 0],
+            ["tokens_input", "INTEGER", 1, "0", 0, 0],
+            ["tokens_output", "INTEGER", 1, "0", 0, 0],
+            ["tokens_reasoning", "INTEGER", 1, "0", 0, 0],
+            ["version", "TEXT", 1, null, 0, 0],
+            ["workspace_id", "TEXT", 0, null, 0, 0]
           ],
           "indexes": [
             ["session_v2_parent_idx", 0, "c", 0, [["parent_id", 0, "BINARY"]], null],
@@ -1161,11 +1161,11 @@
         {
           "name": "workspace",
           "columns": [
-            ["binding", "TEXT", 0, null, 0],
-            ["created_at", "INTEGER", 1, null, 0],
-            ["id", "TEXT", 0, null, 1],
-            ["last_used_at", "INTEGER", 1, null, 0],
-            ["provider", "TEXT", 1, null, 0]
+            ["binding", "TEXT", 0, null, 0, 0],
+            ["created_at", "INTEGER", 1, null, 0, 0],
+            ["id", "TEXT", 0, null, 1, 0],
+            ["last_used_at", "INTEGER", 1, null, 0, 0],
+            ["provider", "TEXT", 1, null, 0, 0]
           ],
           "indexes": [["sqlite_autoindex_workspace_1", 1, "pk", 0, [["id", 0, "BINARY"]], null]],
           "foreignKeys": []
@@ -1173,10 +1173,10 @@
         {
           "name": "worktree",
           "columns": [
-            ["directory", "TEXT", 1, null, 2],
-            ["project_id", "TEXT", 1, null, 1],
-            ["strategy", "TEXT", 0, null, 0],
-            ["time_created", "INTEGER", 1, null, 0]
+            ["directory", "TEXT", 1, null, 2, 0],
+            ["project_id", "TEXT", 1, null, 1, 0],
+            ["strategy", "TEXT", 0, null, 0, 0],
+            ["time_created", "INTEGER", 1, null, 0, 0]
           ],
           "indexes": [
             [
@@ -1244,7 +1244,7 @@
         "20260910120000_clear_v1_session_permission",
         "20260923013825_project_time_active"
       ],
-      "fingerprint": "b4c87c721b2d07041ebce3a958ca1a1ee024ffd8459de6bc2b7cfc9755e21dae"
+      "fingerprint": "62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847"
     }
   }
 }

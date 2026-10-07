@@ -3,7 +3,7 @@ import { clockLabel, dateLabel } from "./time-labels.ts";
 import { localDate } from "./calendar.ts";
 import { stopReason, type SyncStop } from "@opencode-stats/browser-copy/api";
 
-export function createLiveStatus(clock: EngineClock) {
+export function createLiveStatus(clock: EngineClock, formatAnnouncement: (line: string) => string) {
   const time = (timestamp: number) => clockLabel(timestamp, clock.timeZone(), clock.locale());
   let lastWrite: number | undefined;
   let disconnectedAt: number | undefined;
@@ -35,7 +35,7 @@ export function createLiveStatus(clock: EngineClock) {
         ? `Not updating since ${stamp} · ${stopReason(stop, time)}`
         : "";
     const key = stale ? "server" : stop ? stopReason(stop, String) : "";
-    if (key && key !== warning) announcement = statusLine;
+    if (key && key !== warning) announcement = formatAnnouncement(statusLine);
     if (!key && warning) announcement = "Up to date again";
     warning = key;
     const seconds =

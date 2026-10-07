@@ -218,6 +218,38 @@ it("ignores physical column order and legacy or embedder-owned tables, not requi
   }
 });
 
+it.each(["virtual", "stored", "hidden"])(
+  "rejects extra %s columns with the exact known migration set",
+  async (kind) => {
+    const f = syntheticFixture();
+    const events: StoreEvent[] = [];
+    try {
+      const change =
+        kind === "virtual"
+          ? "ALTER TABLE event_sequence ADD COLUMN added TEXT GENERATED ALWAYS AS (aggregate_id) VIRTUAL"
+          : kind === "stored"
+            ? "PRAGMA foreign_keys=OFF; DROP TABLE event_sequence; CREATE TABLE event_sequence(aggregate_id TEXT PRIMARY KEY,seq INTEGER NOT NULL,owner_id TEXT,added TEXT GENERATED ALWAYS AS (aggregate_id) STORED)"
+            : "PRAGMA foreign_keys=OFF; DROP TABLE event_sequence; CREATE VIRTUAL TABLE event_sequence USING fts5(aggregate_id,seq,owner_id)";
+      f.writer.schema(change);
+      const result = await readBuilt(
+        { source: f.source, cacheHome: f.folder },
+        () => {},
+        nodeRuntime,
+        (event) => events.push(event),
+      );
+      expect(result.revision).toBe(0);
+      expect(events).toContainEqual(
+        expect.objectContaining({ kind: "schema.checked", result: "other", migrations: 48 }),
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({ kind: "sync.stopped", reason: "schema.other" }),
+      );
+    } finally {
+      f.dispose();
+    }
+  },
+);
+
 it.each([false, true])(
   "classifies pinned v1 without importing it, and rejects incomplete legacy shapes (%s)",
   async (incomplete) => {

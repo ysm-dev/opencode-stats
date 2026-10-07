@@ -7,6 +7,8 @@ import { followCopy, loadCopy, type EngineNetwork } from "./network.ts";
 import { createHistoryCopy } from "./history-copy.ts";
 import { createLiveStatus } from "./live-status.ts";
 import { addDates, localDate, midnight } from "./calendar.ts";
+import { historyLine } from "./history.ts";
+import { dateLabel } from "./time-labels.ts";
 
 type Session = {
   controller: AbortController;
@@ -30,7 +32,17 @@ export function createLiveEngine(
   let readyStarted: number | undefined;
   const copies = createHistoryCopy(clock);
   const facts = copies.view;
-  const status = createLiveStatus(clock);
+  const status = createLiveStatus(clock, (line) => {
+    const current = facts.current();
+    if (!current || !facts.ready()) return line;
+    const zone = clock.timeZone();
+    const date = dateLabel(
+      localDate(facts.history(clock.now(), zone), zone),
+      clock.locale(),
+      false,
+    );
+    return historyLine(current.historyComplete, date, line, false);
+  });
   let session: Session | undefined;
   let visible = true;
   let paused = false;

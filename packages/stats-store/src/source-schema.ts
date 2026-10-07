@@ -8,6 +8,7 @@ const column = Schema.Struct({
   notnull: Schema.Int,
   dflt_value: Schema.NullOr(Schema.String),
   pk: Schema.Int,
+  hidden: Schema.Int,
 });
 const index = Schema.Struct({
   name: Schema.String,
@@ -40,8 +41,15 @@ const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
 function tableManifest(db: NativeReader, name: string) {
   const columns = Schema.decodeUnknownSync(Schema.Array(column))(
-    db.all(`PRAGMA table_info(${quote(name)})`),
-  ).map((row) => [row.name, row.type.toUpperCase(), row.notnull, row.dflt_value, row.pk]);
+    db.all(`PRAGMA table_xinfo(${quote(name)})`),
+  ).map((row) => [
+    row.name,
+    row.type.toUpperCase(),
+    row.notnull,
+    row.dflt_value,
+    row.pk,
+    row.hidden,
+  ]);
   const indexes = Schema.decodeUnknownSync(Schema.Array(index))(
     db.all(`PRAGMA index_list(${quote(name)})`),
   ).map((row) => {

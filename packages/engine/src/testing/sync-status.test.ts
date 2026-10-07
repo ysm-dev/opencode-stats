@@ -9,6 +9,8 @@ import type { EngineState } from "../index.ts";
 
 function fixture(partial = false) {
   const clock = manualClock();
+  let zone = "UTC";
+  let locale = "en-GB";
   const today = Date.parse("2026-10-07T00:00Z");
   const facts = [
     { start: today + 1, input: 10, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0 },
@@ -16,14 +18,28 @@ function fixture(partial = false) {
   const server = inMemoryDashboardServer(
     syntheticCopy(facts, { historyComplete: !partial, historyCompleteFrom: today }),
   );
-  const engine = inThreadEngine(server.fetch, queueMicrotask, clock);
+  const engine = inThreadEngine(server.fetch, queueMicrotask, {
+    ...clock,
+    timeZone: () => zone,
+    locale: () => locale,
+  });
   const states: EngineState[] = [];
   engine.client.subscribe((state) => states.push(state));
   onTestFinished(async () => {
     await engine.dispose();
     await server.dispose();
   });
-  return { clock, server, engine, states, facts };
+  return {
+    clock,
+    server,
+    engine,
+    states,
+    facts,
+    region: (nextZone: string, nextLocale: string) => {
+      zone = nextZone;
+      locale = nextLocale;
+    },
+  };
 }
 
 it.each([false, true])(
@@ -182,5 +198,42 @@ it("a stopped incoming generation warns over the retained page, without crossing
       statusLine: "",
       announcement: "Up to date again",
     }),
+  );
+});
+
+it("captures a partial-history warning once, independently of pause, resume, clock, timezone and history display changes", async () => {
+  const f = fixture(true);
+  await f.engine.client.request({ kind: "all-time" });
+  await vi.waitFor(() => expect(f.server.streams).toBe(1));
+  f.server.status(syntheticStop());
+  await vi.waitFor(() => expect(f.states.at(-1)).toMatchObject({ liveLabel: "Not updating" }));
+  const warning = f.states.at(-1)!;
+  const text = warning.screen === "dashboard" ? warning.announcement : "";
+  expect(text).toMatch(/^History from 7 Oct · not updating since 14:02/u);
+  const begin = f.states.length;
+  f.engine.client.signal({ kind: "paused", paused: true });
+  await vi.waitFor(() => expect(f.states.at(-1)).toMatchObject({ paused: true }));
+  f.engine.client.signal({ kind: "paused", paused: false });
+  await vi.waitFor(() =>
+    expect(f.states.at(-1)).toMatchObject({ paused: false, liveLabel: "Not updating" }),
+  );
+  f.region("Pacific/Honolulu", "en-US");
+  await f.clock.advance(60);
+  f.server.commit(syntheticCopy(f.facts, { revision: 2 }));
+  await vi.waitFor(() => expect(f.states.at(-1)).toMatchObject({ historyComplete: true }));
+  expect(
+    f.states
+      .slice(begin)
+      .every((state) => state.screen === "dashboard" && state.announcement === text),
+  ).toBe(true);
+  f.server.status(syntheticStop("source.unreadable", { code: "permission" }));
+  await vi.waitFor(() =>
+    expect(f.states.at(-1)).toMatchObject({
+      announcement: expect.stringContaining("permission denied"),
+    }),
+  );
+  f.server.status(null);
+  await vi.waitFor(() =>
+    expect(f.states.at(-1)).toMatchObject({ announcement: "Up to date again" }),
   );
 });

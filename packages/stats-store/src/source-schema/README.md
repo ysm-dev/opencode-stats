@@ -20,14 +20,21 @@ and migration IDs to the pinned stable schema at
 
 The canonical manifest comes from applying only the bootstrap SQL to disposable
 in-memory SQLite databases, adding the journal as defined upstream, and reading
-table, index and foreign-key pragmas. It includes column types, nullability,
-defaults and primary keys; index uniqueness, origin, key columns, collation,
+table, index and foreign-key pragmas. Full `table_xinfo` includes ordinary,
+generated and hidden columns. It includes column types, nullability,
+defaults, primary keys and hidden/generated flags; index uniqueness, origin, key columns, collation,
 direction and partial predicate; and foreign-key actions. Columns, indexes and
 foreign keys are sorted; physical column ordinals and foreign-key IDs are not
 part of the fingerprint. The SHA-256 input is the compact JSON manifest. Runtime
 recognition compares the complete migration set and every required table's exact
 manifest, permitting additional legacy and embedder-owned tables. It never runs
 OpenCode migrations or changes an OpenCode connection's journal.
+
+The full-column manifest refresh keeps the same pinned schemas and migrations.
+Its fingerprints are `d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab`
+(before 2.0.15) and `62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847`
+(2.0.15 onwards). These are OpenCode recognition fingerprints, not stats-store or
+browser-copy format fingerprints; their layouts and counted facts are unchanged.
 
 `1.4.9.json` contains the SQL migrations from tag v1.4.9, commit
 `803d9eb7ad5f4dfd832d7506a7cad83ded52253e`, under
