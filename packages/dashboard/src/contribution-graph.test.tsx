@@ -192,6 +192,53 @@ it("keeps Tokens/Steps/estimated Cost in the URL, distinguishes free from unavai
   await vi.waitFor(() => expect(window.location.search).not.toContain("graph="));
 });
 
+it.each([
+  {
+    name: "partly priced",
+    costs: [5, null],
+    input: 500,
+    text: "about $5 estimated cost · 50% of tokens priced",
+  },
+  {
+    name: "fully priced",
+    costs: [5],
+    input: 500,
+    text: "about $5 estimated cost · 100% of tokens priced",
+  },
+  {
+    name: "unavailable",
+    costs: [null],
+    input: 500,
+    text: "Unavailable estimated cost · 0% of tokens priced",
+  },
+  { name: "free", costs: [0], input: 500, text: "about $0 estimated cost · 100% of tokens priced" },
+  {
+    name: "zero-token",
+    costs: [0],
+    input: 0,
+    text: "about $0 estimated cost · — of tokens priced",
+  },
+])(
+  "speaks the same cost and pricing basis as the $name day readout",
+  async ({ costs, input, text }) => {
+    const steps = costs.map((estimatedCost) => ({ ...rows[5]!, input, estimatedCost }));
+    await using f = dashboardFixture(syntheticCopy(steps));
+    const svg = await surface(f.view);
+    const metric = within(f.view.getByRole("group", { name: "Contribution metric" }));
+    await f.user.click(metric.getByRole("button", { name: "≈ Estimated cost", exact: true }));
+    await vi.waitFor(() => expect(window.location.search).toContain("graph=cost"));
+    svg.focus();
+    await f.user.keyboard("{ArrowUp}");
+    expect(
+      document.querySelector('.contribution-graph [aria-live="polite"][data-local-state]')!
+        .textContent,
+    ).toBe(`Tue, 6 Oct 2026 · ${text}`);
+    const readout = document.querySelector(".graph-readout")!;
+    expect(readout.textContent).toContain(text.split(" · ")[0]!);
+    expect(readout.textContent).toContain(text.split(" · ")[1]!);
+  },
+);
+
 it("holds drawn metric/selection state while answers wait and never announces live values", async () => {
   let held = false;
   const answers: Array<() => void> = [];
@@ -221,7 +268,7 @@ it("holds drawn metric/selection state while answers wait and never announces li
   const spoken = document.querySelector(
     '.contribution-graph [aria-live="polite"][data-local-state]',
   )!;
-  expect(spoken.textContent).toContain("about $5 estimated cost");
+  expect(spoken.textContent).toContain("about $5 estimated cost · 100% of tokens priced");
   const announced = spoken.textContent;
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
   f.server.commit(
