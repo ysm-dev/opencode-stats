@@ -47,6 +47,9 @@ export const ContributionGraph = () => {
         : `$${number(current.cost.estimated)} estimated cost`;
     return `${number(current[metric])} ${metric}`;
   };
+  const about = () => graph().metric === "cost" && read()!.cost.estimated !== null;
+  const basis = () =>
+    graph().metric === "cost" ? ` · ${percent(read()!.cost.pricedShare)} of tokens priced` : "";
   const select = (date: string, unit: CalendarUnit) => {
     const { from, to } = calendarRange(date, unit);
     void client.request({ kind: "drill", from, to, unit, source: "graph" });
@@ -103,7 +106,7 @@ export const ContributionGraph = () => {
       setReading({ date: bounded, spoken: "" });
       setReading({
         date: bounded,
-        spoken: `${readingLabel(bounded)} · ${graph().metric === "cost" && read()!.cost.estimated !== null ? "about " : ""}${value()}`,
+        spoken: `${readingLabel(bounded)} · ${about() ? "about " : ""}${value()}${basis()}`,
       });
       const column = geometry().column(bounded);
       const x = (column * svg.getBoundingClientRect().width) / geometry().columns;
@@ -262,14 +265,8 @@ export const ContributionGraph = () => {
             <>
               <p>
                 {readingLabel(current().date)} ·{" "}
-                <HeadlineText
-                  text={value()}
-                  about={graph().metric === "cost" && current().cost.estimated !== null}
-                />
-                <Show when={graph().metric === "cost"}>
-                  {" "}
-                  · {percent(current().cost.pricedShare)} of tokens priced
-                </Show>
+                <HeadlineText text={value()} about={about()} />
+                {basis()}
               </p>
               <div class="graph-actions">
                 <button type="button" onClick={() => select(current().date, "day")}>
