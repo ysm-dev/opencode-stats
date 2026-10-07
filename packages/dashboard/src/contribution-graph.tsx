@@ -1,4 +1,13 @@
-import { For, Show, createEffect, createMemo, createSignal, on, useContext } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  on,
+  useContext,
+  type Accessor,
+} from "solid-js";
 import {
   addDates,
   dateCount,
@@ -6,6 +15,7 @@ import {
   chartMetricLabels,
   type CalendarUnit,
   type GraphMetric,
+  type ContributionGraph as Graph,
 } from "@opencode-stats/engine";
 import { PageState, PageActions } from "./page-context.ts";
 import { changes, stateMark } from "./change-time.ts";
@@ -20,23 +30,20 @@ import {
 import { useMediaSize } from "./media-size.tsx";
 
 const graphMetrics: readonly GraphMetric[] = ["tokens", "steps", "cost"];
-export const ContributionGraph = () => {
-  const state = useContext(PageState)!;
-  const client = useContext(PageActions)!;
-  const media = useMediaSize();
-  const narrow = createMemo(() => media().columnWidth < 720);
-  const graph = () => state().graph;
+const indices = Array.from({ length: 365 }, (_, index) => index);
+function createGraphReading(
+  graph: Accessor<Graph>,
+  narrow: Accessor<boolean>,
+  select: (date: string, unit: CalendarUnit) => void,
+) {
   const [reading, setReading] = createSignal<{ date: string; spoken: string }>();
   const geometry = createMemo(() => graphGeometry(graph().days));
-  const indices = Array.from({ length: 365 }, (_, index) => index);
-  const day = (index: number) => graph().days[index]!;
   const read = createMemo(() => {
     const date = reading()?.date;
     if (date === undefined) return undefined;
     // A midnight/timezone change must not remove focused readout actions.
     return graph().days[Math.min(364, Math.max(0, dateCount(graph().days[0]!.date, date) - 1))]!;
   });
-  const local = createMemo(() => ({ reading: reading(), media: media() }));
   let svg!: SVGSVGElement;
   let scroll!: HTMLDivElement;
   const value = () => {
@@ -51,10 +58,6 @@ export const ContributionGraph = () => {
   const about = () => graph().metric === "cost" && read()!.cost.estimated !== null;
   const basis = () =>
     graph().metric === "cost" ? ` · ${percent(read()!.cost.pricedShare)} of tokens priced` : "";
-  const select = (date: string, unit: CalendarUnit) => {
-    const { from, to } = calendarRange(date, unit);
-    void client.request({ kind: "drill", from, to, unit, source: "graph" });
-  };
   const hit = (event: PointerEvent & { currentTarget: SVGSVGElement }) => {
     const bounds = svg.getBoundingClientRect();
     return geometry().nearest(
@@ -119,12 +122,6 @@ export const ContributionGraph = () => {
       scrollReading(bounded);
     });
   };
-  const inRange = (date: string) =>
-    !(
-      state().period.from <= graph().days[0]!.date && state().period.to >= graph().days.at(-1)!.date
-    ) &&
-    date >= state().period.from &&
-    date <= state().period.to;
   createEffect(
     on(narrow, (entered) => {
       if (!entered) return;
@@ -135,6 +132,58 @@ export const ContributionGraph = () => {
       });
     }),
   );
+  return {
+    reading,
+    read,
+    geometry,
+    value,
+    about,
+    basis,
+    clear,
+    pointerRead,
+    pointerUp,
+    key,
+    svgRef: (element: SVGSVGElement) => {
+      svg = element;
+    },
+    scrollRef: (element: HTMLDivElement) => {
+      scroll = element;
+    },
+  };
+}
+
+export const ContributionGraph = () => {
+  const state = useContext(PageState)!;
+  const client = useContext(PageActions)!;
+  const media = useMediaSize();
+  const narrow = createMemo(() => media().columnWidth < 720);
+  const graph = () => state().graph;
+  const select = (date: string, unit: CalendarUnit) => {
+    const { from, to } = calendarRange(date, unit);
+    void client.request({ kind: "drill", from, to, unit, source: "graph" });
+  };
+  const {
+    reading,
+    read,
+    geometry,
+    value,
+    about,
+    basis,
+    clear,
+    pointerRead,
+    pointerUp,
+    key,
+    svgRef,
+    scrollRef,
+  } = createGraphReading(graph, narrow, select);
+  const day = (index: number) => graph().days[index]!;
+  const local = createMemo(() => ({ reading: reading(), media: media() }));
+  const inRange = (date: string) =>
+    !(
+      state().period.from <= graph().days[0]!.date && state().period.to >= graph().days.at(-1)!.date
+    ) &&
+    date >= state().period.from &&
+    date <= state().period.to;
   return (
     <section
       class="contribution-graph"
@@ -173,12 +222,7 @@ export const ContributionGraph = () => {
             {(label) => <span>{label}</span>}
           </For>
         </div>
-        <div
-          class="graph-scroll"
-          ref={(element) => {
-            scroll = element;
-          }}
-        >
+        <div class="graph-scroll" ref={scrollRef}>
           <div
             class="graph-plot"
             style={{ "--graph-width": `${geometry().columns * 16}px` }}
@@ -186,9 +230,7 @@ export const ContributionGraph = () => {
             data-local-state={stateMark(local())}
           >
             <svg
-              ref={(element) => {
-                svg = element;
-              }}
+              ref={svgRef}
               role="img"
               aria-label="Contribution graph, past 365 local days"
               aria-describedby="graph-help graph-readout"

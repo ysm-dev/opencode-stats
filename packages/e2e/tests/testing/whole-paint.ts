@@ -63,6 +63,7 @@ export function installWholePaintObserver(observing = true) {
   const retainDrawing = (region: Element, key: string, drawing: string) => {
     frame.drawings.push({ region, key, drawing });
   };
+  // oxlint-disable-next-line unicorn/consistent-function-scoping -- Playwright serializes this entire observer into the browser without module bindings.
   const graphDrawing = (root: ParentNode) =>
     [
       ...root.querySelectorAll(".graph-plot, .graph-surface, .graph-surface rect, .graph-label"),
