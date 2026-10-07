@@ -22,25 +22,42 @@ export function installWholePaintObserver(observing = true) {
   const page = document;
   const evidence = {
     failures: [] as string[],
+    causes: [] as string[],
     samples: 0,
     blank: 0,
     complete: 0,
     raf: 0,
     rafCount: 0,
   };
-  const fail = (check: string) => {
+  const fail = (check: string, cause = check) => {
     if (!evidence.failures.includes(check)) evidence.failures.push(check);
+    if (!evidence.causes.includes(cause)) evidence.causes.push(cause);
   };
   type Drawing = { region: Element; key: string; drawing: string };
   let frame = {
-    failures: [] as string[],
+    failures: [] as { check: string; cause: string }[],
     drawings: [] as Drawing[],
     drawn: false,
     complete: false,
   };
-  const flag = (check: string) => {
-    frame.failures.push(check);
+  const flag = (check: string, cause = check) => {
+    frame.failures.push({ check, cause });
   };
+  const regionKind = (region: Element) =>
+    [
+      ".chart-hit",
+      ".chart-readout",
+      ".chart-spoken",
+      ".chart-choices",
+      "svg",
+      "html",
+      ".settings-sheet",
+      ".filter-checklist",
+      ".filter-row",
+      ".range-control",
+      ".live-status",
+      "header",
+    ].find((selector) => region.matches(selector)) ?? "other-region";
   const painted = new WeakMap<Element, { key: string; drawing: string }>();
   const retainDrawing = (region: Element, key: string, drawing: string) => {
     frame.drawings.push({ region, key, drawing });
@@ -103,7 +120,7 @@ export function installWholePaintObserver(observing = true) {
       root.dataset["paletteTheme"] !== root.dataset["theme"] ||
       root.dataset["paletteScheme"] !== root.dataset["colorScheme"]
     )
-      flag("mixed-frame");
+      flag("mixed-frame", "palette-choice");
     const style = getComputedStyle(root);
     retainDrawing(
       root,
@@ -115,13 +132,14 @@ export function installWholePaintObserver(observing = true) {
       ),
     );
     const sheet = document.querySelector<HTMLElement>(".settings-sheet");
-    if (sheet && sheet.dataset["theme"] !== root.dataset["paletteTheme"]) flag("mixed-frame");
+    if (sheet && sheet.dataset["theme"] !== root.dataset["paletteTheme"])
+      flag("mixed-frame", "settings-theme");
     if (
       sheet &&
       sheet.dataset["scheme"] !== "system" &&
       sheet.dataset["scheme"] !== root.dataset["paletteScheme"]
     )
-      flag("mixed-frame");
+      flag("mixed-frame", "settings-scheme");
     if (sheet)
       retainDrawing(
         sheet,
@@ -214,10 +232,11 @@ export function installWholePaintObserver(observing = true) {
     );
   const commit = () => {
     evidence.samples++;
-    for (const check of frame.failures) fail(check);
+    for (const { check, cause } of frame.failures) fail(check, cause);
     for (const { region, key, drawing } of frame.drawings) {
       const before = painted.get(region);
-      if (before?.key === key && before.drawing !== drawing) fail("mixed-frame");
+      if (before?.key === key && before.drawing !== drawing)
+        fail("mixed-frame", `stable-drawing:${regionKind(region)}`);
       painted.set(region, { key, drawing });
     }
     if (!frame.drawn) evidence.blank++;
@@ -231,7 +250,7 @@ export function installWholePaintObserver(observing = true) {
     if (drawn) observePalette();
     const regions = [...document.querySelectorAll("[data-state]")];
     const states = new Set(regions.map((node) => node.getAttribute("data-state")));
-    if (states.size > 1) flag("mixed-frame");
+    if (states.size > 1) flag("mixed-frame", "global-marks");
     observeRegions(regions);
     for (const list of document.querySelectorAll(".filter-checklist, .contribution-graph")) {
       const mark = list.getAttribute("data-local-state");
@@ -240,22 +259,22 @@ export function installWholePaintObserver(observing = true) {
           (node) => node.getAttribute("data-local-state") !== mark,
         )
       )
-        flag("mixed-frame");
+        flag("mixed-frame", "checklist-local-marks");
     }
     for (const chart of document.querySelectorAll(".usage-chart")) {
       const surface = chart.querySelector(".chart-hit");
       const mark = surface?.getAttribute("data-local-state");
-      if (
-        [
-          ...chart.querySelectorAll(".chart-hit, .chart-hit svg, .chart-readout, .chart-spoken"),
-        ].some((node) => node.getAttribute("data-local-state") !== mark)
-      )
-        flag("mixed-frame");
+      for (const node of chart.querySelectorAll(
+        ".chart-hit, .chart-hit svg, .chart-readout, .chart-spoken",
+      )) {
+        if (node.getAttribute("data-local-state") !== mark)
+          flag("mixed-frame", `chart-local-marks:${regionKind(node)}`);
+      }
       if (
         surface?.getAttribute("data-size-state") !==
         chart.querySelector("svg")?.getAttribute("data-size-state")
       )
-        flag("mixed-frame");
+        flag("mixed-frame", "chart-size-marks");
     }
     frame.drawn = drawn;
     frame.complete = pageComplete(states, regions);
@@ -302,6 +321,7 @@ declare global {
       observing: boolean;
       evidence: {
         failures: string[];
+        causes: string[];
         samples: number;
         blank: number;
         complete: number;
@@ -314,14 +334,19 @@ declare global {
   }
 }
 
-export function assertPaintCheck(check: Check, failed: readonly string[]) {
-  if (failed.includes(check)) throw new Error(`whole-paint:${check}`);
+export function assertPaintCheck(
+  check: Check,
+  failed: readonly string[],
+  causes: readonly string[] = [],
+) {
+  if (failed.includes(check))
+    throw new Error(`whole-paint:${check}${causes.length ? ` (${causes.join(",")})` : ""}`);
 }
 
 export function assertPaintEvidence(data: ChangeEvidence) {
   expect(data.observing, "whole-paint:observer-disabled").toBe(true);
   const evidence = data.evidence;
-  for (const check of wholePaintChecks) assertPaintCheck(check, evidence.failures);
+  for (const check of wholePaintChecks) assertPaintCheck(check, evidence.failures, evidence.causes);
   expect(evidence.samples).toBeGreaterThan(0);
   expect(evidence.complete).toBeGreaterThan(0);
   return evidence;

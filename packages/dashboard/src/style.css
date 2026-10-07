@@ -462,6 +462,22 @@ h2 {
 .chart-hit [aria-hidden="true"] {
   pointer-events: none;
 }
+.chart-y-axis {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: var(--chart-axis-width);
+  color: var(--dashboard-muted-base);
+  background: var(--dashboard-base);
+  font-size: 11px;
+  line-height: 1;
+}
+.chart-y-axis span {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
 .chart-hit svg,
 .chart-swatch {
   forced-color-adjust: none;

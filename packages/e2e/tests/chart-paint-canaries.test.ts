@@ -44,6 +44,15 @@ it.each([chromium, webkit])(
       }, change);
       await page.waitForFunction(() => window.wholePaint.evidence.failures.includes("mixed-frame"));
       await expect(paintEvidence(page)).rejects.toThrow("whole-paint:mixed-frame");
+      const causes = await page.evaluate(() => window.wholePaint.evidence.causes);
+      const cause = {
+        svg: "stable-drawing:svg",
+        highlight: "stable-drawing:.chart-readout",
+        cursor: "stable-drawing:.chart-hit",
+        readout: "chart-local-marks:.chart-readout",
+        size: "chart-size-marks",
+      }[change];
+      expect(causes).toContain(cause);
       await page.reload();
     }
     await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);

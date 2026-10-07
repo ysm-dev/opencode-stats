@@ -11,10 +11,17 @@ const Probe = () => {
   const media = useMediaSize();
   return <output>{JSON.stringify(media())}</output>;
 };
+const entry = (target: Element, width: number): ResizeObserverEntry => ({
+  target,
+  contentRect: new DOMRect(0, 0, width, 700),
+  borderBoxSize: [],
+  contentBoxSize: [],
+  devicePixelContentBoxSize: [],
+});
 
 it("the real boundary shares five changing media queries and the column's ResizeObserver, and releases both", () => {
   const sensors = new Map<string, EventTarget & { matches: boolean; media: string }>();
-  const remove = vi.fn();
+  const remove = vi.fn<(type: string) => void>();
   vi.stubGlobal("matchMedia", (query: string) => {
     const target = new EventTarget();
     const sensor = Object.assign(target, {
@@ -33,8 +40,8 @@ it("the real boundary shares five changing media queries and the column's Resize
     return sensor;
   });
   let callback!: ResizeObserverCallback;
-  const observe = vi.fn();
-  const disconnect = vi.fn();
+  const observe = vi.fn<ResizeObserver["observe"]>();
+  const disconnect = vi.fn<ResizeObserver["disconnect"]>();
   const observer = { observe, disconnect, unobserve: () => {} };
   vi.stubGlobal(
     "ResizeObserver",
@@ -56,13 +63,6 @@ it("the real boundary shares five changing media queries and the column's Resize
   ));
   const column = view.container.querySelector("main")!;
   expect(observe).toHaveBeenCalledWith(column);
-  const entry = (target: Element, width: number): ResizeObserverEntry => ({
-    target,
-    contentRect: new DOMRect(0, 0, width, 700),
-    borderBoxSize: [],
-    contentBoxSize: [],
-    devicePixelContentBoxSize: [],
-  });
   callback([entry(document.body, 999)], observer);
   expect(view.container.textContent).toContain('"columnWidth":1');
   callback([entry(column, 360)], observer);
@@ -85,7 +85,7 @@ it("the real boundary shares five changing media queries and the column's Resize
 });
 
 it("every form can instead be driven solely by the shared signals, without consulting browser sensors", () => {
-  const matchMedia = vi.fn();
+  const matchMedia = vi.fn<Window["matchMedia"]>();
   vi.stubGlobal("matchMedia", matchMedia);
   const [media, setMedia] = createSignal(initialMedia);
   const view = render(() => (

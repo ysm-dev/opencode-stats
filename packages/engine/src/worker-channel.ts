@@ -53,6 +53,19 @@ const actionKind = (action: EngineAction | undefined, fallback: ChangeKind): Cha
   action?.kind === "drill" && action.source === "graph"
     ? "graph-select"
     : (action?.kind ?? fallback);
+const announcedState = (
+  state: EngineState,
+  filterAnnouncement: string,
+  kind: ChangeKind,
+): EngineState =>
+  state.screen === "dashboard"
+    ? {
+        ...state,
+        filterAnnouncement,
+        selectionAnnouncement: kind === "graph-select" ? state.rangeLabel : "",
+        chart: { ...state.chart, announcement: kind === "drill" ? state.rangeLabel : "" },
+      }
+    : state;
 
 function stateFor(
   range: TimeRange | undefined,
@@ -176,44 +189,67 @@ export function connectEngine(
     }
     live.refreshTime();
     const { now, timeZone } = live.time();
-    if (action.kind === "address" || action.kind === "drill") {
-      try {
-        const address =
-          action.kind === "address"
-            ? action.address
-            : rangeAddress({ from: action.from, to: action.to, kind: action.unit });
-        const parsed = parseRange(address, network.baseUrl);
-        range = action.kind === "drill" ? normalizeRange(parsed, now, timeZone) : parsed;
-        if (action.kind === "address") {
-          filters = parseFilters(address, network.baseUrl);
-          choice = parseChart(address, network.baseUrl);
-          metric = parseGraphMetric(address, network.baseUrl);
+    switch (action.kind) {
+      case "address":
+      case "drill":
+        try {
+          const address =
+            action.kind === "address"
+              ? action.address
+              : rangeAddress({ from: action.from, to: action.to, kind: action.unit });
+          const parsed = parseRange(address, network.baseUrl);
+          range = action.kind === "drill" ? normalizeRange(parsed, now, timeZone) : parsed;
+          if (action.kind === "address") {
+            filters = parseFilters(address, network.baseUrl);
+            choice = parseChart(address, network.baseUrl);
+            metric = parseGraphMetric(address, network.baseUrl);
+          }
+        } catch {
+          range = undefined;
         }
-      } catch {
-        range = undefined;
-      }
-    } else if (action.kind === "preset" || action.kind === "remove-fixed") {
-      range = action.preset;
-    } else if (
-      action.kind === "filter" ||
-      action.kind === "remove-filter" ||
-      action.kind === "clear-filters"
-    ) {
-      filters =
-        action.kind === "clear-filters"
-          ? []
-          : action.kind === "remove-filter"
-            ? removeFilter(filters, action)
-            : toggleFilter(filters, action);
-      filterChange = action;
-    } else if (action.kind === "chart-metric")
-      choice = normalizeChart({ ...choice, metric: action.metric });
-    else if (action.kind === "chart-split")
-      choice = normalizeChart({ ...choice, split: action.split });
-    else if (action.kind === "shift")
-      range = shiftRange(range ?? "30d", action.direction, now, timeZone);
-    else range = "all";
+        break;
+      case "preset":
+      case "remove-fixed":
+        range = action.preset;
+        break;
+      case "filter":
+        filters = toggleFilter(filters, action);
+        filterChange = action;
+        break;
+      case "remove-filter":
+        filters = removeFilter(filters, action);
+        filterChange = action;
+        break;
+      case "clear-filters":
+        filters = [];
+        filterChange = action;
+        break;
+      case "chart-metric":
+        choice = normalizeChart({ ...choice, metric: action.metric });
+        break;
+      case "chart-split":
+        choice = normalizeChart({ ...choice, split: action.split });
+        break;
+      case "shift":
+        range = shiftRange(range ?? "30d", action.direction, now, timeZone);
+        break;
+      case "all-time":
+        range = "all";
+        break;
+    }
   };
+  const stateForChange = (kind: ChangeKind): EngineState =>
+    kind === "graph-metric" && lastState?.screen === "dashboard"
+      ? {
+          ...lastState,
+          address: graphAddress(
+            chartAddress(filterAddress(rangeAddress(range!), filters), choice),
+            metric,
+          ),
+          graph: withGraphMetric(lastState.graph, metric),
+          selectionAnnouncement: "",
+        }
+      : stateFor(range, filters, choice, live, metric);
   const paint = (kind: ChangeKind = "live", work = 0, elapsed = 0) => {
     if (!active || !live.visible()) return;
     if (live.current() && !live.ready() && live.status().liveLabel !== "Not updating") return;
@@ -221,20 +257,7 @@ export function connectEngine(
     const id = pending?.id ?? 0;
     const changeKind = actionKind(pending?.action, kind);
     pending = undefined;
-    let state =
-      changeKind === "graph-metric" && lastState?.screen === "dashboard"
-        ? {
-            ...lastState,
-            address: graphAddress(
-              chartAddress(filterAddress(rangeAddress(range!), filters), choice),
-              metric,
-            ),
-            graph: withGraphMetric(lastState.graph, metric),
-            selectionAnnouncement: "",
-          }
-        : stateFor(range, filters, choice, live, metric);
-    if (state.screen === "dashboard" && changeKind === "graph-select")
-      state = { ...state, selectionAnnouncement: state.rangeLabel };
+    const state = stateForChange(changeKind);
     lastState = state;
     if (state.screen === "dashboard" && filterChange) {
       if (filterChange.kind === "clear-filters") filterAnnouncement = "Filters cleared";
@@ -251,17 +274,7 @@ export function connectEngine(
     port.postMessage({
       id,
       sequence: ++sequence,
-      state:
-        state.screen === "dashboard"
-          ? {
-              ...state,
-              filterAnnouncement,
-              chart: {
-                ...state.chart,
-                announcement: changeKind === "drill" ? state.rangeLabel : "",
-              },
-            }
-          : state,
+      state: announcedState(state, filterAnnouncement, changeKind),
       timing: {
         kind: changeKind,
         compute: clock.workNow() - started + inputWork + work,
