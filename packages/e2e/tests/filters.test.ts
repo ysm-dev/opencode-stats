@@ -19,26 +19,26 @@ it.each([chromium, webkit])(
         .getByRole("checkbox")
         .evaluateAll((inputs) => inputs.map((input) => input.getAttribute("aria-label"))),
     ).toEqual([
-      "filter-provider-0/filter-model-6",
-      "filter-provider-1/filter-model-5",
-      "filter-provider-0/filter-model-4",
-      "filter-provider-1/filter-model-3",
-      "filter-provider-0/filter-model-2",
-      "filter-provider-1/filter-model-1",
-      "filter-provider-0/filter-model-0",
-      "synthetic-provider/synthetic-model",
+      "filter-model-6",
+      "filter-model-5",
+      "filter-model-4",
+      "filter-model-3",
+      "filter-model-2",
+      "filter-model-1",
+      "filter-model-0",
+      "synthetic-model",
     ]);
     expect(
       await models
-        .getByRole("checkbox", { name: "synthetic-provider/synthetic-model", exact: true })
+        .getByRole("checkbox", { name: "synthetic-model", exact: true })
         .evaluate((input) => input.closest("label")!.querySelector(".filter-amount")!.textContent),
     ).toBe("0 tokens");
     const model6 = models.getByRole("checkbox", {
-      name: "filter-provider-0/filter-model-6",
+      name: "filter-model-6",
       exact: true,
     });
     const model5 = models.getByRole("checkbox", {
-      name: "filter-provider-1/filter-model-5",
+      name: "filter-model-5",
       exact: true,
     });
     await model6.focus();
@@ -52,7 +52,7 @@ it.each([chromium, webkit])(
     const bookmark = page.url();
     await wholeFilter(page, () => model6.click(), "600");
     const chip = page.getByRole("button", {
-      name: "Remove Model filter · filter-provider-1/filter-model-5",
+      name: "Remove Model filter · filter-model-5",
     });
     await chip.focus();
     await wholeFilter(page, () => chip.click(), "2,800");
@@ -88,9 +88,7 @@ it.each([chromium, webkit])(
     expect(requests).toEqual([]);
     expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
     await page.goto(bookmark);
-    await page
-      .getByRole("button", { name: "Remove Model filter · filter-provider-0/filter-model-6" })
-      .waitFor();
+    await page.getByRole("button", { name: "Remove Model filter · filter-model-6" }).waitFor();
     expect(page.url()).toBe(bookmark);
     expect(
       await page.getByRole("region", { name: "Tokens" }).locator(".headline-number").textContent(),
