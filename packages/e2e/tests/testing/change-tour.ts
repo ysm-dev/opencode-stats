@@ -130,6 +130,22 @@ async function appearance(input: Input, repeat: number) {
 }
 
 async function contributionChanges(input: Input, repeat: number) {
+  const dates: (string | null)[] = [];
+  try {
+    await contributionActions(input, repeat, dates);
+  } catch (error) {
+    // Synthetic installed tour only; capture the missing action, not page/fact data.
+    const readout = await input.page
+      .locator(".graph-readout")
+      .ariaSnapshot({ timeout: 500 })
+      .then((snapshot) => snapshot.slice(0, 512))
+      .catch(() => "unavailable");
+    process.stderr.write(`graph tour failure ${JSON.stringify({ repeat, dates, readout })}\n`);
+    throw error;
+  }
+}
+
+async function contributionActions(input: Input, repeat: number, dates: (string | null)[]) {
   const graph = input.page.getByRole("group", { name: "Contribution metric" });
   await wholeChange(input.page, "graph-metric", () =>
     activate(
@@ -138,15 +154,26 @@ async function contributionChanges(input: Input, repeat: number) {
     ),
   );
   const surface = input.page.getByRole("img", { name: "Contribution graph, past 365 local days" });
+  const reading = () =>
+    input.page.evaluate(
+      () =>
+        document
+          .querySelector('.graph-surface rect[data-reading="true"]')
+          ?.getAttribute("data-date") ?? null,
+    );
+  dates.push(await reading());
   await surface.focus();
   await wholeChange(input.page, "graph-read", () => surface.press("ArrowLeft"));
+  dates.push(await reading());
   const readout = input.page.locator(".graph-readout");
   await wholeChange(input.page, "graph-select", () =>
     activate(input, readout.getByRole("button", { name: "This day", exact: true })),
   );
+  dates.push(await reading());
   await wholeChange(input.page, "graph-select", () =>
     activate(input, readout.getByRole("button", { name: /^Week / })),
   );
+  dates.push(await reading());
   await wholeChange(input.page, "graph-select", () =>
     activate(input, readout.getByRole("button", { name: /^(September|October)$/ })),
   );
