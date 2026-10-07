@@ -151,6 +151,7 @@ describe("installed release", () => {
         const walBefore = state === "live" ? readFileSync(join(folder, "synthetic.db-wal")) : null;
         const port = await temporaryPort();
         const origin = `http://127.0.0.1:${port}`;
+        const greeting = `opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\n`;
         const child = spawn(
           command,
           [...prefix, "--no-open", "--port", String(port), "--db", join(folder, "synthetic.db")],
@@ -170,10 +171,7 @@ describe("installed release", () => {
         const { transcript, closed: exit } = capture(child);
         try {
           await vi.waitFor(
-            () =>
-              expect(transcript.output).toBe(
-                `opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\n`,
-              ),
+            () => expect(transcript.output.slice(0, greeting.length)).toBe(greeting),
             { timeout: 10000 },
           );
           const response = await fetch(`${origin}/api/browser-copy`);
@@ -199,9 +197,15 @@ describe("installed release", () => {
             process.kill(-child.pid, "SIGINT");
           }
           expect(await exit).toEqual([0, null]);
-          expect(transcript.output).toBe(
-            `opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\nStopped.\n`,
+          const lines = transcript.output.split("\n");
+          expect(lines.slice(0, 2)).toEqual(greeting.trimEnd().split("\n"));
+          expect(lines[2]).toMatch(
+            /^\d{2}:\d{2}:\d{2}  Reading your OpenCode history, newest first…$/u,
           );
+          expect(lines[3]).toMatch(
+            /^\d{2}:\d{2}:\d{2}  Read 1 sessions and 1 steps in \d+\.\d s\.$/u,
+          );
+          expect(lines.slice(4)).toEqual(["Stopped.", ""]);
           expect(transcript.error).toBe("");
           await expect(fetch(origin)).rejects.toThrow("fetch failed");
           if (process.platform === "darwin")
