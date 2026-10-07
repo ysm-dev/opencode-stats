@@ -242,12 +242,7 @@ it("resnapshots a write racing the deletion commit before reading older pending 
     );
     expect(after.generation).toBe(before.generation);
     expect(after.historyComplete).toBe(true);
-    expect(published).toEqual([
-      ["removed-step"],
-      [],
-      ["newer-step"],
-      ["newer-step", "older-step"],
-    ]);
+    expect(published).toEqual([["removed-step"], [], ["newer-step"], ["newer-step", "older-step"]]);
   } finally {
     fixture.dispose();
   }

@@ -261,18 +261,14 @@ it.each(["store", "source"])(
             (event) => reports.push(event),
           );
           expect((yield* store.read()).steps).toEqual(old.steps);
-          expect(reports).toContainEqual(
-            expect.objectContaining({ kind: "sync.stopped", reason }),
-          );
+          expect(reports).toContainEqual(expect.objectContaining({ kind: "sync.stopped", reason }));
           f.writer.message({ ...message, tokens: { output: 9 } });
           failing = false;
           yield* time.tick;
           const current = yield* store.read();
           expect(current.generation).toBe(old.generation);
           expect(current.steps[0]!.output).toBe(9);
-          expect(reports).toContainEqual(
-            expect.objectContaining({ kind: "sync.resumed", reason }),
-          );
+          expect(reports).toContainEqual(expect.objectContaining({ kind: "sync.resumed", reason }));
           expect(JSON.stringify(reports)).not.toContain("SYNTHETIC PRIVATE");
         }),
       );

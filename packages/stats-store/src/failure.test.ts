@@ -73,9 +73,9 @@ it("rejects a vanished cache at worker readiness instead of announcing an unbuil
       readBuilt(options, (copy) => copies.push(copy.revision), {
         ...nodeRuntime,
         worker: (paths, announce, report) =>
-          nodeRuntime.worker(paths, announce, report).pipe(
-            Effect.andThen(() => rmSync(paths.store)),
-          ),
+          nodeRuntime
+            .worker(paths, announce, report)
+            .pipe(Effect.andThen(() => rmSync(paths.store))),
       }),
     ).rejects.toMatchObject({ kind: "sqlite", statement: "readStore" });
     expect(copies).toEqual([before.revision]);

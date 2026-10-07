@@ -64,7 +64,12 @@ export default defineConfig(({ command }) => ({
   ],
   // The worker's HttpApi imports must join the initial scan, not trigger a
   // second optimization/504/full reload while the first page is loading.
-  optimizeDeps: { entries: ["index.html", require.resolve("@opencode-stats/engine/worker")] },
+  optimizeDeps: {
+    entries: ["index.html", require.resolve("@opencode-stats/engine/worker")],
+    // These publish compiled JS. Their Solid export conditions otherwise exclude
+    // the chart tree from prebundling and turn D3 into hundreds of cold requests.
+    include: ["@tanstack/solid-charts", "@tanstack/charts"],
+  },
   server: {
     // Start the same cold transforms during server startup, before browser navigation.
     warmup: { clientFiles: ["./index.html", "./src/client.tsx"] },
