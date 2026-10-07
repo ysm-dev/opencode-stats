@@ -21,6 +21,32 @@ type Session = {
 
 const timeKey = (value: { now: number; timeZone: string; locale: string }) =>
   `${Math.floor(value.now / 60000)}\0${value.timeZone}\0${value.locale}\0${localDate(value.now, value.timeZone)}`;
+const readTime = (clock: EngineClock) => ({
+  now: clock.now(),
+  timeZone: clock.timeZone(),
+  locale: clock.locale(),
+});
+type LiveStatus = ReturnType<typeof createLiveStatus>;
+const unchangedStop = (wanted: LiveAnnouncement, status: LiveStatus) =>
+  !("stop" in wanted) ||
+  JSON.stringify(wanted.stop ?? null) === JSON.stringify(status.read().stop ?? null);
+const liveKind = (
+  kind: ChangeKind,
+  completedBefore: boolean | undefined,
+  completedNow: boolean | undefined,
+): ChangeKind => (kind === "live" && (!completedBefore || !completedNow) ? "build" : kind);
+function receivedStatus(
+  status: LiveStatus,
+  wanted: LiveAnnouncement,
+  canPaint: boolean,
+  wrote: boolean,
+) {
+  // Recovery belongs to the paint exposing the recovered copy, not an incoming
+  // generation whose history still fails today's barrier.
+  if ("stop" in wanted && (wanted.stop || canPaint)) status.syncStop(wanted.stop ?? null);
+  if (wrote) status.wrote();
+  status.connected();
+}
 
 export function createLiveEngine(
   network: EngineNetwork,
@@ -54,10 +80,9 @@ export function createLiveEngine(
   let stopRetry: (() => void) | undefined;
   let presented = "";
   let nextKind: ChangeKind = "live";
-  const readTime = () => ({ now: clock.now(), timeZone: clock.timeZone(), locale: clock.locale() });
-  let time = readTime();
+  let time = readTime(clock);
   const updateTime = (force = false) => {
-    const next = readTime();
+    const next = readTime(clock);
     if (!force && timeKey(next) === timeKey(time)) return false;
     time = next;
     copies.refresh();
@@ -128,29 +153,14 @@ export function createLiveEngine(
       const before = copies.received();
       const newer =
         !before || wanted.generation !== before.generation || wanted.revision > before.revision;
-      if (
-        !newer &&
-        !current.opening &&
-        (!("stop" in wanted) ||
-          JSON.stringify(wanted.stop ?? null) === JSON.stringify(status.read().stop ?? null))
-      )
-        continue;
+      if (!newer && !current.opening && unchangedStop(wanted, status)) continue;
       if (newer || current.opening)
         await apply(current, wanted.generation === before?.generation ? before : undefined);
       if (session !== current) return;
-      // Recovery belongs to the paint that can expose the recovered copy, not
-      // to an incoming generation whose history still fails today's barrier.
-      if ("stop" in wanted && (wanted.stop || copies.canPaint()))
-        status.syncStop(wanted.stop ?? null);
       current.opening = false;
-      if (newer && before) status.wrote();
-      status.connected();
+      receivedStatus(status, wanted, copies.canPaint(), newer && !!before);
       if (copies.canPaint() || status.read().liveLabel === "Not updating")
-        changed(
-          current.kind === "live" && (!before?.historyComplete || !facts.current()?.historyComplete)
-            ? "build"
-            : current.kind,
-        );
+        changed(liveKind(current.kind, before?.historyComplete, facts.current()?.historyComplete));
       current.kind = "live";
     }
   };

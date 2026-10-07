@@ -1,4 +1,4 @@
-import { cleanup, render } from "@solidjs/testing-library";
+import { cleanup, render, within } from "@solidjs/testing-library";
 import { expect, it, vi } from "vitest";
 import {
   inMemoryDashboardServer,
@@ -47,12 +47,14 @@ it.each([
       await accessible(view.container);
       server.commit(
         syntheticCopy(
-          [{ start: 1, input: 10, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0 }],
+          [{ start: 1, input: 987, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0 }],
           { revision: 1 },
         ),
       );
       server.status(null);
       await view.findByRole("heading", { name: "Overview" });
+      expect(within(view.getByRole("region", { name: "Tokens" })).getByText("987")).toBeTruthy();
+      expect(window.location.search).toBe("?range=all");
       expect(view.container.querySelector("[data-problem-state]")).toBeNull();
     } finally {
       cleanup();

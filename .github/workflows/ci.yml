@@ -33,7 +33,11 @@ jobs:
       # pruned incrementally, so a stale local node_modules can hide a removed
       # dependency that fails here.
       - run: bun install --frozen-lockfile
+      # Temporary diagnosis: collect assertion-level RED/GREEN before source gates.
+      - name: Recovery regression proof
+        run: bun run scripts/time-budget.ts vitest run packages/stats-store/src/reread-recovery.test.ts packages/stats-store/src/source-snapshot.test.ts packages/dashboard-server/src/sync-status.test.ts packages/engine/src/testing/sync-status.test.ts packages/dashboard/src/initial-sync-problem.test.tsx
       - run: bun run ci:checks
+        if: always()
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
