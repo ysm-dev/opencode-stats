@@ -77,7 +77,7 @@ it.each([chromium, webkit])(
     ).toBe(true);
     await page.getByRole("button", { name: "October", exact: true }).tap();
     await page.waitForURL(/kind=month/);
-    await metric.getByRole("button", { name: "Cost", exact: true }).tap();
+    await metric.getByRole("button", { name: "≈ Estimated cost", exact: true }).tap();
     await page.waitForURL(/graph=cost/);
     expect(await page.locator(".graph-readout").textContent()).toContain(
       "Unavailable estimated cost",
@@ -85,7 +85,9 @@ it.each([chromium, webkit])(
     await page.reload();
     await surface.waitFor();
     expect(
-      await metric.getByRole("button", { name: "Cost", exact: true }).getAttribute("aria-pressed"),
+      await metric
+        .getByRole("button", { name: "≈ Estimated cost", exact: true })
+        .getAttribute("aria-pressed"),
     ).toBe("true");
     await metric.getByRole("button", { name: "Tokens", exact: true }).tap();
     await page.waitForURL((url) => !url.searchParams.has("graph"));
