@@ -21,7 +21,11 @@ export type WorkerPort = {
 const request = Schema.decodeUnknownSync(
   Schema.Union([
     Schema.Literal("stop"),
-    Schema.Struct({ source: Schema.String, store: Schema.String }),
+    Schema.Struct({
+      source: Schema.String,
+      store: Schema.String,
+      sourceAlias: Schema.optionalKey(Schema.String),
+    }),
   ]),
 );
 

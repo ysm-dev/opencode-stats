@@ -42,3 +42,11 @@ damaged source is conservatively reread even if its counters happen to match.
 It advances only after a complete successful pass. This allows migration/import
 rereads to resume after interruption or downtime without changing the SQLite
 layout, counted facts, store version (8), or binary format version (7).
+
+Cache path resolution does no filesystem writes. Directory creation, permission
+setup and derived-file preparation belong to the sync worker's bounded retry loop.
+Preparation errors retain readable cached statistics. Without a usable cache,
+the server publishes a transient unbuilt copy (revision zero, incomplete history,
+no facts and unavailable pricing) alongside the typed can't-save state; it makes
+no claim to cover today and isn't persisted. A successful build replaces it in
+the recovery paint. Direct SQL reads continue to return their classified errors.

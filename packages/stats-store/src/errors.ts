@@ -17,6 +17,9 @@ const codes = [
   "EACCES",
   "EPERM",
   "ENOSPC",
+  "ENOTDIR",
+  "EISDIR",
+  "EEXIST",
 ] as const;
 
 export class SqlFailure extends Error {

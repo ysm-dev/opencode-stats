@@ -5,6 +5,8 @@ import * as Effect from "effect/Effect";
 import type { SyncStop } from "@opencode-stats/browser-copy/api";
 import { SqlFailure, sqlFailure } from "./errors.ts";
 import type { StoreEvent, BuildReport } from "./build-events.ts";
+import type { StorePaths } from "./database.ts";
+import { assertStoreDestination } from "./location.ts";
 
 const Receipt = Schema.Struct({
   generation: Schema.String,
@@ -14,8 +16,9 @@ const Receipt = Schema.Struct({
   sourceFile: Schema.String,
 });
 export type Receipt = typeof Receipt.Type;
-export function readReceipt(store: string): Receipt | undefined {
+export function readReceipt(store: string, paths?: StorePaths): Receipt | undefined {
   try {
+    if (paths) assertStoreDestination(paths);
     return Schema.decodeUnknownSync(Receipt)(JSON.parse(readFileSync(`${store}.sync`, "utf8")));
   } catch {
     return undefined;

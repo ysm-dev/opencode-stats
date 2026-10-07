@@ -14,6 +14,7 @@ import type { BuildReport } from "./build-events.ts";
 import { steps, sessionFacts, metadata } from "./schema.ts";
 import { readReceipt, SchemaFailure, syncState } from "./sync-state.ts";
 import { rereadState } from "./reread.ts";
+import { prepareStorePaths } from "./location.ts";
 
 class SourceReplaced extends Error {}
 
@@ -162,10 +163,14 @@ export const sync = Effect.fnUntraced(function* (
   const ready = yield* Deferred.make<void>();
   const state = syncState(
     report,
-    readReceipt(paths.store)?.currentAt ?? (yield* Clock.currentTimeMillis),
+    readReceipt(paths.store, paths)?.currentAt ?? (yield* Clock.currentTimeMillis),
   );
   const attempt = Effect.scoped(
     Effect.gen(function* () {
+      yield* Effect.try({
+        try: () => prepareStorePaths(paths),
+        catch: (error) => sqlFailure(error, "writeSteps"),
+      });
       yield* startSync(paths, adapter, source, announce, report, state);
       yield* Deferred.succeed(ready, undefined);
       yield* Effect.never;

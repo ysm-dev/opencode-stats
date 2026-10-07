@@ -11,6 +11,9 @@ it.each([
   "SQLITE_CANTOPEN",
   "SQLITE_CONSTRAINT",
   "SQLITE_IOERR",
+  "ENOTDIR",
+  "EISDIR",
+  "EEXIST",
 ])("keeps only known SQLite code %s at the library boundary", (code) => {
   const failure = sqlFailure(
     { cause: { cause: { code, message: "PRIVATE_TITLE", stack: "PRIVATE_TITLE" } } },
