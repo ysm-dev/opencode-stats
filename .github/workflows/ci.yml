@@ -99,25 +99,17 @@ jobs:
           - os: ubuntu-latest
             shard: 6/6
           - os: macos-15-intel
-            shard: 1/6
-          - os: macos-15-intel
-            shard: 2/6
-          - os: macos-15-intel
-            shard: 3/6
-          - os: macos-15-intel
-            shard: 4/6
-          - os: macos-15-intel
-            shard: 5/6
-          - os: macos-15-intel
-            shard: 6/6
-          - os: macos-latest
             shard: 1/4
-          - os: macos-latest
+          - os: macos-15-intel
             shard: 2/4
-          - os: macos-latest
+          - os: macos-15-intel
             shard: 3/4
-          - os: macos-latest
+          - os: macos-15-intel
             shard: 4/4
+          # Hosted macOS capacity is five concurrent jobs across architectures.
+          - os: macos-latest
+            shard: 1/1
+            workers: 2
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
     steps:
@@ -160,7 +152,7 @@ jobs:
       # its watchdog. Setup, artifact waits and tests also share this job/attempt cap.
       # Isolate browser/process workloads; Vitest partitions the complete
       # suite, with one file worker per runner and existing per-file concurrency.
-      - run: bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers=1', matrix.shard) || '' }}
+      - run: bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers={1}', matrix.shard, matrix.workers || 1) || '' }}
 
   intel:
     name: Packed tarball (macos-15-intel)

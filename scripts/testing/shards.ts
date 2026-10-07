@@ -36,13 +36,12 @@ const packed = object(jobs["packed"]);
 const packedMatrix = object(object(packed["strategy"])["matrix"]);
 assert.deepEqual(packedMatrix["os"], ["windows-latest"]);
 assert.deepEqual(packedMatrix["include"], [
-  ...["ubuntu-latest", "macos-15-intel"].flatMap((os) =>
-    Array.from({ length: 6 }, (_, index) => ({ os, shard: `${index + 1}/6` })),
-  ),
+  ...Array.from({ length: 6 }, (_, index) => ({ os: "ubuntu-latest", shard: `${index + 1}/6` })),
   ...["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
-    os: "macos-latest",
+    os: "macos-15-intel",
     shard: selector,
   })),
+  { os: "macos-latest", shard: "1/1", workers: 2 },
 ]);
 const rawPackedSteps = packed["steps"];
 assert.ok(Array.isArray(rawPackedSteps));
@@ -64,7 +63,7 @@ assert.ok(
   packedSteps.some(
     (step) =>
       object(step)["run"] ===
-      "bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers=1', matrix.shard) || '' }}",
+      "bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers={1}', matrix.shard, matrix.workers || 1) || '' }}",
   ),
 );
 for (const [name, os] of [
