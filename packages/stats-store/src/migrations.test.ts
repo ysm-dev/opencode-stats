@@ -1,10 +1,12 @@
 import * as Effect from "effect/Effect";
+import { rmSync, writeFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { stayInSync, type StoreEvent, type StoreCopy } from "./store.ts";
 import { nodeRuntime } from "./runtime.node.ts";
 import { readBuilt, syntheticFixture } from "./testing/index.ts";
 import { runWithClock } from "./testing/clock.ts";
 import { canonicalCopy } from "./testing/canonical.ts";
+import { storePaths } from "./location.ts";
 
 it.each(["live", "restart"])(
   "recognized migrations reread in place across %s, including physical column reordering",
@@ -210,3 +212,39 @@ it("a v1 import completed during downtime rereads in place from its durable rece
     f.dispose();
   }
 });
+
+it.each(["missing", "malformed"])(
+  "a %s reconciliation receipt verifies cached facts instead of trusting equal counters",
+  async (receipt) => {
+    const f = syntheticFixture();
+    const options = { source: f.source, cacheHome: f.folder };
+    const events: StoreEvent[] = [];
+    try {
+      f.writer.session("receipt-session");
+      const message = { id: "receipt-message", session: "receipt-session", seq: 0, start: 1 };
+      f.writer.message({ ...message, tokens: { output: 4 } });
+      const before = await readBuilt(options, () => {}, nodeRuntime);
+      const file = `${storePaths(options).store}.sync`;
+      if (receipt === "missing") rmSync(file);
+      else writeFileSync(file, "{invalid synthetic receipt");
+      f.writer.message({ ...message, tokens: { output: 13 } }, false);
+      const after = await readBuilt(
+        options,
+        () => {},
+        nodeRuntime,
+        (event) => events.push(event),
+      );
+      expect(after.generation).toBe(before.generation);
+      expect(after.steps[0]!.output).toBe(13);
+      expect(events.filter((event) => event.kind === "build.start")).toEqual([]);
+      const fresh = await readBuilt(
+        { ...options, cacheHome: `${f.folder}/verified` },
+        () => {},
+        nodeRuntime,
+      );
+      expect(canonicalCopy(after)).toEqual(canonicalCopy(fresh));
+    } finally {
+      f.dispose();
+    }
+  },
+);
