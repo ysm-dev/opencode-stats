@@ -156,13 +156,14 @@ const Sheet = (props: { close: () => void; opener: HTMLElement }) => {
           <button
             class="settings-diagnostics"
             type="button"
+            tabIndex={0}
             onClick={() =>
               void navigator.clipboard.writeText(JSON.stringify({ changes: changeDiagnostics() }))
             }
           >
             Copy diagnostics
           </button>
-          <button class="settings-done" type="button" onClick={props.close}>
+          <button class="settings-done" type="button" tabIndex={0} onClick={props.close}>
             Done
           </button>
         </div>
@@ -181,6 +182,7 @@ export const Settings = () => {
           opener = element;
         }}
         type="button"
+        tabIndex={0}
         class="settings-gear"
         aria-label="Settings"
         onClick={() => changes.local("settings", () => setOpen(true))}

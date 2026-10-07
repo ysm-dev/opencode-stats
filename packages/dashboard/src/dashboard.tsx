@@ -62,6 +62,7 @@ const RangeControls = () => {
     >
       <button
         type="button"
+        tabIndex={0}
         aria-label="Previous range"
         disabled={!state().range.canShiftBack}
         onClick={() => void client.request({ kind: "shift", direction: -1 })}
@@ -84,6 +85,7 @@ const RangeControls = () => {
       />
       <button
         type="button"
+        tabIndex={0}
         aria-label="Next range"
         disabled={!state().range.canShiftForward}
         onClick={nextRange}
@@ -94,6 +96,7 @@ const RangeControls = () => {
         <button
           class="fixed-range"
           type="button"
+          tabIndex={0}
           aria-label={`Remove fixed range · ${state().range.fixedLabel}`}
           onClick={removeFixed}
         >
@@ -151,6 +154,7 @@ const LiveStatus = () => {
   return (
     <button
       type="button"
+      tabIndex={0}
       class="live-status"
       data-state={stateMark(state())}
       data-generation={state().generation}
@@ -190,7 +194,7 @@ const UpdateStatus = () => {
           {state().statusLine}
           <Show when={state().paused}>
             {" · "}
-            <button type="button" onClick={resume}>
+            <button type="button" tabIndex={0} onClick={resume}>
               Resume
             </button>
           </Show>
@@ -215,12 +219,12 @@ const skipToPage = (event: MouseEvent) => {
 };
 const Shell = () => (
   <div class="shell">
-    <a class="skip-link" href="#main" onClick={skipToPage}>
+    <a class="skip-link" href="#main" tabIndex={0} onClick={skipToPage}>
       Skip to page
     </a>
     <aside class="sidebar">
       <nav aria-label="Pages">
-        <Link to="/" search={true}>
+        <Link to="/" search={true} tabIndex={0}>
           Overview
         </Link>
       </nav>

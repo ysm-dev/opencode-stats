@@ -1,4 +1,4 @@
-import type { Page, Locator, ConsoleMessage } from "playwright";
+import type { Page, Locator } from "playwright";
 import { decode } from "@opencode-stats/browser-copy";
 import { expect, vi } from "vitest";
 import type { preferencesServer } from "./preferences-server.ts";
@@ -131,36 +131,6 @@ async function appearance(input: Input, repeat: number) {
 
 async function contributionChanges(input: Input, repeat: number) {
   const dates: (string | null)[] = [];
-  const events: string[] = [];
-  const capture = (message: ConsoleMessage) => {
-    if (message.text().startsWith("[DEBUG-graph-event]")) events.push(message.text());
-  };
-  input.page.on("console", capture);
-  await input.page.evaluate(() => {
-    const graph = document.querySelector(".contribution-graph")!;
-    const capture = (event: Event) => {
-      const target = event.target;
-      if (!(target instanceof Element) || !target.closest(".contribution-graph")) return;
-      console.debug(
-        "[DEBUG-graph-event]",
-        JSON.stringify({
-          type: event.type,
-          target: target.tagName,
-          date: document
-            .querySelector('.graph-surface [data-reading="true"]')
-            ?.getAttribute("data-date"),
-          scrollY,
-          graphTop: graph.getBoundingClientRect().top,
-          point:
-            event instanceof PointerEvent
-              ? [event.clientX, event.clientY, event.movementX, event.movementY]
-              : null,
-        }),
-      );
-    };
-    for (const type of ["pointermove", "pointerup", "focusin"])
-      graph.addEventListener(type, capture, true);
-  });
   try {
     await contributionActions(input, repeat, dates);
   } catch (error) {
@@ -170,12 +140,8 @@ async function contributionChanges(input: Input, repeat: number) {
       .ariaSnapshot({ timeout: 500 })
       .then((snapshot) => snapshot.slice(0, 512))
       .catch(() => "unavailable");
-    process.stderr.write(
-      `graph tour failure ${JSON.stringify({ repeat, dates, readout, events })}\n`,
-    );
+    process.stderr.write(`graph tour failure ${JSON.stringify({ repeat, dates, readout })}\n`);
     throw error;
-  } finally {
-    input.page.off("console", capture);
   }
 }
 

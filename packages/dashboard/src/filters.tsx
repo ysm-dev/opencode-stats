@@ -64,6 +64,7 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
           >
             <input
               type="checkbox"
+              tabIndex={0}
               id={rowId(props.dimension, id)}
               aria-label={find(id).name}
               aria-describedby={`${rowId(props.dimension, id)}-amount`}
@@ -92,6 +93,7 @@ const Checklist = (props: { dimension: ChecklistState["dimension"] }) => {
       <Show when={!display().query && !display().expanded && values().length > 5}>
         <button
           type="button"
+          tabIndex={0}
           onClick={() =>
             changes.local("expand-checklist", () => {
               const next = values()[5]!;
@@ -126,6 +128,7 @@ export const Filters = () => {
         </h2>
         <button
           type="button"
+          tabIndex={0}
           onClick={(event) => {
             event.currentTarget.focus();
             void client.request({ kind: "clear-filters" });
@@ -189,6 +192,7 @@ export const FilterChips = () => {
         {(key) => (
           <button
             type="button"
+            tabIndex={0}
             id={chipId(key)}
             data-state={stateMark(state())}
             aria-label={`Remove ${filterLabels[find(key).dimension]} filter · ${find(key).name}`}

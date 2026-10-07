@@ -22,25 +22,6 @@ it.each([chromium, webkit])(
       const result = await page.evaluate(() =>
         window.axe.run(".contribution-graph", { runOnly: ["color-contrast"] }),
       );
-      if (result.incomplete.length)
-        process.stderr.write(
-          `[DEBUG-graph-text] ${JSON.stringify(
-            await page.locator(".graph-weekdays span, .graph-label").evaluateAll((nodes) =>
-              nodes.slice(0, 10).map((node) => {
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                const box = node.getBoundingClientRect();
-                const text = range.getBoundingClientRect();
-                return {
-                  text: node.textContent,
-                  box: [box.left, box.top, box.right, box.bottom],
-                  textBox: [text.left, text.top, text.right, text.bottom],
-                  lineHeight: getComputedStyle(node).lineHeight,
-                };
-              }),
-            ),
-          )}\n`,
-        );
       expect(result.violations).toEqual([]);
       expect(result.incomplete).toEqual([]);
       const checked = result.passes.flatMap((rule) => rule.nodes);

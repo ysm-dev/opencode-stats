@@ -204,6 +204,7 @@ export const ContributionGraph = () => {
           {(metric) => (
             <button
               type="button"
+              tabIndex={0}
               aria-pressed={graph().metric === metric}
               onClick={() => void client.request({ kind: "graph-metric", metric })}
             >
@@ -324,16 +325,16 @@ export const ContributionGraph = () => {
                 {basis()}
               </p>
               <div class="graph-actions">
-                <button type="button" onClick={() => select(current().date, "day")}>
+                <button type="button" tabIndex={0} onClick={() => select(current().date, "day")}>
                   This day
                 </button>
-                <button type="button" onClick={() => select(current().date, "week")}>
+                <button type="button" tabIndex={0} onClick={() => select(current().date, "week")}>
                   Week {weekNumber(current().date)}
                 </button>
-                <button type="button" onClick={() => select(current().date, "month")}>
+                <button type="button" tabIndex={0} onClick={() => select(current().date, "month")}>
                   {monthName(current().date)}
                 </button>
-                <button type="button" onClick={clear}>
+                <button type="button" tabIndex={0} onClick={clear}>
                   Clear readout
                 </button>
               </div>

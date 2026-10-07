@@ -211,13 +211,14 @@ const ChartReadout = (props: {
       <Show when={bucket()}>
         <div class="chart-read-actions">
           <Show when={props.local().chart.unit !== "hour"}>
-            <button ref={props.preserveFocus} type="button" onClick={props.drill}>
+            <button ref={props.preserveFocus} type="button" tabIndex={0} onClick={props.drill}>
               Drill in
             </button>
           </Show>
           <button
             ref={props.preserveFocus}
             type="button"
+            tabIndex={0}
             aria-label="Clear chart reading"
             onClick={props.clear}
           >
@@ -234,6 +235,7 @@ const ChartReadout = (props: {
                 <button
                   ref={props.preserveFocus}
                   type="button"
+                  tabIndex={0}
                   aria-pressed={props.local().highlighted === id}
                   onPointerEnter={() => props.highlight("pointed", id)}
                   onPointerLeave={() => props.highlight("pointed", null)}

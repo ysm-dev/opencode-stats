@@ -71,22 +71,15 @@ it.each([chromium, webkit])(
     expect(new URL(page.url()).searchParams.get("from")).toBe("2026-10-05");
     expect(new URL(page.url()).searchParams.get("to")).toBe("2026-10-11");
     await surface.focus();
-    const focused = await surface.evaluate((node) => node === document.activeElement);
     await surface.press("ArrowUp");
     await surface.press("Enter");
     await page.waitForURL(/kind=day/);
     expect(new URL(page.url()).searchParams.get("from")).toBe("2026-10-06");
-    const beforeTab = await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 512));
     await page.keyboard.press("Tab");
     expect(
       await page
         .getByRole("button", { name: "This day", exact: true })
         .evaluate((node) => node === document.activeElement),
-      `[DEBUG-graph-focus] ${JSON.stringify({
-        focused,
-        beforeTab,
-        afterTab: await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 512)),
-      })}`,
     ).toBe(true);
     await page.getByRole("button", { name: "October", exact: true }).tap();
     await page.waitForURL(/kind=month/);
