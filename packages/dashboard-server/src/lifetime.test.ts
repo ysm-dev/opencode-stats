@@ -288,6 +288,9 @@ it("publishes an answering server before a build finishes without serving an inv
   const env = { XDG_STATE_HOME: fixture.folder, XDG_CACHE_HOME: fixture.folder };
   const error = vi.spyOn(process.stderr, "write").mockReturnValue(true);
   const before = process.exitCode;
+  const controller = new AbortController();
+  let settled = false;
+  let request: Promise<Response | undefined> | undefined;
   const fiber = Effect.runFork(
     processProgram(
       ["--port", String(port), "--db", fixture.source],
@@ -301,13 +304,29 @@ it("publishes an answering server before a build finishes without serving an inv
     await vi.waitFor(async () =>
       expect(await answering(join(fixture.folder, "opencode-stats"))).toBeDefined(),
     );
-    const response = await fetch(`http://127.0.0.1:${port}/api/browser-copy`);
-    expect(response.status).toBe(503);
-    expect((await response.arrayBuffer()).byteLength).toBe(0);
-    await Effect.runPromise(Fiber.interrupt(fiber));
+    request = fetch(`http://127.0.0.1:${port}/api/browser-copy`, {
+      signal: controller.signal,
+    }).then(
+      (response) => {
+        settled = true;
+        return response;
+      },
+      () => {
+        settled = true;
+        return undefined;
+      },
+    );
+    expect(await answering(join(fixture.folder, "opencode-stats"))).toBeDefined();
+    expect(settled).toBe(false);
+    const interruption = Effect.runPromise(Fiber.interrupt(fiber));
+    controller.abort();
+    expect(await request).toBeUndefined();
+    await interruption;
     expect(error).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(before);
   } finally {
+    controller.abort();
+    await request;
     complete();
     await Effect.runPromise(Fiber.interrupt(fiber));
     error.mockRestore();
@@ -315,11 +334,14 @@ it("publishes an answering server before a build finishes without serving an inv
   }
 });
 
-it("a copy request returns an empty 503 during startup, then a valid complete copy after the first commit", async () => {
+it("a copy request waits during startup while control requests answer, then returns only a valid complete copy", async () => {
   const f = syntheticFixture();
   const port = await temporaryPort();
   const gate = Promise.withResolvers<void>();
   const { ready, output } = readySignal();
+  const controller = new AbortController();
+  let settled = false;
+  let request: Promise<Response> | undefined;
   const runtime = {
     ...nodeRuntime,
     worker: (...args: Parameters<typeof nodeRuntime.worker>) =>
@@ -334,17 +356,26 @@ it("a copy request returns an empty 503 during startup, then a valid complete co
   try {
     await ready;
     const url = `http://127.0.0.1:${port}/api/browser-copy`;
-    const waiting = await fetch(url);
-    expect(waiting.status).toBe(503);
-    expect((await waiting.arrayBuffer()).byteLength).toBe(0);
+    request = fetch(url, { signal: controller.signal });
+    void request.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    expect(await answering(join(f.folder, "opencode-stats"))).toBeDefined();
+    expect(settled).toBe(false);
     gate.resolve();
-    await vi.waitFor(async () => {
-      const response = await fetch(url);
-      const bytes = await response.arrayBuffer();
-      expect(response.status).toBe(200);
-      expect(decode(bytes).historyComplete).toBe(true);
-    });
+    const response = await request;
+    const bytes = await response.arrayBuffer();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/octet-stream");
+    expect(decode(bytes).historyComplete).toBe(true);
   } finally {
+    controller.abort();
+    await request?.catch(() => undefined);
     gate.resolve();
     await Effect.runPromise(Fiber.interrupt(fiber));
     output.mockRestore();

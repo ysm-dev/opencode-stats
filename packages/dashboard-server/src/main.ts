@@ -101,7 +101,7 @@ export const program = (
       yield* startServer(
         undefined,
         {
-          whole: () => (copy ? bytes : undefined),
+          whole: () => Deferred.await(initial).pipe(Effect.map(() => bytes)),
           changes: (cursor) =>
             Deferred.await(ready).pipe(
               Effect.flatMap((read) => read(cursor)),
