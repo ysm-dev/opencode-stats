@@ -297,6 +297,18 @@ it("holds drawn metric/selection state while answers wait and never announces li
     expect(document.querySelector(".graph-readout")!.textContent).toContain("$9 estimated cost"),
   );
   expect(spoken.textContent).toBe(announced);
+  f.server.commit(
+    syntheticCopy(
+      rows.map((row) => ({ ...row, estimatedCost: null })),
+      { revision: 3 },
+    ),
+  );
+  await vi.waitFor(() =>
+    expect(document.querySelector(".graph-readout")!.textContent).toContain(
+      "Unavailable estimated cost · 0% of tokens priced",
+    ),
+  );
+  expect(spoken.textContent).toBe(announced);
   expect(marks().size).toBe(1);
 });
 
@@ -329,6 +341,8 @@ it("opens a newly narrow graph at today without resetting an ongoing narrow scro
   setMedia({ ...initialMedia, columnWidth: 719 });
   expect(scroll.scrollLeft).toBe(161);
   scroll.scrollLeft = 64;
+  setMedia({ ...initialMedia, columnWidth: 360 });
+  expect(scroll.scrollLeft).toBe(64);
   pointer(svg, svg.querySelector('[data-date="2026-10-01"]')!, "touch");
   setMedia({ ...initialMedia, columnWidth: 360, coarse: true });
   expect(scroll.scrollLeft).toBe(64);
@@ -338,6 +352,12 @@ it("opens a newly narrow graph at today without resetting an ongoing narrow scro
   expect(f.engine.answers).toHaveLength(answers + 1);
   expect(svg.getAttribute("data-state")).not.toBe(global);
   expect(marks().size).toBe(1);
+  await f.user.click(f.view.getByRole("button", { name: "Clear readout" }));
+  expect(scroll.scrollLeft).toBe(64);
+  setMedia({ ...initialMedia, columnWidth: 720 });
+  expect(scroll.scrollLeft).toBe(0);
+  setMedia({ ...initialMedia, columnWidth: 719 });
+  expect(scroll.scrollLeft).toBe(161);
 });
 
 it.each([

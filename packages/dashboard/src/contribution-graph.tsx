@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount, useContext } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, useContext } from "solid-js";
 import {
   addDates,
   dateCount,
@@ -24,6 +24,7 @@ export const ContributionGraph = () => {
   const state = useContext(PageState)!;
   const client = useContext(PageActions)!;
   const media = useMediaSize();
+  const narrow = createMemo(() => media().columnWidth < 720);
   const graph = () => state().graph;
   const [reading, setReading] = createSignal<{ date: string; spoken: string }>();
   const geometry = createMemo(() => graphGeometry(graph().days));
@@ -78,6 +79,13 @@ export const ContributionGraph = () => {
     svg.focus();
     changes.local("graph-read", () => setReading(undefined));
   };
+  const scrollReading = (date: string) => {
+    const column = geometry().column(date);
+    const x = (column * svg.getBoundingClientRect().width) / geometry().columns;
+    if (x < scroll.scrollLeft) scroll.scrollLeft = x;
+    else if (x + 16 > scroll.scrollLeft + scroll.clientWidth)
+      scroll.scrollLeft = x + 16 - scroll.clientWidth;
+  };
   const key = (event: KeyboardEvent) => {
     const last = graph().days.at(-1)!.date;
     const date = read()?.date ?? last;
@@ -108,11 +116,7 @@ export const ContributionGraph = () => {
         date: bounded,
         spoken: `${readingLabel(bounded)} · ${about() ? "about " : ""}${value()}${basis()}`,
       });
-      const column = geometry().column(bounded);
-      const x = (column * svg.getBoundingClientRect().width) / geometry().columns;
-      if (x < scroll.scrollLeft) scroll.scrollLeft = x;
-      else if (x + 16 > scroll.scrollLeft + scroll.clientWidth)
-        scroll.scrollLeft = x + 16 - scroll.clientWidth;
+      scrollReading(bounded);
     });
   };
   const inRange = (date: string) =>
@@ -121,16 +125,23 @@ export const ContributionGraph = () => {
     ) &&
     date >= state().period.from &&
     date <= state().period.to;
-  onMount(() => {
-    scroll.scrollLeft = scroll.scrollWidth;
-  });
+  createEffect(
+    on(narrow, (entered) => {
+      if (!entered) return;
+      changes.local("resize", () => {
+        const current = read();
+        if (current) scrollReading(current.date);
+        else scroll.scrollLeft = scroll.scrollWidth;
+      });
+    }),
+  );
   return (
     <section
       class="contribution-graph"
       aria-labelledby="contribution-heading"
       data-state={stateMark(state())}
       data-local-state={stateMark(local())}
-      data-narrow={media().columnWidth < 720}
+      data-narrow={narrow()}
       data-coarse={media().coarse}
     >
       <h2 id="contribution-heading">Contribution graph</h2>
@@ -264,8 +275,7 @@ export const ContributionGraph = () => {
           {(current) => (
             <>
               <p>
-                {readingLabel(current().date)} ·{" "}
-                <HeadlineText text={value()} about={about()} />
+                {readingLabel(current().date)} · <HeadlineText text={value()} about={about()} />
                 {basis()}
               </p>
               <div class="graph-actions">

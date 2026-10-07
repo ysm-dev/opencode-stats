@@ -132,7 +132,10 @@ async function appearance(input: Input, repeat: number) {
 async function contributionChanges(input: Input, repeat: number) {
   const graph = input.page.getByRole("group", { name: "Contribution metric" });
   await wholeChange(input.page, "graph-metric", () =>
-    activate(input, graph.getByRole("button", { name: repeat ? "Cost" : "Steps", exact: true })),
+    activate(
+      input,
+      graph.getByRole("button", { name: repeat ? "≈ Estimated cost" : "Steps", exact: true }),
+    ),
   );
   const surface = input.page.getByRole("img", { name: "Contribution graph, past 365 local days" });
   await surface.focus();
