@@ -3,6 +3,7 @@ import {
   addDates,
   dateCount,
   calendarRange,
+  chartMetricLabels,
   type CalendarUnit,
   type GraphMetric,
 } from "@opencode-stats/engine";
@@ -143,7 +144,7 @@ export const ContributionGraph = () => {
               aria-pressed={graph().metric === metric}
               onClick={() => void client.request({ kind: "graph-metric", metric })}
             >
-              {metric === "cost" ? "Cost" : metric === "steps" ? "Steps" : "Tokens"}
+              {chartMetricLabels[metric]}
             </button>
           )}
         </For>
