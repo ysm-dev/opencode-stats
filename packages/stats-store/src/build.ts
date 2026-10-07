@@ -4,7 +4,7 @@ import { eq, lte } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
-import { sqlFailure } from "./errors.ts";
+import { sqlFailure, syncFailure } from "./errors.ts";
 import { Database, type DatabaseAdapter, type StorePaths } from "./database.ts";
 import * as schema from "./schema.ts";
 import type { SourceReader, SourceSession, SourceProject } from "./source-reader.ts";
@@ -290,7 +290,7 @@ export const reconcile = Effect.fnUntraced(
     }
     return (yield* reader.version) !== sourceVersion;
   },
-  Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "writeSteps"))),
+  Effect.catchCause((cause) => Effect.fail(syncFailure(cause, "writeSteps"))),
 );
 
 export const collectTombstones = Effect.fnUntraced(

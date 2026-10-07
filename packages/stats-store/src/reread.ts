@@ -50,7 +50,9 @@ export function rereadState(store: string, report: BuildReport) {
         const changedFile = sourceFile !== undefined && sourceFile !== file;
         sourceFile = file;
         if (changedFile || repaired || needsVerification) {
-          for (const session of inventory) recovery.add(session.id);
+          // Recovery invalidates even sessions already read by an unfinished reread.
+          const forced = reading?.forced ?? recovery;
+          for (const session of inventory) forced.add(session.id);
           repaired = false;
         }
         const migrations = JSON.stringify(schema.migrations);

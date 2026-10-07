@@ -8,11 +8,11 @@ import * as Cause from "effect/Cause";
 import { Database, type DatabaseAdapter, type StorePaths } from "./database.ts";
 import type { SourceAdapter } from "./source-reader.ts";
 import { initializeStore, reconcile, collectTombstones } from "./build.ts";
-import { sqlFailure } from "./errors.ts";
+import { SchemaFailure, sqlFailure } from "./errors.ts";
 import { pricingForPass } from "./pricing.ts";
 import type { BuildReport } from "./build-events.ts";
 import { steps, sessionFacts, metadata } from "./schema.ts";
-import { readReceipt, SchemaFailure, syncState } from "./sync-state.ts";
+import { readReceipt, syncState } from "./sync-state.ts";
 import { rereadState } from "./reread.ts";
 import { prepareStorePaths } from "./location.ts";
 

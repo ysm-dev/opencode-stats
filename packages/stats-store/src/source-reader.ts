@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Schedule from "effect/Schedule";
-import { sqlFailure } from "./errors.ts";
+import { SchemaFailure, SqlFailure, syncFailure } from "./errors.ts";
 import { SourceTool, toolsSql } from "./source-tools.ts";
 import { schemaReader } from "./source-schema.ts";
 
@@ -92,7 +92,7 @@ const promptsSql = `SELECT m.id, m.session_id AS session, m.seq AS position, m.t
   AND NOT (m.id GLOB 'msg_${"?".repeat(26)}_[0-9]*' AND substr(m.id,32) NOT GLOB '*[^0-9]*') ORDER BY m.seq`;
 
 function attempt<A>(read: () => A) {
-  return Effect.try({ try: read, catch: (error) => sqlFailure(error, "readSource") });
+  return Effect.try({ try: read, catch: (error) => syncFailure(error, "readSource") });
 }
 function readTransaction<A>(db: NativeReader, read: () => A): A {
   db.exec("BEGIN");
@@ -105,21 +105,32 @@ function readTransaction<A>(db: NativeReader, read: () => A): A {
 export function sourceReader(db: NativeReader) {
   db.exec("PRAGMA busy_timeout=20");
   const schema = schemaReader(db);
+  const snapshot = <A>(read: () => A) =>
+    readTransaction(db, () => {
+      // Approval and source rows share this short synchronous snapshot, never an async pass.
+      const checked = schema(false);
+      if (checked.kind !== "recognized") throw new SchemaFailure(checked.kind);
+      return read();
+    });
   return {
     schema: attempt(() => readTransaction(db, schema)),
-    catalogStamp: attempt(() => {
-      const row = db.all("SELECT time_updated FROM kv WHERE key='models-dev:catalog'")[0];
-      return row ? Schema.decodeUnknownSync(instant)(row["time_updated"]) : null;
-    }),
-    catalog: attempt(() => {
-      const row = db.all("SELECT value FROM kv WHERE key='models-dev:catalog'")[0];
-      return row ? Schema.decodeUnknownSync(Schema.String)(row["value"]) : null;
-    }),
+    catalogStamp: attempt(() =>
+      snapshot(() => {
+        const row = db.all("SELECT time_updated FROM kv WHERE key='models-dev:catalog'")[0];
+        return row ? Schema.decodeUnknownSync(instant)(row["time_updated"]) : null;
+      }),
+    ),
+    catalog: attempt(() =>
+      snapshot(() => {
+        const row = db.all("SELECT value FROM kv WHERE key='models-dev:catalog'")[0];
+        return row ? Schema.decodeUnknownSync(Schema.String)(row["value"]) : null;
+      }),
+    ),
     version: attempt(() =>
       Schema.decodeUnknownSync(instant)(db.all("PRAGMA main.data_version")[0]!["data_version"]),
     ),
     inventory: attempt(() => {
-      const rows = readTransaction(db, () => ({
+      const rows = snapshot(() => ({
         sessions: db.all(inventorySql),
         projects: db.all("SELECT id,name,worktree FROM project"),
       }));
@@ -131,7 +142,7 @@ export function sourceReader(db: NativeReader) {
     read: (id: string) =>
       attempt(() => {
         // Native synchronous calls: the snapshot ends before decoding, retries, store writes or IPC.
-        const { rows, headers, prompts, tools } = readTransaction(db, () => ({
+        const { rows, headers, prompts, tools } = snapshot(() => ({
           headers: db.all(`${inventorySql} WHERE s.id=?`, id),
           rows: db.all(factsSql, id),
           prompts: db.all(promptsSql, id),
@@ -148,7 +159,7 @@ export function sourceReader(db: NativeReader) {
         Effect.retry({
           schedule: Schedule.exponential("20 millis"),
           times: 3,
-          while: (error) => error.code === "SQLITE_BUSY",
+          while: (error) => error instanceof SqlFailure && error.code === "SQLITE_BUSY",
         }),
       ),
   };

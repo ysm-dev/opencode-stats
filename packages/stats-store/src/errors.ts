@@ -1,6 +1,11 @@
 import * as Cause from "effect/Cause";
 
 export type Statement = "readSource" | "writeSteps" | "readStore";
+export class SchemaFailure extends Error {
+  constructor(readonly schema: "newer" | "v1" | "other") {
+    super("Unrecognized OpenCode schema.");
+  }
+}
 const codes = [
   "SQLITE_ERROR",
   "SQLITE_BUSY",
@@ -72,4 +77,13 @@ export function sqlFailure(
     )
       return new SqlFailure(code, statement);
   return sqlFailure(Object.getOwnPropertyDescriptor(input, "cause")?.value, statement, seen);
+}
+
+export function syncFailure(
+  // oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: native/Effect failures retain only the classified schema or safe SQL fields
+  input: unknown,
+  statement: Statement,
+): SchemaFailure | SqlFailure {
+  const error = Cause.isCause(input) ? Cause.squash(input) : input;
+  return error instanceof SchemaFailure ? error : sqlFailure(error, statement);
 }
