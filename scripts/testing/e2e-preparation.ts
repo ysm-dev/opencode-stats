@@ -113,7 +113,10 @@ try {
   assert.match(failedTests.output, /E2e command failed/u);
   if (process.platform !== "win32") {
     assert.match(failedTests.output, /\[DEBUG-intel-lifetime\] inventory-start/u);
-    assert.match(failedTests.output, /\[DEBUG-intel-lifetime\] inventory-end elapsedMs=\d+ status=0/u);
+    assert.match(
+      failedTests.output,
+      /\[DEBUG-intel-lifetime\] inventory-end elapsedMs=\d+ status=0/u,
+    );
     assert.match(
       failedTests.output,
       /\[DEBUG-intel-lifetime\] pid=\d+ ppid=\d+ pgid=\d+ state=[A-Za-z+<]+/u,
