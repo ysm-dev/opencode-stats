@@ -221,54 +221,66 @@ it("a vanished served file never gets recreated, and resumes when the same datab
   }
 });
 
-it("an initial writable-store open failure retains readable cached facts and retries without exiting", async () => {
-  const f = syntheticFixture();
-  let failing = true;
-  const reports: StoreEvent[] = [];
-  const runtime: StoreRuntime = {
-    ...nodeRuntime,
-    worker: (paths, announce = () => Effect.void, report) =>
-      sync(
-        paths,
-        (config) => nodeDatabase({ ...config, filename: failing ? f.folder : config.filename }),
-        nodeSource,
-        announce,
-        report,
-      ),
-  };
-  try {
-    f.writer.session("cached");
-    const message = { id: "cached-message", session: "cached", seq: 0, start: 1 };
-    f.writer.message({ ...message, tokens: { output: 7 } });
-    const options = { source: f.source, cacheHome: f.folder };
-    const old = await readBuilt(options, () => {}, nodeRuntime);
-    await runWithClock((time) =>
-      Effect.gen(function* () {
-        const store = yield* stayInSync(
-          options,
-          runtime,
-          () => {},
-          (event) => reports.push(event),
-        );
-        expect((yield* store.read()).steps).toEqual(old.steps);
-        expect(reports).toContainEqual(
-          expect.objectContaining({ kind: "sync.stopped", reason: "store.unwritable" }),
-        );
-        f.writer.message({ ...message, tokens: { output: 9 } });
-        failing = false;
-        yield* time.tick;
-        const current = yield* store.read();
-        expect(current.generation).toBe(old.generation);
-        expect(current.steps[0]!.output).toBe(9);
-        expect(reports).toContainEqual(
-          expect.objectContaining({ kind: "sync.resumed", reason: "store.unwritable" }),
-        );
-      }),
-    );
-  } finally {
-    f.dispose();
-  }
-});
+it.each(["store", "source"])(
+  "an initial %s open failure retains readable cached facts and retries without exiting",
+  async (origin) => {
+    const f = syntheticFixture();
+    let failing = true;
+    const reports: StoreEvent[] = [];
+    const reason = origin === "store" ? "store.unwritable" : "source.unreadable";
+    const runtime: StoreRuntime = {
+      ...nodeRuntime,
+      worker: (paths, announce = () => Effect.void, report) =>
+        sync(
+          paths,
+          (config) =>
+            nodeDatabase({
+              ...config,
+              filename: failing && origin === "store" ? f.folder : config.filename,
+            }),
+          (filename) =>
+            failing && origin === "source"
+              ? Effect.fail(Object.assign(new Error("SYNTHETIC PRIVATE"), { code: "EACCES" }))
+              : nodeSource(filename),
+          announce,
+          report,
+        ),
+    };
+    try {
+      f.writer.session("cached");
+      const message = { id: "cached-message", session: "cached", seq: 0, start: 1 };
+      f.writer.message({ ...message, tokens: { output: 7 } });
+      const options = { source: f.source, cacheHome: f.folder };
+      const old = await readBuilt(options, () => {}, nodeRuntime);
+      await runWithClock((time) =>
+        Effect.gen(function* () {
+          const store = yield* stayInSync(
+            options,
+            runtime,
+            () => {},
+            (event) => reports.push(event),
+          );
+          expect((yield* store.read()).steps).toEqual(old.steps);
+          expect(reports).toContainEqual(
+            expect.objectContaining({ kind: "sync.stopped", reason }),
+          );
+          f.writer.message({ ...message, tokens: { output: 9 } });
+          failing = false;
+          yield* time.tick;
+          const current = yield* store.read();
+          expect(current.generation).toBe(old.generation);
+          expect(current.steps[0]!.output).toBe(9);
+          expect(reports).toContainEqual(
+            expect.objectContaining({ kind: "sync.resumed", reason }),
+          );
+          expect(JSON.stringify(reports)).not.toContain("SYNTHETIC PRIVATE");
+        }),
+      );
+    } finally {
+      f.dispose();
+    }
+  },
+);
 
 it("a failed atomic sync receipt leaves no temporary file and retries without rebuilding facts", async () => {
   const f = syntheticFixture();

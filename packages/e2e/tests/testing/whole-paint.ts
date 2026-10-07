@@ -66,9 +66,8 @@ export function installWholePaintObserver(observing = true) {
   };
   // oxlint-disable-next-line unicorn/consistent-function-scoping -- Playwright serializes this entire observer into the browser without module bindings.
   const graphDrawing = (root: ParentNode) =>
-    [
-      ...root.querySelectorAll(".graph-plot, .graph-surface, .graph-surface rect, .graph-label"),
-    ].map((node) => node.outerHTML);
+    // The plot contains the whole SVG; SVG regions also retain their own markup.
+    [...root.querySelectorAll(".graph-plot, .graph-label")].map((node) => node.outerHTML);
   const observeRegions = (regions: Element[]) => {
     for (const region of regions) {
       // This container contains several independent checklist search states.

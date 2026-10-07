@@ -1,12 +1,10 @@
-import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
-import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { inThreadEngine } from "@opencode-stats/engine/testing";
-import { inMemoryDashboardServer, syntheticCopy } from "@opencode-stats/browser-copy/testing";
-import { Dashboard } from "./dashboard.tsx";
+import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { afterEach, beforeEach, onTestFinished, expect, it, vi } from "vitest";
+import { syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import { startup } from "./startup.ts";
 import { prepaintThemes } from "./preload.ts";
 import { accessible } from "./testing/accessibility.ts";
+import { dashboardFixture } from "./testing/dashboard-fixture.tsx";
 
 const native = window.localStorage;
 const listeners = vi.spyOn(window, "addEventListener");
@@ -35,27 +33,20 @@ afterEach(() => {
 
 const dashboard = () => {
   window.history.replaceState(null, "", "/?range=all");
-  const server = inMemoryDashboardServer(
+  const fixture = dashboardFixture(
     syntheticCopy([
-      { start: 1, input: 987, cacheRead: null, cacheWrite: null, output: null, reasoning: null },
+      {
+        start: Date.parse("2026-10-07T12:00Z"),
+        input: 987,
+        cacheRead: null,
+        cacheWrite: null,
+        output: null,
+        reasoning: null,
+      },
     ]),
   );
-  const engine = inThreadEngine(server.fetch);
-  const view = render(() => (
-    <Dashboard client={engine.client} ready={Promise.resolve()} media={() => initialMedia} />
-  ));
-  const user = userEvent.setup();
-  return {
-    server,
-    engine,
-    view,
-    user,
-    close: async () => {
-      cleanup();
-      await engine.dispose();
-      await server.dispose();
-    },
-  };
+  onTestFinished(fixture.close);
+  return fixture;
 };
 it("changes exactly three preferences through the real provider without touching page data", async () => {
   const { server, engine, view, user, close } = dashboard();
@@ -475,4 +466,3 @@ it("reports a late native write refusal and keeps preference changes working for
     await close();
   }
 });
-import { initialMedia } from "./media-size.tsx";

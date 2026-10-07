@@ -176,17 +176,17 @@ export const sync = Effect.fnUntraced(function* (
       yield* Effect.never;
     }),
   ).pipe(
-    Effect.catchCause((cause) =>
-      Effect.gen(function* () {
-        if (Cause.hasInterrupts(cause)) yield* Effect.failCause(cause);
+    Effect.catchCause((cause) => {
+      if (Cause.hasInterrupts(cause)) return Effect.failCause(cause);
+      return Effect.gen(function* () {
         yield* state.failed(
           sqlFailure(Cause.squash(cause), "writeSteps"),
           yield* Clock.currentTimeMillis,
         );
         yield* Deferred.succeed(ready, undefined);
         yield* Effect.sleep("500 millis");
-      }),
-    ),
+      });
+    }),
   );
   // Initialization failures are recoverable too: a readable existing store remains served.
   yield* Effect.forkScoped(Effect.forever(attempt));

@@ -64,6 +64,11 @@ it("SVG uses the palette without motion, fits all buckets at 360px/190px, and ex
   expect(readout().textContent).toContain("Range totals");
   expect(readout().textContent).toContain("Total · 3,080");
   expect(document.querySelector(".chart-spoken")!.textContent).toBe("");
+  await f.user.click(f.view.getByRole("button", { name: /^Chart metric/ }));
+  expect(
+    screen.getByRole("option", { name: "Tokens" }).closest(".chart-options-coarse"),
+  ).not.toBeNull();
+  await f.user.keyboard("{Escape}");
   const requests = f.server.requests;
   setMedia({ ...media(), columnWidth: 1280, coarse: false });
   expect(chart().querySelector("svg")!.getAttribute("viewBox")).toBe("0 0 1280 260");

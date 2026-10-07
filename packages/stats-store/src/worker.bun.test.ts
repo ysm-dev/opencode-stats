@@ -10,7 +10,7 @@ import { nodeDatabase, nodeSource } from "./runtime.node.ts";
 import { workerProgram } from "./worker-program.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { InThreadWorker } from "./testing/worker.ts";
-import { stayInSync, type StoreEvent } from "./store.ts";
+import { stayInSync, sqlFailure, type StoreEvent } from "./store.ts";
 vi.mock("bun:sqlite", () => ({ Database: { setCustomSQLite: vi.fn<(file: string) => void>() } }));
 
 it("builds through the Bun Worker adapter with an in-thread worker, and removes listeners before terminating", async () => {
@@ -44,23 +44,31 @@ it("builds through the Bun Worker adapter with an in-thread worker, and removes 
   }
 });
 
-it.each(["readSource", "writeSteps", "readStore"] as const)(
-  "normalizes a fatal worker transport failure for statement %s",
-  async (statement) => {
+it.each([
+  { statement: "readSource", transport: "payload" },
+  { statement: "writeSteps", transport: "payload" },
+  { statement: "readStore", transport: "payload" },
+  { statement: "readStore", transport: "throw" },
+] as const)(
+  "normalizes a fatal worker transport failure for $statement ($transport)",
+  async ({ statement, transport }) => {
     const fixture = syntheticFixture();
     const worker = new InThreadWorker();
-    worker.postMessage = () =>
-      queueMicrotask(() => {
-        const payload = {
-          kind: "sqlite" as const,
-          code: "SQLITE_FULL",
-          statement,
-          message: "PRIVATE_TITLE",
-          cause: "PRIVATE_CAUSE",
-          stack: "PRIVATE_STACK",
-        };
-        worker.emit("message", payload);
-      });
+    const payload = {
+      kind: "sqlite" as const,
+      code: "SQLITE_FULL",
+      statement,
+      message: "PRIVATE_TITLE",
+      cause: "PRIVATE_CAUSE",
+      stack: "PRIVATE_STACK",
+    };
+    if (transport === "throw") {
+      const emit = worker.emit.bind(worker);
+      worker.emit = (type, value) => {
+        if (value === true) throw sqlFailure(payload, statement);
+        emit(type, value);
+      };
+    } else worker.postMessage = () => queueMicrotask(() => worker.emit("message", payload));
     vi.stubGlobal("Worker", function () {
       return worker;
     });

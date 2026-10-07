@@ -217,6 +217,42 @@ it("announces the pending history boundary even when vanished sessions are remov
   }
 });
 
+it("resnapshots a write racing the deletion commit before reading older pending units", async () => {
+  const fixture = syntheticFixture();
+  const { writer, source, folder } = fixture;
+  const options = { source, cacheHome: folder };
+  try {
+    writer.session("removed");
+    writer.message({ id: "removed-step", session: "removed", seq: 0, start: 1000 });
+    const before = await readBuilt(options);
+    writer.deleteSession("removed");
+    writer.session("older");
+    writer.message({ id: "older-step", session: "older", seq: 0, start: 2000 });
+    const published: string[][] = [];
+    const after = await readBuilt(
+      options,
+      (copy) => {
+        published.push(copy.facts.map((fact) => fact.id).toSorted());
+        if (copy.facts.length === 0) {
+          writer.session("newer");
+          writer.message({ id: "newer-step", session: "newer", seq: 0, start: 3000 });
+        }
+      },
+      nodeRuntime,
+    );
+    expect(after.generation).toBe(before.generation);
+    expect(after.historyComplete).toBe(true);
+    expect(published).toEqual([
+      ["removed-step"],
+      [],
+      ["newer-step"],
+      ["newer-step", "older-step"],
+    ]);
+  } finally {
+    fixture.dispose();
+  }
+});
+
 it.each(["count", "position"])(
   "startup reconciles a missed %s change without waiting for the first poll",
   async (change) => {

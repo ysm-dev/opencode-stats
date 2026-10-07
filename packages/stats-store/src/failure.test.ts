@@ -4,7 +4,7 @@ import { join } from "node:path";
 import * as Effect from "effect/Effect";
 import { expect, it } from "vitest";
 import { stayInSync, type StoreEvent } from "./store.ts";
-import { syntheticFixture, inThreadRuntime } from "./testing/index.ts";
+import { syntheticFixture, inThreadRuntime, readBuilt } from "./testing/index.ts";
 import { nodeRuntime } from "./runtime.node.ts";
 
 it("worker IPC keeps serving an empty copy and a typed stop reason for a genuine unsupported source", async () => {
@@ -58,6 +58,27 @@ it("normalizes a native read failure after the derived store disappears", async 
         }),
       ),
     );
+  } finally {
+    fixture.dispose();
+  }
+});
+
+it("rejects a vanished cache at worker readiness instead of announcing an unbuilt replacement", async () => {
+  const fixture = syntheticFixture();
+  const copies: number[] = [];
+  try {
+    const options = { source: fixture.source, cacheHome: fixture.folder };
+    const before = await readBuilt(options);
+    await expect(
+      readBuilt(options, (copy) => copies.push(copy.revision), {
+        ...nodeRuntime,
+        worker: (paths, announce, report) =>
+          nodeRuntime.worker(paths, announce, report).pipe(
+            Effect.andThen(() => rmSync(paths.store)),
+          ),
+      }),
+    ).rejects.toMatchObject({ kind: "sqlite", statement: "readStore" });
+    expect(copies).toEqual([before.revision]);
   } finally {
     fixture.dispose();
   }

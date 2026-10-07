@@ -196,6 +196,7 @@ const ChartReadout = (props: {
 }) => {
   const bucket = () =>
     props.local().bucket === null ? undefined : props.local().chart.buckets[props.local().bucket!];
+  const preserveFocus = (button: HTMLButtonElement) => props.preserveFocus(button);
   return (
     <div
       class="chart-readout"
@@ -214,12 +215,12 @@ const ChartReadout = (props: {
       <Show when={bucket()}>
         <div class="chart-read-actions">
           <Show when={props.local().chart.unit !== "hour"}>
-            <button ref={props.preserveFocus} type="button" tabIndex={0} onClick={props.drill}>
+            <button ref={preserveFocus} type="button" tabIndex={0} onClick={props.drill}>
               Drill in
             </button>
           </Show>
           <button
-            ref={props.preserveFocus}
+            ref={preserveFocus}
             type="button"
             tabIndex={0}
             aria-label="Clear chart reading"
@@ -236,7 +237,7 @@ const ChartReadout = (props: {
             return (
               <li>
                 <button
-                  ref={props.preserveFocus}
+                  ref={preserveFocus}
                   type="button"
                   tabIndex={0}
                   aria-pressed={props.local().highlighted === id}
@@ -267,7 +268,6 @@ const ChartReadout = (props: {
     </div>
   );
 };
-
 export const UsageChart = () => {
   const state = useContext(PageState)!;
   const actions = useContext(PageActions)!;
