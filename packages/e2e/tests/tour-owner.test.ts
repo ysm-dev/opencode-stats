@@ -1,6 +1,10 @@
 import { expect, it, vi } from "vitest";
 import { createTourOwner, type TourScope } from "./testing/tour-owner.ts";
 
+const expectCanceled = async <Value>(pending: Promise<Value>) => {
+  await expect(pending).rejects.toThrow("tour:previous-case-failed-or-closed");
+};
+
 function ownedFixture() {
   const released = Promise.withResolvers<void>();
   const dispose = vi.fn<() => Promise<void>>(async () => {
@@ -27,7 +31,7 @@ it("owns one setup promise and disposes an unready result arriving after failure
     async () => {},
   );
   const first = owner.run(use);
-  const canceled = expect(first).rejects.toThrow("tour:previous-case-failed-or-closed");
+  const canceled = expectCanceled(first);
   await fixture.started;
   owner.fail();
   await canceled;
@@ -56,7 +60,7 @@ it("cancels a failed active round before dependent reuse or post-await effects",
       settled.resolve();
     }
   });
-  const canceled = expect(first).rejects.toThrow("tour:previous-case-failed-or-closed");
+  const canceled = expectCanceled(first);
   await started.promise;
   owner.fail();
   await canceled;
@@ -120,7 +124,7 @@ it("poisons overlapping dependent cases rather than opening another fixture", as
   const fixture = unreadyFixtureOwner();
   await using owner = fixture.owner;
   const first = owner.run(async (resource) => resource);
-  const canceled = expect(first).rejects.toThrow("tour:previous-case-failed-or-closed");
+  const canceled = expectCanceled(first);
   await fixture.started;
   await expect(owner.run(async (resource) => resource)).rejects.toThrow(
     "tour:overlapping-dependent-case",

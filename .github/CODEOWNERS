@@ -102,3 +102,5 @@
 /packages/e2e/tests/tour-owner.test.ts @ysm-dev
 /packages/e2e/tests/whole-load-chromium.test.ts @ysm-dev
 /packages/e2e/tests/whole-load-webkit.test.ts @ysm-dev
+/packages/e2e/tests/chart-paint-canaries.test.ts @ysm-dev
+/packages/e2e/tests/testing/chart-tour.ts @ysm-dev

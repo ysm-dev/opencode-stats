@@ -1,9 +1,12 @@
+import { createRequire } from "node:module";
 import { chromium, webkit } from "playwright";
 import { expect, it } from "vitest";
 import { preferencesBrowser } from "./testing/preferences-server.ts";
 import { installTourClock } from "./testing/change-clock.ts";
 import { tourStart } from "./testing/change-tour.ts";
 import { installWholePaintObserver, paintEvidence, wholeChange } from "./testing/whole-paint.ts";
+
+const require = createRequire(import.meta.url);
 
 it.each([chromium, webkit])(
   "%s rejects unmarked SVG, highlight, cursor, local-readout and geometry changes",
