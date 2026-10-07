@@ -144,30 +144,39 @@ it.each(["paused", "hidden"])(
   },
 );
 
-it("a revision-zero stopped store exposes its typed problem instead of claiming that history covers today", async () => {
-  const f = fixture();
-  f.server.commit(
-    syntheticCopy([], { revision: 0, historyComplete: false, historyCompleteFrom: 0 }),
-  );
-  f.server.status(syntheticStop());
-  expect(await f.engine.client.request({ kind: "all-time" })).toMatchObject({
-    kind: "paint",
-    state: {
-      screen: "problem",
-      reason: "copy-unavailable",
-      stop: { reason: "schema.newer" },
-    },
-  });
-  f.server.commit(syntheticCopy(f.facts, { revision: 1 }));
-  f.server.status(null);
-  await vi.waitFor(() =>
-    expect(f.states.at(-1)).toMatchObject({
-      screen: "dashboard",
-      tokens: { total: 10 },
-      statusLine: "",
-    }),
-  );
-});
+it.each(["same", "replacement"])(
+  "a revision-zero stopped store exposes its typed problem and automatically recovers the %s generation",
+  async (generation) => {
+    const f = fixture();
+    f.server.commit(
+      syntheticCopy([], { revision: 0, historyComplete: false, historyCompleteFrom: 0 }),
+    );
+    f.server.status(syntheticStop());
+    expect(await f.engine.client.request({ kind: "all-time" })).toMatchObject({
+      kind: "paint",
+      state: {
+        screen: "problem",
+        reason: "copy-unavailable",
+        stop: { reason: "schema.newer" },
+      },
+    });
+    f.server.commit(
+      syntheticCopy([{ ...f.facts[0]!, start: 1, input: 987 }], {
+        revision: 1,
+        ...(generation === "replacement" ? { generation: "recovered-generation" } : {}),
+      }),
+    );
+    f.server.status(null);
+    await vi.waitFor(() =>
+      expect(f.states.at(-1)).toMatchObject({
+        screen: "dashboard",
+        address: "/?range=all",
+        tokens: { total: 987 },
+        statusLine: "",
+      }),
+    );
+  },
+);
 
 it("a stopped incoming generation warns over the retained page, without crossing its today-ready barrier", async () => {
   const f = fixture();

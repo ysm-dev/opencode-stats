@@ -1,26 +1,95 @@
 import { expect, test } from "bun:test";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import { bunWorker } from "./worker.bun.ts";
-import { syntheticFixture, streamingFixture } from "./testing/index.ts";
+import * as Deferred from "effect/Deferred";
+import { streamingFixture } from "./testing/index.ts";
 import { storePaths } from "./location.ts";
 import { renameSync } from "node:fs";
 import { join } from "node:path";
 import { observedStore } from "./testing/store.ts";
 import { bunRuntime } from "./runtime.bun.ts";
+import type { StoreEvent } from "./build-events.ts";
+import { syncWorkerFile } from "./paths.ts";
 
-test("native Bun Worker reports a failed build and terminates cleanly", async () => {
-  const fixture = syntheticFixture();
+test.each(["source.missing", "schema.newer"] as const)(
+  "native Bun Worker reports a typed %s stop, recovers automatically and terminates cleanly",
+  async (reason) => {
+    const fixture = streamingFixture();
+    const missing = `${fixture.source}.missing`;
+    const migration = "20261007120000_first_run_future";
+    if (reason === "source.missing") {
+      fixture.writer.close();
+      renameSync(fixture.source, missing);
+    } else fixture.writer.migration(migration);
+    try {
+      const paths = storePaths({
+        source: fixture.source,
+        resolvedSource: fixture.source,
+        cacheHome: fixture.folder,
+      });
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const stopped = yield* Deferred.make<StoreEvent>();
+            const resumed = yield* Deferred.make<StoreEvent>();
+            const store = yield* observedStore(
+              {
+                source: fixture.source,
+                resolvedSource: fixture.source,
+                cacheHome: fixture.folder,
+              },
+              bunRuntime,
+              () => {},
+              (event) => {
+                if (event.kind === "sync.stopped")
+                  Deferred.doneUnsafe(stopped, Effect.succeed(event));
+                if (event.kind === "sync.resumed")
+                  Deferred.doneUnsafe(resumed, Effect.succeed(event));
+              },
+            );
+            expect(yield* Deferred.await(stopped)).toMatchObject({
+              kind: "sync.stopped",
+              reason,
+              code: "unavailable",
+            });
+            expect((yield* store.read()).steps).toEqual([]);
+            if (reason === "source.missing") renameSync(missing, fixture.source);
+            else fixture.writer.migration(migration, false);
+            expect(yield* Deferred.await(resumed).pipe(Effect.timeout("3 seconds"))).toMatchObject({
+              kind: "sync.resumed",
+              reason,
+            });
+            const recovered = yield* store.read();
+            expect(recovered.steps[0]!.output).toBe(1);
+            expect(recovered.historyComplete).toBe(true);
+          }),
+        ),
+      );
+      // The recovered worker's scoped native writer must already be closed on Windows too.
+      renameSync(paths.store, `${paths.store}.released`);
+    } finally {
+      fixture.dispose();
+    }
+  },
+);
+
+test("native Bun Worker rejects a malformed startup request as a fatal protocol failure", async () => {
+  const worker = new Worker(syncWorkerFile);
+  const closed = new Promise<void>((resolve) => worker.addEventListener("close", () => resolve()));
+  const messages: Array<boolean | string> = [];
+  const stopped = new Promise<void>((resolve) => {
+    worker.addEventListener("message", (event: MessageEvent<boolean | string>) => {
+      messages.push(event.data);
+      if (event.data === "stopped") resolve();
+    });
+  });
   try {
-    const paths = storePaths({ source: fixture.source, cacheHome: fixture.folder });
-    const failure = await Effect.runPromise(
-      Effect.exit(Effect.scoped(bunWorker({ ...paths, source: `${paths.source}.missing` }))),
-    );
-    expect(Exit.isFailure(failure)).toBe(true);
-    // The failed worker's scoped native writer must already be closed on Windows too.
-    renameSync(paths.store, `${paths.store}.released`);
+    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- dedicated Worker IPC has no target origin
+    worker.postMessage("malformed-startup-request");
+    await stopped;
+    expect(messages).toEqual([false, "stopped"]);
   } finally {
-    fixture.dispose();
+    worker.terminate();
+    await closed;
   }
 });
 

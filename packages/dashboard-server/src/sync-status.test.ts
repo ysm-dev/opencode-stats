@@ -13,6 +13,67 @@ import { nodeLock } from "./lock.node.ts";
 import { readySignal } from "./testing/program.ts";
 import { liveEvents } from "./testing/live-events.ts";
 
+it("a first-run newer schema recovers its initial copy, feed and revision-zero changes automatically", async () => {
+  const f = syntheticFixture();
+  f.writer.session("first-run");
+  f.writer.message({
+    id: "first-step",
+    session: "first-run",
+    seq: 0,
+    start: 1,
+    tokens: { input: 987 },
+  });
+  const migration = "20261007120000_first_run_future";
+  f.writer.migration(migration);
+  const port = await temporaryPort();
+  const origin = `http://127.0.0.1:${port}`;
+  const signal = readySignal();
+  const errors = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+  const fiber = Effect.runFork(
+    program(["--db", f.source, "--port", String(port)], nodeServer, nodeRuntime, nodeLock, {
+      XDG_STATE_HOME: f.folder,
+      XDG_CACHE_HOME: f.folder,
+    }),
+  );
+  let stream: Awaited<ReturnType<typeof liveEvents>> | undefined;
+  try {
+    await signal.ready;
+    stream = await liveEvents(origin);
+    const stopped = await stream.read();
+    expect(stopped.stop?.reason).toBe("schema.newer");
+    const initial = decode(await (await fetch(`${origin}/api/browser-copy`)).arrayBuffer());
+    expect(initial.revision).toBe(0);
+    expect(initial.historyComplete).toBe(false);
+    expect(initial.ids).toEqual([]);
+    f.writer.migration(migration, false);
+    const recovered = await Effect.runPromise(
+      Effect.promise(() => stream!.read()).pipe(Effect.timeout("3 seconds")),
+    );
+    expect(recovered.stop).toBeNull();
+    const changes = decode(
+      await (
+        await fetch(
+          `${origin}/api/browser-copy/changes?generation=${initial.generation}&revision=0`,
+        )
+      ).arrayBuffer(),
+    );
+    expect(changes.generation).toBe(recovered.generation);
+    expect(changes.revision).toBe(recovered.revision);
+    expect(changes.historyComplete).toBe(true);
+    expect(changes.ids).toEqual(["first-step"]);
+    expect([...changes.steps.input]).toEqual([987]);
+    expect(decode(await (await fetch(`${origin}/api/browser-copy`)).arrayBuffer()).steps).toEqual(
+      changes.steps,
+    );
+  } finally {
+    await stream?.close();
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    signal.output.mockRestore();
+    errors.mockRestore();
+    f.dispose();
+  }
+});
+
 it.each(["plain", "yellow", "no-color", "plugin"])(
   "keeps HTTP and SSE alive while sync stops (%s), then clears the reason with the recovered facts",
   async (mode) => {

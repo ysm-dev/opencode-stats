@@ -1,6 +1,7 @@
 import { chromium } from "playwright";
 import { expect, it } from "vitest";
 import { preferencesBrowser } from "./testing/preferences-server.ts";
+import { decode } from "@opencode-stats/browser-copy";
 
 declare global {
   interface Window {
@@ -125,7 +126,18 @@ it("a first packed load against an unknown-newer schema shows its actionable fix
   );
   expect(await page.getByText("Reload to try again.").count()).toBe(0);
   expect(await page.getByRole("region", { name: "Tokens" }).count()).toBe(0);
+  const changes = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/browser-copy/changes" && response.status() === 200,
+  );
   fixture.server.writer.migration("20261007120000_first_run_future", false);
-  await page.getByRole("region", { name: "Tokens" }).getByText("987", { exact: true }).waitFor();
+  await Promise.all([
+    changes.then(async (response) => {
+      const recovered = decode(Uint8Array.from(await response.body()).buffer);
+      expect(recovered.historyComplete).toBe(true);
+      expect([...recovered.steps.input]).toEqual([987]);
+    }),
+    page.getByRole("region", { name: "Tokens" }).getByText("987", { exact: true }).waitFor(),
+  ]);
   expect(await page.locator("[data-problem-state]").count()).toBe(0);
 });
