@@ -98,5 +98,7 @@
 /packages/e2e/tests/testing/change-measures.ts @ysm-dev
 /packages/e2e/tests/testing/tour-plan.ts @ysm-dev
 /packages/e2e/tests/testing/tour-evidence.ts @ysm-dev
+/packages/e2e/tests/testing/tour-owner.ts @ysm-dev
+/packages/e2e/tests/tour-owner.test.ts @ysm-dev
 /packages/e2e/tests/whole-load-chromium.test.ts @ysm-dev
 /packages/e2e/tests/whole-load-webkit.test.ts @ysm-dev

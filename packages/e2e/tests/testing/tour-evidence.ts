@@ -35,10 +35,20 @@ export function createTourEvidence(label: string) {
 }
 
 const traces = new WeakMap<Page, ReturnType<typeof createTourEvidence>>();
-export const trackTourEvidence = (page: Page, trace: ReturnType<typeof createTourEvidence>) => {
+const cancellation = new WeakMap<Page, AbortSignal>();
+export const trackTourEvidence = (
+  page: Page,
+  trace: ReturnType<typeof createTourEvidence>,
+  signal: AbortSignal,
+) => {
   traces.set(page, trace);
+  cancellation.set(page, signal);
 };
-export function tourWork<T>(page: Page, kind: string, phase: Phase, work: () => Promise<T>) {
+export async function tourWork<T>(page: Page, kind: string, phase: Phase, work: () => Promise<T>) {
+  const signal = cancellation.get(page);
+  signal?.throwIfAborted();
   const trace = traces.get(page);
-  return trace === undefined ? work() : trace(kind, phase, work);
+  const result = await (trace === undefined ? work() : trace(kind, phase, work));
+  signal?.throwIfAborted();
+  return result;
 }

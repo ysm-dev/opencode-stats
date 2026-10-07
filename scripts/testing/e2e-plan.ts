@@ -87,6 +87,7 @@ assert.deepEqual(
   "Long e2e files must run first, including without sharding",
 );
 assert.deepEqual(prepareE2e(["plugin.test.ts"]), { browsers: [], opencode: true });
+assert.deepEqual(prepareE2e(["tour-owner.test.ts"]), { browsers: [], opencode: false });
 assert.deepEqual(prepareE2e(["preferences-webkit.test.ts"]), {
   browsers: ["webkit"],
   opencode: false,

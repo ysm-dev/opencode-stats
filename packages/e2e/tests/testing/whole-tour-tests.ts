@@ -1,5 +1,5 @@
 import type { BrowserType, Page } from "playwright";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, onTestFailed } from "vitest";
 import { preferencesBrowser, type preferencesServer } from "./preferences-server.ts";
 import {
   readChangeEvidence,
@@ -16,6 +16,7 @@ import { changeTour, currentChangeKinds, tourStart } from "./change-tour.ts";
 import { installTourClock } from "./change-clock.ts";
 import { tourRounds, tourWidths } from "./tour-plan.ts";
 import { createTourEvidence, trackTourEvidence } from "./tour-evidence.ts";
+import { createTourOwner, type TourScope } from "./tour-owner.ts";
 
 const tourBrowser = (browser: BrowserType, width: number) =>
   preferencesBrowser(browser, {
@@ -115,9 +116,13 @@ async function assertHeldFontBlank(page: Page) {
   expect(await page.locator("#root").textContent(), "whole-paint:early-load-paint").toBe("");
 }
 
-async function openChangeTour(browser: BrowserType, width: number, observing: boolean) {
-  await using resources = new AsyncDisposableStack();
-  const f = resources.use(await tourBrowser(browser, width));
+async function openChangeTour(
+  browser: BrowserType,
+  width: number,
+  observing: boolean,
+  scope: TourScope,
+) {
+  const f = await scope.use(tourBrowser(browser, width));
   seedTour(f.server);
   await installTourClock(f.context, tourStart);
   await f.context.addInitScript(installWholePaintObserver, observing);
@@ -132,13 +137,14 @@ async function openChangeTour(browser: BrowserType, width: number, observing: bo
   if (observing) await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
   const guard = watchChangeRequests(f.context);
   const tour = changeTour(page, f.server, guard, width === 360);
-  return Object.assign(resources.move(), {
+  scope.signal.throwIfAborted();
+  return {
     server: f.server,
     context: f.context,
     page,
     guard,
     tour,
-  });
+  };
 }
 
 export const testWholePaintLoads = (browser: BrowserType, label: string) =>
@@ -236,29 +242,36 @@ function testPartitionedTour(browser: BrowserType, label: string, observing: boo
     `${label} ${mode} complete tour at %i`,
     { concurrent: false },
     (width) => {
-      let f: Awaited<ReturnType<typeof openChangeTour>> | undefined;
+      let initialTrace: ReturnType<typeof createTourEvidence> | undefined;
+      const owner = createTourOwner((scope) =>
+        initialTrace!("fixture", "setup", () => openChangeTour(browser, width, observing, scope)),
+      );
       const completed: number[] = [];
       afterAll(async () => {
-        await f?.[Symbol.asyncDispose]();
+        await owner[Symbol.asyncDispose]();
       });
       it.each(tourRounds)("retains every native action in round %i", async (round) => {
         expect.hasAssertions();
         const trace = createTourEvidence(`${label}/${mode}/${width}/round-${round}`);
-        if (!f) {
-          f = await trace("fixture", "setup", () => openChangeTour(browser, width, observing));
-          trackTourEvidence(f.page, trace);
-          await f.tour.prepare();
-        }
-        trackTourEvidence(f.page, trace);
-        await f.tour.round(round);
+        initialTrace ??= trace;
+        onTestFailed(() => owner.fail());
+        await owner.run(async (f, signal) => {
+          trackTourEvidence(f.page, trace, signal);
+          expect(completed).toEqual(tourRounds.slice(0, round));
+          if (round === 0) await f.tour.prepare();
+          await f.tour.round(round);
+          signal.throwIfAborted();
+          f.guard.check();
+        });
         completed.push(round);
-        f.guard.check();
       });
       it("proves both rounds and every kind completed, including both build milestones", async () => {
         expect.hasAssertions();
-        expect(completed).toEqual(tourRounds);
-        expect(f).toBeDefined();
-        await verify(f!);
+        onTestFailed(() => owner.fail());
+        await owner.run(async (f) => {
+          expect(completed).toEqual(tourRounds);
+          await verify(f);
+        });
       });
     },
   );

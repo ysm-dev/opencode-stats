@@ -26,6 +26,7 @@ const work: Readonly<Record<string, Work>> = {
   "whole-load-chromium.test.ts": [15, ["chromium"]],
   "whole-load-webkit.test.ts": [15, ["webkit"]],
   "whole-paint-canaries.test.ts": [25, ["chromium", "webkit"]],
+  "tour-owner.test.ts": [1, []],
   "preference-evidence.test.ts": [8, ["chromium"]],
   "preferences-chromium.test.ts": [17, ["chromium"]],
   "source.test.ts": [19, ["chromium"]],

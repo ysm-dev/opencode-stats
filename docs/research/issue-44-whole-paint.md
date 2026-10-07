@@ -239,3 +239,28 @@ host-side evidence reports five phase totals, the active phase and at most 16
 recent named-kind timings; it neither reads content nor substitutes for the
 dashboard clock. Hosted green and actual remaining macOS phase costs are still
 pending; source inspection is not a timing result.
+
+### Tour failure ownership
+
+A Vitest timeout rejects the test without cancelling its async body. The tour
+group now has one initialization promise and one native AsyncDisposableStack,
+owned outside the body. Both ordinary failures and `onTestFailed` poison that
+owner, abort its signal and start disposal before a dependent case can acquire
+the fixture. Rounds and final verification use the same owner; failed dependent
+cases throw a named error rather than skipping or starting a replacement fixture.
+
+Resource adoption checks the abort signal after asynchronous setup: a result
+arriving late is disposed, not assigned into another case's slot or registered
+on an already disposed stack. Active page operations are interrupted by fixture
+disposal, and native action/evidence phase boundaries check cancellation before
+and after awaiting. The owner races cancellation to settle an abandoned body
+while keeping late task/setup rejections observed. Body failures are rethrown
+unchanged; cleanup failures remain observable separately at teardown, with only
+a named cleanup diagnostic emitted in the background.
+
+`tour-owner.test.ts` drives this exact lifecycle seam with controlled promises:
+setup finishing after failure, active-round cancellation and refused dependent
+reuse, successful reuse/once-only disposal, original setup/body error retention,
+and overlapping initialization. No real 30-second timeout is planted. These
+regressions and the cancellation wiring require hosted validation; no local
+test/gate execution is claimed.
