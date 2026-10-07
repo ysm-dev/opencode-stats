@@ -12,7 +12,13 @@ afterEach(() => {
 });
 
 const filtersDashboard = (deliverAnswer: (deliver: () => void) => void = queueMicrotask) => {
-  const f = dashboardFixture(filterCopy(), deliverAnswer);
+  const f = dashboardFixture(
+    filterCopy(),
+    deliverAnswer,
+    undefined,
+    "UTC",
+    Date.parse("2026-10-07T14:02:59Z"),
+  );
   const { view } = f;
   onTestFinished(f.close);
   const number = () =>
@@ -161,7 +167,10 @@ it("keeps cleared-filter announcements independent of live data and clock change
   await vi.waitFor(() =>
     expect(f.view.container.querySelector(".filters")!.getAttribute("data-revision")).toBe("2"),
   );
-  await f.clock.advance(60);
+  await f.clock.advance(1);
+  await vi.waitFor(() =>
+    expect(f.engine.answers.at(-1)).toMatchObject({ timing: { kind: "minute" } }),
+  );
   expect(f.announcement()).toBe(announced);
   expect(changes).toEqual([]);
   observer.disconnect();

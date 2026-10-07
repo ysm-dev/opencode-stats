@@ -162,6 +162,7 @@ async function checkViewport(
               );
         expect(blank).toBe("");
         expect(await page.locator("#root > *").count()).toBe(0);
+        phase(`${width} ${asset} blank confirmed`);
       } finally {
         release();
       }
@@ -173,6 +174,15 @@ async function checkViewport(
       await page.evaluate(
         () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
       );
+      const work = await page.evaluate(() => ({
+        resources: performance.getEntriesByType("resource").length,
+        measures: performance
+          .getEntriesByType("measure")
+          .filter((entry) => entry.name.startsWith("opencode-stats:change:"))
+          .map((entry) => [entry.name, Math.round(entry.duration)]),
+        buckets: document.querySelectorAll(".chart-hit svg rect").length,
+      }));
+      phase(`${width} ${asset} work ${JSON.stringify(work)}`);
       expect(await page.title()).toBe("Overview · All time · opencode-stats");
       expect(await page.locator("html").getAttribute("lang")).toBe("en");
       expect(await page.getByRole("heading", { name: "Overview", level: 1 }).count()).toBe(1);

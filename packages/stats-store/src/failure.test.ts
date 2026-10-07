@@ -2,10 +2,14 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
 import { expect, it } from "vitest";
 import { stayInSync, type StoreEvent } from "./store.ts";
 import { syntheticFixture, inThreadRuntime, readBuilt } from "./testing/index.ts";
-import { nodeRuntime } from "./runtime.node.ts";
+import { nodeRuntime, nodeDatabase, nodeSource } from "./runtime.node.ts";
+import { Database, type StoreRuntime } from "./database.ts";
+import { sync } from "./sync.ts";
 
 it("worker IPC keeps serving an empty copy and a typed stop reason for a genuine unsupported source", async () => {
   const folder = mkdtempSync(join(tmpdir(), "unsupported-source-"));
@@ -79,6 +83,49 @@ it("rejects a vanished cache at worker readiness instead of announcing an unbuil
       }),
     ).rejects.toMatchObject({ kind: "sqlite", statement: "readStore" });
     expect(copies).toEqual([before.revision]);
+  } finally {
+    fixture.dispose();
+  }
+});
+
+it("an interrupted writable connection exits without reporting a recoverable failure or retrying", async () => {
+  const fixture = syntheticFixture();
+  const interrupted = Promise.withResolvers<void>();
+  const events: StoreEvent[] = [];
+  let opens = 0;
+  const runtime: StoreRuntime = {
+    ...nodeRuntime,
+    worker: (paths, announce = () => Effect.void, report) =>
+      sync(
+        paths,
+        (config) => {
+          opens++;
+          return opens === 2
+            ? Layer.effect(
+                Database,
+                Effect.interrupt.pipe(Effect.ensuring(Effect.sync(() => interrupted.resolve()))),
+              )
+            : nodeDatabase(config);
+        },
+        nodeSource,
+        announce,
+        report,
+      ),
+  };
+  try {
+    const options = { source: fixture.source, cacheHome: fixture.folder };
+    const before = await readBuilt(options);
+    const fiber = Effect.runFork(
+      Effect.scoped(stayInSync(options, runtime, () => {}, (event) => events.push(event))),
+    );
+    try {
+      await interrupted.promise;
+    } finally {
+      await Effect.runPromise(Fiber.interrupt(fiber));
+    }
+    expect(opens).toBe(2);
+    expect(events.filter((event) => event.kind === "sync.stopped")).toEqual([]);
+    expect(await readBuilt(options)).toEqual(before);
   } finally {
     fixture.dispose();
   }
