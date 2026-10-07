@@ -156,23 +156,6 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
       await installTourClock(f.context, tourStart);
       await f.context.addInitScript(installWholePaintObserver);
       const page = await f.context.newPage();
-      page.on("console", (message) => {
-        if (message.text().startsWith("[DEBUG-font-barrier]"))
-          process.stderr.write(`${message.text()}\n`);
-      });
-      await page.addInitScript(() => {
-        const load = document.fonts.load.bind(document.fonts);
-        document.fonts.load = (font, text) => {
-          return load(font, text).then((faces) => {
-            // oxlint-disable-next-line no-console -- hosted-only probe, never inspect font registration before the native load
-            console.info(
-              "[DEBUG-font-barrier] resolved",
-              JSON.stringify({ matched: faces.length, statuses: faces.map((face) => face.status) }),
-            );
-            return faces;
-          });
-        };
-      });
       const workerCreated = page.waitForEvent("worker");
       const copied = page.waitForResponse(
         (response) => new URL(response.url()).pathname === "/api/browser-copy",
@@ -235,6 +218,9 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
 async function verifyObservedTour(f: Awaited<ReturnType<typeof openChangeTour>>) {
   f.guard.check();
   const data = await readChangeEvidence(f.page);
+  process.stderr.write(
+    `[DEBUG-whole-probe] ${JSON.stringify({ samples: data.evidence.samples, work: data.evidence.work })}\n`,
+  );
   assertPaintEvidence(data);
   assertSummedMeasures(data.measures);
   assertCurrentKinds(data.measures.map((entry) => entry.kind));

@@ -253,7 +253,7 @@ it("adds full local days by occurring dimension combination and repairs rewrites
 });
 
 profileEngine();
-it("matches a row-oriented range reference for each preset and generated IANA zone", async () => {
+it.each(presets)("matches the %s range reference across generated IANA zones", async (preset) => {
   await fc.assert(
     fc.asyncProperty(
       fc.constantFrom(...Intl.supportedValuesOf("timeZone")),
@@ -272,29 +272,27 @@ it("matches a row-oriented range reference for each preset and generated IANA zo
           model,
         }));
         await using f = rangeFixture(rows, undefined, zone);
-        for (const preset of presets) {
-          const state = await f.request({ kind: "preset", preset });
-          const days = preset === "today" ? 1 : Number.parseInt(preset);
-          const today = referenceDate(now, zone);
-          const start =
-            preset === "all"
-              ? Math.min(...rows.map((row) => row.start), referenceMidnight(today, zone))
-              : referenceMidnight(referenceAdd(today, 1 - days), zone);
-          // All time's first activity is not rounded down; an empty copy starts today.
-          const history = rows.length ? Math.min(...rows.map((row) => row.start)) : start;
-          expect(state.period.start).toBe(preset === "all" ? history : start);
-          expect(state.tokens).toEqual(referenceRangeTokens(rows, state.period.start, now));
-          const shifted = await f.request({ kind: "shift", direction: -1 });
-          const previousStart =
-            preset === "all"
-              ? state.period.start
-              : referenceMidnight(referenceAdd(state.period.from, -days), zone);
-          const previousEnd =
-            preset === "all" ? state.period.end : referenceMidnight(state.period.from, zone);
-          expect(shifted.period).toMatchObject({ start: previousStart, end: previousEnd });
-          expect(shifted.tokens).toEqual(referenceRangeTokens(rows, previousStart, previousEnd));
-          expect((await f.request({ kind: "shift", direction: 1 })).address).toBe(state.address);
-        }
+        const state = await f.request({ kind: "preset", preset });
+        const days = preset === "today" ? 1 : Number.parseInt(preset);
+        const today = referenceDate(now, zone);
+        const start =
+          preset === "all"
+            ? Math.min(...rows.map((row) => row.start), referenceMidnight(today, zone))
+            : referenceMidnight(referenceAdd(today, 1 - days), zone);
+        // All time's first activity is not rounded down; an empty copy starts today.
+        const history = rows.length ? Math.min(...rows.map((row) => row.start)) : start;
+        expect(state.period.start).toBe(preset === "all" ? history : start);
+        expect(state.tokens).toEqual(referenceRangeTokens(rows, state.period.start, now));
+        const shifted = await f.request({ kind: "shift", direction: -1 });
+        const previousStart =
+          preset === "all"
+            ? state.period.start
+            : referenceMidnight(referenceAdd(state.period.from, -days), zone);
+        const previousEnd =
+          preset === "all" ? state.period.end : referenceMidnight(state.period.from, zone);
+        expect(shifted.period).toMatchObject({ start: previousStart, end: previousEnd });
+        expect(shifted.tokens).toEqual(referenceRangeTokens(rows, previousStart, previousEnd));
+        expect((await f.request({ kind: "shift", direction: 1 })).address).toBe(state.address);
       },
     ),
     propertyParameters,

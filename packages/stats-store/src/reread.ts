@@ -59,13 +59,20 @@ export function rereadState(store: string, report: BuildReport) {
         const trigger = reason(previous, schema, migrations);
         // The accepted signal advances even during an unfinished build. The durable
         // receipt advances only when every required reread has completed successfully.
-        accepted = {
+        const next = {
           generation: header.generation,
           migrations,
           completed: schema.completed,
           currentAt: yield* Clock.currentTimeMillis,
           sourceFile: file,
         };
+        // Save the empty generation's baseline before its first commit so an
+        // interrupted build can distinguish unchanged units from a later migration.
+        if (!previous && header.revision === 0) {
+          yield* saveReceipt(store, next);
+          receipt = next;
+        }
+        accepted = next;
         const target = JSON.stringify([migrations, schema.completed]);
         if (trigger && reading?.target !== target) {
           reading = {

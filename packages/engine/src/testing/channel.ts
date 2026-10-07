@@ -28,8 +28,8 @@ export function inThreadEngine(
   const page: Listeners = new Map();
   const worker: Listeners = new Map();
   const deliver = (to: Listeners, message: object): void => {
-    for (const listener of to.get("message") ?? [])
-      listener(new MessageEvent("message", { data: cloneMessage(message) }));
+    const event = new MessageEvent("message", { data: message });
+    for (const listener of to.get("message") ?? []) listener(event);
   };
   const port = (from: Listeners, to: Listeners): ChannelPort => ({
     addEventListener: (type, listener) => {
@@ -57,8 +57,10 @@ export function inThreadEngine(
   return {
     client,
     answers,
-    sendToWorker: (message: object) => Promise.resolve().then(() => deliver(worker, message)),
-    sendToPage: (message: object) => Promise.resolve().then(() => deliver(page, message)),
+    sendToWorker: (message: object) =>
+      Promise.resolve(cloneMessage(message)).then((data) => deliver(worker, data)),
+    sendToPage: (message: object) =>
+      Promise.resolve(cloneMessage(message)).then((data) => deliver(page, data)),
     dispose: async () => {
       client.dispose();
       await stop();

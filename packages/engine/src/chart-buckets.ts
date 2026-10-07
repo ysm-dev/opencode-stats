@@ -31,8 +31,8 @@ export function chartBuckets(period: Period, timeZone: string, locale: string, d
   const axisEnd = midnight(addDates(period.to, 1), timeZone);
   const weekdays = new Intl.DateTimeFormat("en", { timeZone, weekday: "short" });
   const buckets = calendarBuckets(period.start, axisEnd, timeZone, unit).map((bucket) => {
-    const from = localDate(bucket.start, timeZone);
-    const to = addDates(localDate(bucket.end, timeZone), -1);
+    const from = bucket.label.slice(0, 10);
+    const to = unit === "hour" ? from : addDates(localDate(bucket.end, timeZone), -1);
     const start = Math.min(bucket.end, Math.max(bucket.start, dataStart));
     const end = Math.max(start, Math.min(bucket.end, period.end));
     const partial =
@@ -52,7 +52,7 @@ export function chartBuckets(period: Period, timeZone: string, locale: string, d
       start,
       end,
       from,
-      to: unit === "hour" ? from : to,
+      to,
       title: title + (partial ? " · partial" : ""),
       partial,
     };

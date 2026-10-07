@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { nodeRuntime } from "./runtime.node.ts";
-import type { StoreCopy } from "./store.ts";
+import type { StoreCopy, StoreEvent } from "./store.ts";
 import * as Effect from "effect/Effect";
 import { observedStore } from "./testing/store.ts";
 import { readSourceStopped } from "./testing/stopped-store.ts";
@@ -48,6 +48,44 @@ it("commits newest build units before an interruption and resumes without reread
     fixture.dispose();
   }
 });
+
+it.each(["migration", "import"] as const)(
+  "an interrupted first build still rereads committed units after a downtime %s",
+  async (reason) => {
+    const fixture = syntheticFixture("2.0.0");
+    const { writer, source, folder } = fixture;
+    const options = { source, cacheHome: folder };
+    const newest = { id: "new", session: "new", seq: 0, start: 2000 };
+    const oldest = { id: "old", session: "old", seq: 0, start: 1000 };
+    try {
+      writer.session("new");
+      writer.session("old");
+      writer.message({ ...newest, tokens: { output: 2 } });
+      writer.message({ ...oldest, tokens: { output: -1 } });
+      const before = await readSourceStopped(options, nodeRuntime);
+      expect(before.historyComplete).toBe(false);
+      writer.message({ ...newest, tokens: { output: 9 } }, false);
+      writer.message({ ...oldest, tokens: { output: 3 } });
+      if (reason === "migration") writer.migrate();
+      else writer.importMarker("completed");
+      const events: StoreEvent[] = [];
+      const after = await readBuilt(
+        options,
+        () => {},
+        nodeRuntime,
+        (event) => events.push(event),
+      );
+      expect(after.generation).toBe(before.generation);
+      expect(after.steps.map((step) => step.output)).toEqual([9, 3]);
+      expect(after.historyComplete).toBe(true);
+      expect(events).toContainEqual(
+        expect.objectContaining({ kind: "reread.end", reason, sessions: 2, changed: 2 }),
+      );
+    } finally {
+      fixture.dispose();
+    }
+  },
+);
 
 it("keeps the next unread unit's boundary while known units and new subagents are interleaved", async () => {
   const fixture = syntheticFixture();

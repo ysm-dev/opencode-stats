@@ -69,7 +69,7 @@ const ChoiceForm = (props: ParentProps) => {
     if (name === null) return;
     queueMicrotask(() => {
       const replacement = document.querySelector<HTMLElement>(
-        `.chart-choices button[aria-labelledby~="chart-${name}-label"], .chart-choices [aria-label="Chart ${name}"] [aria-pressed="true"]`,
+        `.chart-choices [data-component="select-v2"][aria-labelledby~="chart-${name}-label"], .chart-choices [aria-label="Chart ${name}"] [aria-pressed="true"]`,
       );
       if (replacement) changes.local("resize", () => replacement.focus());
     });

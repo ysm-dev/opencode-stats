@@ -28,6 +28,7 @@ export function installWholePaintObserver(observing = true) {
     complete: 0,
     raf: 0,
     rafCount: 0,
+    work: { drawings: 0, readiness: 0, animations: 0, commit: 0 },
   };
   const fail = (check: string, cause = check) => {
     if (!evidence.failures.includes(check)) evidence.failures.push(check);
@@ -281,10 +282,14 @@ export function installWholePaintObserver(observing = true) {
         flag("mixed-frame", "checklist-local-marks");
     }
     observeCharts();
+    const drawings = performance.now();
+    evidence.work.drawings += drawings - started;
     frame.drawn = drawn;
     frame.complete = pageComplete(states, regions);
     if (drawn && !frame.complete) flag("early-load-paint");
     if (document.getAnimations().length) flag("animation");
+    const readiness = performance.now();
+    evidence.work.readiness += readiness - drawings;
     for (const element of document.querySelectorAll("*")) {
       if (
         [undefined, "::before", "::after"].some((pseudo) =>
@@ -293,7 +298,10 @@ export function installWholePaintObserver(observing = true) {
       )
         flag("animation");
     }
+    const animations = performance.now();
+    evidence.work.animations += animations - readiness;
     commit();
+    evidence.work.commit += performance.now() - animations;
     performance.measure("opencode-stats:whole-paint-probe", {
       start: started,
       duration: performance.now() - started,
@@ -332,6 +340,7 @@ declare global {
         complete: number;
         raf: number;
         rafCount: number;
+        work: { drawings: number; readiness: number; animations: number; commit: number };
       };
       snapshot: () => string;
       sample: () => void;

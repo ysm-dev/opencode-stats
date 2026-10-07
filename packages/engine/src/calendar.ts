@@ -1,7 +1,8 @@
 import * as DateTime from "effect/DateTime";
 
+const calendarZone = (timeZone: string) => (timeZone === "UTC" ? 0 : timeZone);
 const zoned = (instant: number, timeZone: string) =>
-  DateTime.makeZonedUnsafe(instant, { timeZone });
+  DateTime.makeZonedUnsafe(instant, { timeZone: calendarZone(timeZone) });
 export const localDate = (instant: number, timeZone: string) =>
   DateTime.formatIsoDate(zoned(instant, timeZone));
 const midnights = new Map<string, number>();
@@ -10,7 +11,7 @@ export const midnight = (date: string, timeZone: string) => {
   const cached = midnights.get(key);
   if (cached !== undefined) return cached;
   const value = DateTime.toEpochMillis(
-    DateTime.makeZonedUnsafe(date, { timeZone, adjustForTimeZone: true }),
+    DateTime.makeZonedUnsafe(date, { timeZone: calendarZone(timeZone), adjustForTimeZone: true }),
   );
   midnights.set(key, value);
   return value;

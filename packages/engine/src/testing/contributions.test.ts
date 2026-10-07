@@ -153,6 +153,14 @@ it("starts streaks at complete history, empties earlier cells, and follows live 
   expect(shifted.graph.days.find((day) => day.date === "2026-10-06")!.steps).toBe(1);
 });
 
+it("a received page cannot mutate the worker's retained graph through the channel", async () => {
+  await using f = rangeFixture();
+  const first = await f.request({ kind: "all-time" });
+  Object.assign(first.graph.days[0]!, { steps: 999 });
+  const next = await f.request({ kind: "graph-metric", metric: "steps" });
+  expect(next.graph.days.every((day) => day.steps === 0)).toBe(true);
+});
+
 it("restores metric choices, omits the default, and rejects malformed or duplicate graph parameters", async () => {
   await using f = rangeFixture();
   expect((await f.request({ kind: "address", address: "/?range=all&graph=steps" })).address).toBe(
