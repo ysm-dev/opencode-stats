@@ -319,6 +319,7 @@ it("the published pickers cannot clear a metric or split when their current opti
 });
 
 it("responsive control switches retain keyboard focus in the same field without querying the worker", async () => {
+  // oxlint-disable-next-line typescript/unbound-method -- the temporary probe invokes native focus with the original element as its receiver
   const focus = HTMLElement.prototype.focus;
   const focused: object[] = [];
   const probe = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (

@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import "./profile.ts";
+import { profileEngine } from "./profile.ts";
 import * as fc from "fast-check";
 import * as Schema from "effect/Schema";
 import { Answer } from "../protocol.ts";
@@ -12,6 +12,7 @@ import {
   syntheticSteps,
 } from "@opencode-stats/browser-copy/testing";
 import { inThreadEngine, referenceTokens } from "./index.ts";
+profileEngine();
 const initial = {
   generation: "01234567-89ab-cdef-0123-456789abcdef",
   revision: 1,

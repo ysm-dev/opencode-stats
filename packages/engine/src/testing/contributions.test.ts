@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import "./profile.ts";
+import { profileEngine } from "./profile.ts";
 import { assert, asyncProperty, constantFrom, array, record, integer, option } from "fast-check";
 import { syntheticCopy, propertyParameters } from "@opencode-stats/browser-copy/testing";
 import { rangeFixture, rangeStep } from "./range-fixture.ts";
@@ -303,6 +303,7 @@ it("preserves independently owned chart choices across graph metric, range, filt
   expect(restored.graph.metric).toBe("steps");
 });
 
+profileEngine();
 it("matches an independent contribution reference over sparse local calendars, prices and filters", async () => {
   await assert(
     asyncProperty(
