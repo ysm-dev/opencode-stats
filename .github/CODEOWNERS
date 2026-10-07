@@ -83,8 +83,10 @@
 /packages/e2e/tests/testing/settings.ts @ysm-dev
 /packages/browser-copy/src/binary.test.ts @ysm-dev
 /packages/e2e/tests/live.test.ts @ysm-dev
-/packages/e2e/tests/whole-paint-chromium.test.ts @ysm-dev
-/packages/e2e/tests/whole-paint-webkit.test.ts @ysm-dev
+/packages/e2e/tests/whole-paint-chromium-360.test.ts @ysm-dev
+/packages/e2e/tests/whole-paint-chromium-1280.test.ts @ysm-dev
+/packages/e2e/tests/whole-paint-webkit-360.test.ts @ysm-dev
+/packages/e2e/tests/whole-paint-webkit-1280.test.ts @ysm-dev
 /packages/e2e/tests/whole-paint-canaries.test.ts @ysm-dev
 /packages/e2e/tests/testing/whole-paint.ts @ysm-dev
 /packages/e2e/tests/testing/change-tour.ts @ysm-dev
@@ -95,8 +97,10 @@
 /packages/dashboard/src/state-marks.test.tsx @ysm-dev
 /packages/engine/src/testing/change-time.test.ts @ysm-dev
 /packages/e2e/tests/ranges.test.ts @ysm-dev
-/packages/e2e/tests/change-time-chromium.test.ts @ysm-dev
-/packages/e2e/tests/change-time-webkit.test.ts @ysm-dev
+/packages/e2e/tests/change-time-chromium-360.test.ts @ysm-dev
+/packages/e2e/tests/change-time-chromium-1280.test.ts @ysm-dev
+/packages/e2e/tests/change-time-webkit-360.test.ts @ysm-dev
+/packages/e2e/tests/change-time-webkit-1280.test.ts @ysm-dev
 /packages/e2e/tests/testing/change-measures.ts @ysm-dev
 /packages/e2e/tests/testing/tour-plan.ts @ysm-dev
 /packages/e2e/tests/testing/tour-evidence.ts @ysm-dev

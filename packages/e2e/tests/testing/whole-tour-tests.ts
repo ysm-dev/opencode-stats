@@ -238,51 +238,58 @@ async function verifyCleanTour(f: Awaited<ReturnType<typeof openChangeTour>>) {
   ).toBe(0);
 }
 
-function testPartitionedTour(browser: BrowserType, label: string, observing: boolean) {
+function testPartitionedTour(
+  browser: BrowserType,
+  label: string,
+  observing: boolean,
+  width: (typeof tourWidths)[number],
+) {
   const mode = observing ? "whole-paint" : "observer-free";
   const verify = observing ? verifyObservedTour : verifyCleanTour;
-  describe.each(tourWidths)(
-    `${label} ${mode} complete tour at %i`,
-    { concurrent: false },
-    (width) => {
-      let initialTrace: ReturnType<typeof createTourEvidence> | undefined;
-      const owner = createTourOwner((scope) =>
-        initialTrace!("fixture", "setup", () => openChangeTour(browser, width, observing, scope)),
+  describe(`${label} ${mode} complete tour at ${width}`, { concurrent: false }, () => {
+    let initialTrace: ReturnType<typeof createTourEvidence> | undefined;
+    const owner = createTourOwner((scope) =>
+      initialTrace!("fixture", "setup", () => openChangeTour(browser, width, observing, scope)),
+    );
+    const completed: (typeof tourCases)[number][] = [];
+    afterAll(async () => {
+      await owner[Symbol.asyncDispose]();
+    });
+    it.each(tourCases)("retains every native action in round $round, $stage", async (part) => {
+      expect.hasAssertions();
+      const trace = createTourEvidence(
+        `${label}/${mode}/${width}/round-${part.round}/${part.stage}`,
       );
-      const completed: (typeof tourCases)[number][] = [];
-      afterAll(async () => {
-        await owner[Symbol.asyncDispose]();
+      initialTrace ??= trace;
+      onTestFailed(() => owner.fail());
+      await owner.run(async (f, signal) => {
+        trackTourEvidence(f.page, trace, signal);
+        expect(completed).toEqual(tourCases.slice(0, part.index));
+        if (part.index === 0) await f.tour.prepare();
+        await f.tour[part.stage](part.round);
+        signal.throwIfAborted();
+        f.guard.check();
       });
-      it.each(tourCases)("retains every native action in round $round, $stage", async (part) => {
-        expect.hasAssertions();
-        const trace = createTourEvidence(
-          `${label}/${mode}/${width}/round-${part.round}/${part.stage}`,
-        );
-        initialTrace ??= trace;
-        onTestFailed(() => owner.fail());
-        await owner.run(async (f, signal) => {
-          trackTourEvidence(f.page, trace, signal);
-          expect(completed).toEqual(tourCases.slice(0, part.index));
-          if (part.index === 0) await f.tour.prepare();
-          await f.tour[part.stage](part.round);
-          signal.throwIfAborted();
-          f.guard.check();
-        });
-        completed.push(part);
+      completed.push(part);
+    });
+    it("proves both rounds and every kind completed, including both build milestones", async () => {
+      expect.hasAssertions();
+      onTestFailed(() => owner.fail());
+      await owner.run(async (f) => {
+        expect(completed).toEqual(tourCases);
+        await verify(f);
       });
-      it("proves both rounds and every kind completed, including both build milestones", async () => {
-        expect.hasAssertions();
-        onTestFailed(() => owner.fail());
-        await owner.run(async (f) => {
-          expect(completed).toEqual(tourCases);
-          await verify(f);
-        });
-      });
-    },
-  );
+    });
+  });
 }
 
-export const testWholePaintTour = (browser: BrowserType, label: string) =>
-  testPartitionedTour(browser, label, true);
-export const testCleanChangeTimeTour = (browser: BrowserType, label: string) =>
-  testPartitionedTour(browser, label, false);
+export const testWholePaintTour = (
+  browser: BrowserType,
+  label: string,
+  width: (typeof tourWidths)[number],
+) => testPartitionedTour(browser, label, true, width);
+export const testCleanChangeTimeTour = (
+  browser: BrowserType,
+  label: string,
+  width: (typeof tourWidths)[number],
+) => testPartitionedTour(browser, label, false, width);

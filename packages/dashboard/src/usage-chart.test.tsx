@@ -166,6 +166,17 @@ it("decides tap versus action per event, reads horizontal finger drags, allows v
   expect(window.location.search).toContain("from=2026-10-01");
 });
 
+it("the readout's drill action selects its bucket and returns focus to the chart", async () => {
+  await using f = dashboardFixture(filterCopy());
+  await f.view.findByRole("heading", { name: "Overview" });
+  chart().focus();
+  await f.user.keyboard("{Home}");
+  await f.user.click(within(readout()).getByRole("button", { name: "Drill in" }));
+  await vi.waitFor(() => expect(chart().getAttribute("aria-label")).toContain("by hour"));
+  expect(window.location.search).toContain("from=2026-10-01&to=2026-10-01");
+  expect(document.activeElement).toBe(chart());
+});
+
 it("readout highlights by focus, pointer and tap and keeps top-six-plus-more in stack order", async () => {
   const f = dashboardFixture(filterCopy());
   onTestFinished(f.close);

@@ -33,9 +33,16 @@ describe("dashboard server program", () => {
     const fixture = syntheticFixture();
     fixture.writer.session("ses-http");
     fixture.writer.message({
-      id: "msg-http",
+      id: "prompt-http",
       session: "ses-http",
       seq: 0,
+      start: 1233,
+      type: "user",
+    });
+    fixture.writer.message({
+      id: "msg-http",
+      session: "ses-http",
+      seq: 1,
       start: 1234,
       tokens: { input: 1, cache: { read: 2, write: 3 }, output: 4, reasoning: 5 },
       tools: [
@@ -46,9 +53,16 @@ describe("dashboard server program", () => {
     fixture.writer.message({
       id: "msg-unrecorded",
       session: "ses-http",
-      seq: 1,
+      seq: 2,
       start: 2345,
       tokens: { input: 0 },
+    });
+    fixture.writer.message({
+      id: "prompt-waiting",
+      session: "ses-http",
+      seq: 3,
+      start: 2346,
+      type: "user",
     });
     const previous = process.env["XDG_CACHE_HOME"];
     process.env["XDG_CACHE_HOME"] = fixture.folder;
@@ -84,6 +98,9 @@ describe("dashboard server program", () => {
       expect(Array.from(copy.steps.cacheWrite)).toEqual([3, NaN]);
       expect(Array.from(copy.steps.output)).toEqual([4, NaN]);
       expect(Array.from(copy.steps.reasoning)).toEqual([5, NaN]);
+      expect(copy.promptIds).toEqual(["prompt-http", "prompt-waiting"]);
+      expect([...copy.prompts.start]).toEqual([1233, 2346]);
+      expect([...copy.prompts.model]).toEqual([copy.steps.model[0], NaN]);
       expect(copy.toolIds).toEqual(["tool:msg-http:read", "tool:msg-http:shell"]);
       expect([...copy.tools.start]).toEqual([1234, 1234]);
       expect([...copy.tools.runStart]).toEqual([NaN, 1300]);

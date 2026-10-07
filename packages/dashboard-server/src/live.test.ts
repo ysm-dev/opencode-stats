@@ -96,16 +96,24 @@ it("returns a content-free unavailable response when the changes reader fails", 
   const copy = syntheticCopy([]);
   const feed = createLiveFeed(() => copy, "test-release");
   const bytes = new Uint8Array(encode(copy));
+  let available = false;
   try {
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const origin = yield* startServer("unused", {
-            whole: () => bytes,
+            whole: () => (available ? bytes : new Uint8Array()),
             changes: () => Effect.fail(new Error("SYNTHETIC PRIVATE CONTENT")),
             live: feed.stream,
           });
           yield* Effect.promise(async () => {
+            const pending = await fetch(`${origin}/api/browser-copy`);
+            expect(pending.status).toBe(503);
+            expect(await pending.text()).toBe("");
+            available = true;
+            const ready = await fetch(`${origin}/api/browser-copy`);
+            expect(ready.status).toBe(200);
+            expect(decode(await ready.arrayBuffer())).toEqual(copy);
             const response = await fetch(
               `${origin}/api/browser-copy/changes?generation=${copy.generation}&revision=1`,
             );

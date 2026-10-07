@@ -229,10 +229,10 @@ export const reconcile = Effect.fnUntraced(
     checkBounds: boolean,
     pricer: StepPricer,
     sourceVersion: number,
-    forced: Set<string> = new Set(),
-    reread: Set<string> = new Set(),
-    differing: Set<string> = new Set(),
-    report: BuildReport = () => Effect.void,
+    forced: Set<string>,
+    reread: Set<string>,
+    differing: Set<string>,
+    report: BuildReport,
   ) {
     const { byId, pending, removed, ordered, saved, initialCommit } = yield* reconciliationPlan(
       inventory,

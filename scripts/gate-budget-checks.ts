@@ -2,7 +2,22 @@ import { readFileSync } from "node:fs";
 import root from "../package.json" with { type: "json" };
 import type { Check } from "./verify-gates.ts";
 
+function* nativeTourChecks(): Generator<Check> {
+  for (const browser of ["chromium", "webkit"])
+    for (const mode of ["whole-paint", "change-time"])
+      for (const width of [360, 1280]) {
+        const file = `packages/e2e/tests/${mode}-${browser}-${width}.test.ts`;
+        yield {
+          gate: `native tour registration cannot omit ${mode}/${browser}/${width}`,
+          files: { [file]: readFileSync(file, "utf8").replace(`, ${width});`, ", 0);") },
+          command: ["scripts/testing/e2e-plan.ts"],
+          expect: ["Each mode/engine/viewport must register its complete tour"],
+        };
+      }
+}
+
 export function* budgetChecks(): Generator<Check> {
+  yield* nativeTourChecks();
   yield {
     gate: "e2e workload plan is exhaustive and shared with preparation",
     files: {},

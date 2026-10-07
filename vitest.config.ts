@@ -21,7 +21,7 @@ export default defineConfig({
           .map((entry) => entry.path),
       ],
       thresholds: { perFile: true, lines: 100, functions: 100, branches: 100, statements: 100 },
-      reporter: ["text"],
+      reporter: ["text", "json"],
     },
   },
 });

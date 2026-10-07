@@ -42,7 +42,8 @@ assert.equal(
 );
 const tourHarness = readFileSync("packages/e2e/tests/testing/whole-tour-tests.ts", "utf8");
 for (const registration of [
-  "describe.each(tourWidths)",
+  "testPartitionedTour(browser, label, true, width)",
+  "testPartitionedTour(browser, label, false, width)",
   "{ concurrent: false }",
   "it.each(tourCases)",
   "expect(completed).toEqual(tourCases)",
@@ -57,12 +58,13 @@ for (const browser of ["chromium", "webkit"])
     ["whole-paint", "testWholePaintTour"],
     ["change-time", "testCleanChangeTimeTour"],
   ])
-    assert.ok(
-      readFileSync(`packages/e2e/tests/${file}-${browser}.test.ts`, "utf8").includes(
-        `${entry}(${browser},`,
-      ),
-      "Each mode/engine must register its complete tour",
-    );
+    for (const width of tourWidths)
+      assert.ok(
+        readFileSync(`packages/e2e/tests/${file}-${browser}-${width}.test.ts`, "utf8").includes(
+          `${entry}(${browser}, "${browser === "chromium" ? "Chromium" : "WebKit"}", ${width});`,
+        ),
+        "Each mode/engine/viewport must register its complete tour",
+      );
 
 const files = e2eFiles();
 assert.ok(files.length > 0, "No e2e files discovered");
@@ -130,10 +132,11 @@ for (const file of [
   });
 for (const browser of ["chromium", "webkit"])
   for (const kind of ["whole-paint", "change-time", "whole-load"])
-    assert.deepEqual(prepareE2e([`${kind}-${browser}.test.ts`]), {
-      browsers: [browser],
-      opencode: false,
-    });
+    for (const suffix of kind === "whole-load" ? [""] : tourWidths.map((width) => `-${width}`))
+      assert.deepEqual(prepareE2e([`${kind}-${browser}${suffix}.test.ts`]), {
+        browsers: [browser],
+        opencode: false,
+      });
 assert.deepEqual(prepareE2e(["future.test.tsx"]), {
   browsers: ["chromium", "webkit"],
   opencode: true,

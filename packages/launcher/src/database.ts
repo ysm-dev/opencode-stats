@@ -71,5 +71,3 @@ export function selectDatabase(options: DatabaseOptions): DatabaseSelection {
         : "(OpenCode's data folder)",
   };
 }
-
-export const databasePath = (options: DatabaseOptions): string => selectDatabase(options).path;

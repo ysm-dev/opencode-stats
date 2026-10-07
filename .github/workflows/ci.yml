@@ -36,6 +36,12 @@ jobs:
       - run: bun run ci:checks
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v7.0.1
+        if: failure()
+        with:
+          name: source-coverage
+          path: coverage/coverage-final.json
+          if-no-files-found: ignore
 
   verification:
     name: Gate verification (${{ matrix.shard }}/16)
@@ -99,16 +105,20 @@ jobs:
           - os: ubuntu-latest
             shard: 6/6
           - os: macos-15-intel
-            shard: 1/4
+            shard: 1/3
+            workers: 2
           - os: macos-15-intel
-            shard: 2/4
+            shard: 2/3
+            workers: 2
           - os: macos-15-intel
-            shard: 3/4
-          - os: macos-15-intel
-            shard: 4/4
+            shard: 3/3
+            workers: 2
           # Hosted macOS capacity is five concurrent jobs across architectures.
           - os: macos-latest
-            shard: 1/1
+            shard: 1/2
+            workers: 2
+          - os: macos-latest
+            shard: 2/2
             workers: 2
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
@@ -151,7 +161,7 @@ jobs:
       # e2e provisions Chromium shell + WebKit and Linux OS prerequisites inside
       # its watchdog. Setup, artifact waits and tests also share this job/attempt cap.
       # Isolate browser/process workloads; Vitest partitions the complete
-      # suite, with one file worker per runner and existing per-file concurrency.
+      # suite, including independent viewports, with existing per-file concurrency.
       - run: bun run e2e ${{ matrix.shard && format('--shard={0} --maxWorkers={1}', matrix.shard, matrix.workers || 1) || '' }}
 
   intel:

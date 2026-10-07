@@ -5,8 +5,8 @@ import { shard } from "./shard.ts";
 
 type Browser = "chromium" | "webkit";
 type Work = readonly [seconds: number, browsers: readonly Browser[], opencode?: true];
-// Rounded passing-file durations from hosted run 37570656008, using the
-// slowest required platform. Unknown files still get conservative preparation.
+// Rounded passing-file durations from hosted runs 37570656008/37576381070,
+// with each independent tour viewport now scheduled separately.
 const work: Readonly<Record<string, Work>> = {
   "preferences-webkit.test.ts": [57, ["webkit"]],
   "plugin.test.ts": [42, [], true],
@@ -17,10 +17,14 @@ const work: Readonly<Record<string, Work>> = {
   "contribution-canaries.test.ts": [20, ["chromium", "webkit"]],
   "contribution-contrast.test.ts": [11, ["chromium", "webkit"]],
   "filters.test.ts": [22, ["chromium", "webkit"]],
-  "whole-paint-chromium.test.ts": [98, ["chromium"]],
-  "whole-paint-webkit.test.ts": [112, ["webkit"]],
-  "change-time-chromium.test.ts": [71, ["chromium"]],
-  "change-time-webkit.test.ts": [67, ["webkit"]],
+  "whole-paint-chromium-360.test.ts": [79, ["chromium"]],
+  "whole-paint-chromium-1280.test.ts": [79, ["chromium"]],
+  "whole-paint-webkit-360.test.ts": [32, ["webkit"]],
+  "whole-paint-webkit-1280.test.ts": [32, ["webkit"]],
+  "change-time-chromium-360.test.ts": [37, ["chromium"]],
+  "change-time-chromium-1280.test.ts": [37, ["chromium"]],
+  "change-time-webkit-360.test.ts": [27, ["webkit"]],
+  "change-time-webkit-1280.test.ts": [27, ["webkit"]],
   "whole-load-chromium.test.ts": [7, ["chromium"]],
   "whole-load-webkit.test.ts": [5, ["webkit"]],
   "whole-paint-canaries.test.ts": [19, ["chromium", "webkit"]],
