@@ -64,9 +64,9 @@ export function installWholePaintObserver(observing = true) {
     frame.drawings.push({ region, key, drawing });
   };
   const graphDrawing = (root: ParentNode) =>
-    [...root.querySelectorAll(".graph-surface, .graph-surface rect, .graph-surface text")].map(
-      (node) => [...node.attributes].map((attribute) => [attribute.name, attribute.value]),
-    );
+    [
+      ...root.querySelectorAll(".graph-plot, .graph-surface, .graph-surface rect, .graph-label"),
+    ].map((node) => [...node.attributes].map((attribute) => [attribute.name, attribute.value]));
   const observeRegions = (regions: Element[]) => {
     for (const region of regions) {
       // This container contains several independent checklist search states.

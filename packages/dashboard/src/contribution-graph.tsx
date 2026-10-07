@@ -164,74 +164,77 @@ export const ContributionGraph = () => {
             scroll = element;
           }}
         >
-          <svg
-            ref={(element) => {
-              svg = element;
-            }}
-            role="img"
-            aria-label="Contribution graph, past 365 local days"
-            aria-describedby="graph-help graph-readout"
-            tabIndex={0}
-            class="graph-surface"
-            viewBox={`0 0 ${geometry().columns * 16} 176`}
-            preserveAspectRatio="none"
+          <div
+            class="graph-plot"
             style={{ "--graph-width": `${geometry().columns * 16}px` }}
             data-state={stateMark(state())}
             data-local-state={stateMark(local())}
-            onPointerMove={pointerRead}
-            onPointerUp={pointerUp}
-            onKeyDown={key}
           >
-            <defs>
-              <pattern id="graph-unavailable" width={4} height={4} patternUnits="userSpaceOnUse">
-                <path d="M0,4 L4,0" class="graph-hatch" />
-              </pattern>
-            </defs>
-            <For each={geometry().months}>
-              {(month) => (
-                <text
-                  class="graph-label"
-                  data-month={month.date}
-                  x={month.x}
-                  y={16}
-                  text-anchor="middle"
-                  aria-hidden="true"
-                >
-                  {month.label}
-                </text>
-              )}
-            </For>
-            <For each={indices}>
-              {(index) => (
-                <rect
-                  data-date={day(index).date}
-                  data-level={day(index).level}
-                  data-selected={inRange(day(index).date)}
-                  data-reading={read()?.date === day(index).date}
-                  x={geometry().column(day(index).date) * 16 + 1.5}
-                  y={graphRow(day(index).date) * 16 + 33.5}
-                  width={13}
-                  height={13}
-                  rx={2}
-                  aria-hidden="true"
-                />
-              )}
-            </For>
-            <For each={geometry().weeks}>
-              {(week) => (
-                <text
-                  class="graph-week graph-label"
-                  data-week={week.date}
-                  x={week.x}
-                  y={164}
-                  text-anchor="middle"
-                  aria-hidden="true"
-                >
-                  {week.label}
-                </text>
-              )}
-            </For>
-          </svg>
+            <svg
+              ref={(element) => {
+                svg = element;
+              }}
+              role="img"
+              aria-label="Contribution graph, past 365 local days"
+              aria-describedby="graph-help graph-readout"
+              tabIndex={0}
+              class="graph-surface"
+              viewBox={`0 0 ${geometry().columns * 16} 176`}
+              preserveAspectRatio="none"
+              data-state={stateMark(state())}
+              data-local-state={stateMark(local())}
+              onPointerMove={pointerRead}
+              onPointerUp={pointerUp}
+              onKeyDown={key}
+            >
+              <defs>
+                <pattern id="graph-unavailable" width={4} height={4} patternUnits="userSpaceOnUse">
+                  <path d="M0,4 L4,0" class="graph-hatch" />
+                </pattern>
+              </defs>
+              <For each={indices}>
+                {(index) => (
+                  <rect
+                    data-date={day(index).date}
+                    data-level={day(index).level}
+                    data-selected={inRange(day(index).date)}
+                    data-reading={read()?.date === day(index).date}
+                    x={geometry().column(day(index).date) * 16 + 1.5}
+                    y={graphRow(day(index).date) * 16 + 33.5}
+                    width={13}
+                    height={13}
+                    rx={2}
+                    aria-hidden="true"
+                  />
+                )}
+              </For>
+            </svg>
+            {/* Opaque HTML labels remain contrast-checkable above the SVG image. */}
+            <div class="graph-labels" aria-hidden="true">
+              <For each={geometry().months}>
+                {(month) => (
+                  <span
+                    class="graph-label"
+                    data-month={month.date}
+                    style={{ left: `${(month.x / (geometry().columns * 16)) * 100}%` }}
+                  >
+                    {month.label}
+                  </span>
+                )}
+              </For>
+              <For each={geometry().weeks}>
+                {(week) => (
+                  <span
+                    class="graph-label graph-week"
+                    data-week={week.date}
+                    style={{ left: `${(week.x / (geometry().columns * 16)) * 100}%` }}
+                  >
+                    {week.label}
+                  </span>
+                )}
+              </For>
+            </div>
+          </div>
         </div>
       </div>
       <div
