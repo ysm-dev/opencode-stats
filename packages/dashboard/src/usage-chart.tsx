@@ -29,6 +29,7 @@ import {
 import { changes, stateMark } from "./change-time.ts";
 import { HeadlineText } from "./step-headlines.tsx";
 import { paintChartAxis } from "./chart-axis.ts";
+import { pointerReading } from "./pointer-reading.ts";
 
 type ReadState = {
   chart: CompletePage["chart"];
@@ -360,6 +361,7 @@ export const UsageChart = () => {
     }
     if (x > 8) changes.local("chart-read", () => read(nearest(event)));
   };
+  const pointerMove = pointerReading(move);
   const up = (event: PointerEvent) => {
     if (event.pointerType !== "mouse" && gesture && !gesture.vertical)
       changes.local("chart-read", () => read(nearest(event)));
@@ -430,7 +432,7 @@ export const UsageChart = () => {
         data-size-state={stateMark(size())}
         onKeyDown={key}
         onPointerDown={down}
-        onPointerMove={move}
+        onPointerMove={pointerMove}
         onPointerUp={up}
         onClick={click}
         onPointerCancel={() => {

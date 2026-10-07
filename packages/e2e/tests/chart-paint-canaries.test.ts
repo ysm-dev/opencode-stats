@@ -86,6 +86,22 @@ it.each([chromium, webkit])(
     );
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const axe = await page.evaluate(() => window.axe.run());
+    if (axe.incomplete.length) {
+      const bounds = await page.locator(".chart-y-axis").evaluate((axis) => ({
+        axis: axis.getBoundingClientRect().toJSON(),
+        labels: [...axis.children].map((label) => {
+          const text = document.createRange();
+          text.selectNodeContents(label);
+          return {
+            text: label.textContent,
+            box: label.getBoundingClientRect().toJSON(),
+            glyphs: text.getBoundingClientRect().toJSON(),
+            lineHeight: getComputedStyle(label).lineHeight,
+          };
+        }),
+      }));
+      process.stderr.write(`[DEBUG-axis-contained] ${JSON.stringify(bounds)}\n`);
+    }
     expect(axe.violations).toEqual([]);
     expect(axe.incomplete).toEqual([]);
   },

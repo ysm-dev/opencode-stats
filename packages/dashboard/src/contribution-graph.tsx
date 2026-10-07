@@ -28,6 +28,7 @@ import {
   weekNumber,
 } from "./contribution-geometry.ts";
 import { useMediaSize } from "./media-size.tsx";
+import { pointerReading } from "./pointer-reading.ts";
 
 const graphMetrics: readonly GraphMetric[] = ["tokens", "steps", "cost"];
 const indices = Array.from({ length: 365 }, (_, index) => index);
@@ -58,14 +59,14 @@ function createGraphReading(
   const about = () => graph().metric === "cost" && read()!.cost.estimated !== null;
   const basis = () =>
     graph().metric === "cost" ? ` · ${percent(read()!.cost.pricedShare)} of tokens priced` : "";
-  const hit = (event: PointerEvent & { currentTarget: SVGSVGElement }) => {
+  const hit = (event: PointerEvent) => {
     const bounds = svg.getBoundingClientRect();
     return geometry().nearest(
       ((event.clientX - bounds.left) * geometry().columns * 16) / bounds.width,
       ((event.clientY - bounds.top) * 176) / bounds.height,
     );
   };
-  const pointerRead = (event: PointerEvent & { currentTarget: SVGSVGElement }) => {
+  const pointerRead = (event: PointerEvent) => {
     const nearest = hit(event);
     if (reading()?.date !== nearest.date)
       changes.local("graph-read", () => setReading({ date: nearest.date, spoken: "" }));
@@ -140,7 +141,7 @@ function createGraphReading(
     about,
     basis,
     clear,
-    pointerRead,
+    pointerMove: pointerReading(pointerRead),
     pointerUp,
     key,
     svgRef: (element: SVGSVGElement) => {
@@ -170,7 +171,7 @@ export const ContributionGraph = () => {
     about,
     basis,
     clear,
-    pointerRead,
+    pointerMove,
     pointerUp,
     key,
     svgRef,
@@ -241,7 +242,7 @@ export const ContributionGraph = () => {
               preserveAspectRatio="none"
               data-state={stateMark(state())}
               data-local-state={stateMark(local())}
-              onPointerMove={pointerRead}
+              onPointerMove={pointerMove}
               onPointerUp={pointerUp}
               onKeyDown={key}
             >

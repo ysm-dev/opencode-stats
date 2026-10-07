@@ -47,7 +47,9 @@ it.each([chromium, webkit])(
       .locator(".graph-label[data-month]")
       .first()
       .evaluate((node) => {
-        node.style.color = getComputedStyle(node).backgroundColor;
+        // Exactly 1:1 is axe's equalRatio incomplete case, not a violation.
+        node.style.backgroundColor = "rgb(255, 255, 255)";
+        node.style.color = "rgb(238, 238, 238)";
       });
     const planted = await page.evaluate(() =>
       window.axe.run(".contribution-graph", { runOnly: ["color-contrast"] }),

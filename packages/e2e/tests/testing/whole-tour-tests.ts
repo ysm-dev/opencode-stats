@@ -14,7 +14,7 @@ import {
 } from "./whole-paint.ts";
 import { changeTour, currentChangeKinds, tourStart } from "./change-tour.ts";
 import { installTourClock } from "./change-clock.ts";
-import { tourRounds, tourWidths } from "./tour-plan.ts";
+import { tourRounds, tourWidths, tourCases } from "./tour-plan.ts";
 import { createTourEvidence, trackTourEvidence } from "./tour-evidence.ts";
 import { createTourOwner, type TourScope } from "./tour-owner.ts";
 
@@ -156,6 +156,32 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
       await installTourClock(f.context, tourStart);
       await f.context.addInitScript(installWholePaintObserver);
       const page = await f.context.newPage();
+      page.on("console", (message) => {
+        if (message.text().startsWith("[DEBUG-font-barrier]"))
+          process.stderr.write(`${message.text()}\n`);
+      });
+      await page.addInitScript(() => {
+        const load = document.fonts.load.bind(document.fonts);
+        const state = () => ({
+          ready: document.readyState,
+          sheets: document.styleSheets.length,
+          faces: [...document.fonts].map((face) => ({
+            family: face.family,
+            weight: face.weight,
+            status: face.status,
+          })),
+        });
+        document.fonts.load = (font, text) => {
+          console.info("[DEBUG-font-barrier] call", JSON.stringify({ font, ...state() }));
+          return load(font, text).then((faces) => {
+            console.info(
+              "[DEBUG-font-barrier] resolved",
+              JSON.stringify({ matched: faces.length, ...state() }),
+            );
+            return faces;
+          });
+        };
+      });
       const workerCreated = page.waitForEvent("worker");
       const copied = page.waitForResponse(
         (response) => new URL(response.url()).pathname === "/api/browser-copy",
@@ -246,30 +272,32 @@ function testPartitionedTour(browser: BrowserType, label: string, observing: boo
       const owner = createTourOwner((scope) =>
         initialTrace!("fixture", "setup", () => openChangeTour(browser, width, observing, scope)),
       );
-      const completed: number[] = [];
+      const completed: (typeof tourCases)[number][] = [];
       afterAll(async () => {
         await owner[Symbol.asyncDispose]();
       });
-      it.each(tourRounds)("retains every native action in round %i", async (round) => {
+      it.each(tourCases)("retains every native action in round $round, $stage", async (part) => {
         expect.hasAssertions();
-        const trace = createTourEvidence(`${label}/${mode}/${width}/round-${round}`);
+        const trace = createTourEvidence(
+          `${label}/${mode}/${width}/round-${part.round}/${part.stage}`,
+        );
         initialTrace ??= trace;
         onTestFailed(() => owner.fail());
         await owner.run(async (f, signal) => {
           trackTourEvidence(f.page, trace, signal);
-          expect(completed).toEqual(tourRounds.slice(0, round));
-          if (round === 0) await f.tour.prepare();
-          await f.tour.round(round);
+          expect(completed).toEqual(tourCases.slice(0, part.index));
+          if (part.index === 0) await f.tour.prepare();
+          await f.tour[part.stage](part.round);
           signal.throwIfAborted();
           f.guard.check();
         });
-        completed.push(round);
+        completed.push(part);
       });
       it("proves both rounds and every kind completed, including both build milestones", async () => {
         expect.hasAssertions();
         onTestFailed(() => owner.fail());
         await owner.run(async (f) => {
-          expect(completed).toEqual(tourRounds);
+          expect(completed).toEqual(tourCases);
           await verify(f);
         });
       });

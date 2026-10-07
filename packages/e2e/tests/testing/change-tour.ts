@@ -276,14 +276,16 @@ export function changeTour(page: Page, server: Server, guard: Guard, touch: bool
         );
       }
     },
-    round: async (repeat: number) => {
+    data: async (repeat: number) => {
       guard.live(true);
       await buildCommitPaints(page, (amount) => write(server, amount), now);
       guard.live(false);
       await rangesAndFilters(input);
       await chartTour(page, touch, repeat);
       await contributionChanges(input, repeat);
-      await appearance(input, repeat);
+    },
+    appearance: (repeat: number) => appearance(input, repeat),
+    live: async (repeat: number) => {
       await liveChanges(input, server, guard, repeat);
       guard.live(false);
       now += 60000;
