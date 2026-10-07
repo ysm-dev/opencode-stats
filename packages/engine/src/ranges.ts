@@ -3,7 +3,9 @@ import { addDates, dateCount, localDate, midnight } from "./calendar.ts";
 
 export const Preset = Schema.Literals(["today", "7d", "30d", "90d", "180d", "365d", "all"]);
 export type Preset = typeof Preset.Type;
-export type TimeRange = Preset | { from: string; to: string };
+export type TimeRange =
+  | Preset
+  | { from: string; to: string; kind?: "day" | "week" | "month" | undefined };
 export type Period = { start: number; end: number; from: string; to: string; days: number };
 export const presetLabels: Record<Preset, string> = {
   today: "Today",
@@ -27,25 +29,40 @@ export function parseRange(address: string, baseUrl: string): TimeRange {
   const url = new URL(address, baseUrl);
   if (url.origin !== new URL(baseUrl).origin || url.pathname !== "/")
     throw new Error("Invalid address");
-  for (const key of ["range", "from", "to"]) {
+  for (const key of ["range", "from", "to", "kind"]) {
     if (url.searchParams.getAll(key).length > 1) throw new Error("Duplicate range parameter");
   }
   const range = url.searchParams.get("range");
   if (range !== "fixed") {
-    if (url.searchParams.has("from") || url.searchParams.has("to"))
+    if (url.searchParams.has("from") || url.searchParams.has("to") || url.searchParams.has("kind"))
       throw new Error("Unexpected dates");
     return range === null ? "30d" : Schema.decodeUnknownSync(Preset)(range);
   }
   const from = parseDate(url.searchParams.get("from"));
   const to = parseDate(url.searchParams.get("to"));
   if (from > to) throw new Error("Reversed range");
-  return { from, to };
+  const kind = url.searchParams.get("kind");
+  return kind === null ? { from, to } : fixedKind(from, to, kind);
+}
+
+function fixedKind(from: string, to: string, input: string): Exclude<TimeRange, string> {
+  const kind = Schema.decodeUnknownSync(Schema.Literals(["day", "week", "month"]))(input);
+  const days = dateCount(from, to);
+  const calendarMonth = shiftMonth({ from, to }, 0);
+  const valid =
+    kind === "day"
+      ? days === 1
+      : kind === "week"
+        ? days === 7 && new Date(`${from}T00:00Z`).getUTCDay() === 1
+        : from === calendarMonth.from && to === calendarMonth.to;
+  if (!valid) throw new Error("Invalid fixed range kind");
+  return { from, to, kind };
 }
 
 export const rangeAddress = (range: TimeRange) =>
   typeof range === "string"
     ? `/?range=${range}`
-    : `/?range=fixed&from=${range.from}&to=${range.to}`;
+    : `/?range=fixed&from=${range.from}&to=${range.to}${range.kind ? `&kind=${range.kind}` : ""}`;
 
 export function resolveRange(
   range: TimeRange,
@@ -93,12 +110,27 @@ export function shiftRange(
 ): TimeRange {
   if (range === "all") return range;
   const period = resolveRange(range, now, timeZone, now);
-  const next = {
-    from: addDates(period.from, direction * period.days),
-    to: addDates(period.to, direction * period.days),
-  };
+  const next =
+    typeof range !== "string" && range.kind === "month"
+      ? shiftMonth(range, direction)
+      : {
+          from: addDates(period.from, direction * period.days),
+          to: addDates(period.to, direction * period.days),
+          ...(typeof range === "string" ? {} : { kind: range.kind }),
+        };
   if (direction === 1 && next.from > localDate(now, timeZone)) return range;
   return normalizeRange(next, now, timeZone);
+}
+
+function shiftMonth(
+  range: Exclude<TimeRange, string>,
+  direction: number,
+): Exclude<TimeRange, string> {
+  const date = new Date(`${range.from}T00:00:00Z`);
+  date.setUTCMonth(date.getUTCMonth() + direction, 1);
+  const from = date.toISOString().slice(0, 10);
+  date.setUTCMonth(date.getUTCMonth() + 1, 1);
+  return { from, to: addDates(date.toISOString().slice(0, 10), -1), kind: "month" };
 }
 
 export function previousPeriod(
@@ -108,8 +140,11 @@ export function previousPeriod(
   history: number,
 ): Period | null {
   if (range === "all") return null;
-  const from = addDates(period.from, -period.days);
-  const to = addDates(period.to, -period.days);
+  const before =
+    typeof range !== "string" && range.kind === "month"
+      ? shiftMonth(range, -1)
+      : { from: addDates(period.from, -period.days), to: addDates(period.to, -period.days) };
+  const { from, to } = before;
   const start = midnight(from, timeZone);
   if (start < history) return null;
   const end = midnight(addDates(to, 1), timeZone);
@@ -117,7 +152,7 @@ export function previousPeriod(
   return {
     from,
     to,
-    days: period.days,
+    days: dateCount(from, to),
     start,
     end: running ? Math.min(end, start + Math.max(0, period.end - period.start)) : end,
   };

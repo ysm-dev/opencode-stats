@@ -31,6 +31,13 @@ import {
 import { localDate } from "./calendar.ts";
 import { parseFilters, filterAddress, toggleFilter, removeFilter, type Filter } from "./filters.ts";
 import { historyLine } from "./history.ts";
+import {
+  defaultChart,
+  parseChart,
+  chartAddress,
+  normalizeChart,
+  type ChartChoice,
+} from "./chart-choice.ts";
 
 const measuredChange = (value: number | null, before: number | null) =>
   value === null || before === null ? "" : changeLabel(value, before);
@@ -38,6 +45,7 @@ const measuredChange = (value: number | null, before: number | null) =>
 function stateFor(
   range: TimeRange | undefined,
   filters: readonly Filter[],
+  choice: ChartChoice,
   live: ReturnType<typeof createLiveEngine>,
 ): EngineState {
   if (range === undefined) return { screen: "problem", reason: "invalid-address" };
@@ -79,7 +87,8 @@ function stateFor(
   }
   return {
     screen: "dashboard",
-    address: filterAddress(rangeAddress(range), filters),
+    address: chartAddress(filterAddress(rangeAddress(range), filters), choice),
+    chart: live.chart(period, timeZone, locale, filters, choice),
     rangeLabel: rangeLabel(range, period, locale),
     range: {
       preset:
@@ -125,6 +134,7 @@ export function connectEngine(
   let active: EngineRequest | undefined;
   let range: TimeRange | undefined = "30d";
   let filters: readonly Filter[] = [];
+  let choice = defaultChart;
   let filterChange:
     | Extract<EngineAction, { kind: "filter" | "remove-filter" | "clear-filters" }>
     | undefined;
@@ -136,10 +146,17 @@ export function connectEngine(
     filterAnnouncement = "";
     live.refreshTime();
     const { now, timeZone } = live.time();
-    if (action.kind === "address") {
+    if (action.kind === "address" || action.kind === "drill") {
       try {
-        range = parseRange(action.address, network.baseUrl);
-        filters = parseFilters(action.address, network.baseUrl);
+        const address =
+          action.kind === "address"
+            ? action.address
+            : rangeAddress({ from: action.from, to: action.to, kind: action.unit });
+        range = parseRange(address, network.baseUrl);
+        if (action.kind === "address") {
+          filters = parseFilters(address, network.baseUrl);
+          choice = parseChart(address, network.baseUrl);
+        }
       } catch {
         range = undefined;
       }
@@ -157,7 +174,11 @@ export function connectEngine(
             ? removeFilter(filters, action)
             : toggleFilter(filters, action);
       filterChange = action;
-    } else if (action.kind === "shift")
+    } else if (action.kind === "chart-metric")
+      choice = normalizeChart({ ...choice, metric: action.metric });
+    else if (action.kind === "chart-split")
+      choice = normalizeChart({ ...choice, split: action.split });
+    else if (action.kind === "shift")
       range = shiftRange(range ?? "30d", action.direction, now, timeZone);
     else range = "all";
   };
@@ -168,7 +189,7 @@ export function connectEngine(
     const id = pending?.id ?? 0;
     const changeKind = pending?.action.kind ?? kind;
     pending = undefined;
-    const state = stateFor(range, filters, live);
+    const state = stateFor(range, filters, choice, live);
     if (state.screen === "dashboard" && filterChange) {
       if (filterChange.kind === "clear-filters") filterAnnouncement = "Filters cleared";
       else if (filterChange.announce) {
@@ -184,7 +205,17 @@ export function connectEngine(
     port.postMessage({
       id,
       sequence: ++sequence,
-      state: state.screen === "dashboard" ? { ...state, filterAnnouncement } : state,
+      state:
+        state.screen === "dashboard"
+          ? {
+              ...state,
+              filterAnnouncement,
+              chart: {
+                ...state.chart,
+                announcement: changeKind === "drill" ? state.rangeLabel : "",
+              },
+            }
+          : state,
       timing: {
         kind: changeKind,
         compute: clock.workNow() - started + inputWork + work,

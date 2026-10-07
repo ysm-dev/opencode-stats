@@ -4,8 +4,18 @@ import { Filter, FilterDimension } from "./filters.ts";
 import { ComputeTime } from "./change.ts";
 import { StepMetrics } from "./step-metrics.ts";
 import { ToolMetrics } from "./tool-metrics.ts";
+import { Chart } from "./chart.ts";
+import { ChartMetric, ChartSplit } from "./chart-choice.ts";
 
 const Action = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("chart-metric"), metric: ChartMetric }),
+  Schema.Struct({ kind: Schema.Literal("chart-split"), split: ChartSplit }),
+  Schema.Struct({
+    kind: Schema.Literal("drill"),
+    from: Schema.String,
+    to: Schema.String,
+    unit: Schema.Literals(["day", "week", "month"]),
+  }),
   Schema.Struct({ kind: Schema.Literal("address"), address: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("all-time") }),
   Schema.Struct({ kind: Schema.Literals(["preset", "remove-fixed"]), preset: Preset }),
@@ -64,6 +74,7 @@ const State = Schema.Union([
     tokens: Tokens,
     metrics: StepMetrics,
     tools: ToolMetrics,
+    chart: Chart,
     recordedFromLabel: Schema.String,
     filters: Schema.Array(Schema.Struct({ ...Filter.fields, name: Schema.String })),
     checklists: Schema.Array(

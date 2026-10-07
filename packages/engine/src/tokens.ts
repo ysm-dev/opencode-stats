@@ -28,6 +28,8 @@ import type { Period } from "./ranges.ts";
 import { stepMetrics, type PromptFact } from "./step-metrics.ts";
 import { toolMetrics, type ToolFact } from "./tool-metrics.ts";
 import { startOfHistory, activeFacts } from "./history.ts";
+import { usageChart } from "./chart.ts";
+import type { ChartChoice } from "./chart-choice.ts";
 
 const row = (copy: BrowserCopy, index: number): Fact =>
   mapStepFields((field) => copy.steps[field][index]!);
@@ -217,11 +219,10 @@ export function createFacts(clock: EngineClock) {
         ? HashMap.has(snapshot.sessions, name.code)
         : name.dimension !== "project" || HashMap.has(snapshot.projects, name.code),
     );
-  const query = (period: Period, timeZone: string, filters: readonly Filter[]) => {
-    indexZone(timeZone);
-    const start = history(clock.now(), timeZone);
-    period = { ...period, start: Math.max(period.start, start) };
-    const compiled = compileFilters(filters, names());
+  const placementsFor = (
+    filters: readonly Filter[],
+    compiled: ReturnType<typeof compileFilters>,
+  ) => {
     const key = JSON.stringify(filters);
     let placed = filteredPlacements.get(key);
     if (!placed) {
@@ -231,6 +232,14 @@ export function createFacts(clock: EngineClock) {
           : matchingPlacements(matchingFacts(HashMap.values(snapshot.facts), compiled));
       filteredPlacements.set(key, placed);
     }
+    return placed;
+  };
+  const query = (period: Period, timeZone: string, filters: readonly Filter[]) => {
+    indexZone(timeZone);
+    const start = history(clock.now(), timeZone);
+    period = { ...period, start: Math.max(period.start, start) };
+    const compiled = compileFilters(filters, names());
+    const placed = placementsFor(filters, compiled);
     const count = (map: Map<number, number>) =>
       [...map.values()].filter((instant) => instant >= period.start && instant < period.end).length;
     return {
@@ -279,6 +288,37 @@ export function createFacts(clock: EngineClock) {
         }),
     };
   };
+  const chart = (
+    period: Period,
+    timeZone: string,
+    locale: string,
+    filters: readonly Filter[],
+    choice: ChartChoice,
+  ) => {
+    const dataStart = Math.max(period.start, history(clock.now(), timeZone));
+    const available = names();
+    const compiled = compileFilters(filters, available);
+    const steps = [...matchingFacts(HashMap.values(snapshot.facts), compiled)];
+    const placed = placementsFor(filters, compiled);
+    const inRange = <T extends { start: number }>(facts: Iterable<T>) =>
+      [...facts].filter((fact) => fact.start >= dataStart && fact.start < period.end);
+    return usageChart(
+      period,
+      timeZone,
+      locale,
+      choice,
+      {
+        steps: inRange(steps),
+        prompts: inRange(matchingFacts(HashMap.values(snapshot.prompts), compiled)),
+        tools: inRange(matchingFacts(HashMap.values(snapshot.tools), compiled)),
+        sessions: [...placed.roots.values()].filter(
+          (start) => start >= dataStart && start < period.end,
+        ),
+      },
+      available,
+      dataStart,
+    );
+  };
   return {
     apply,
     current: () => current,
@@ -288,6 +328,7 @@ export function createFacts(clock: EngineClock) {
       history(clock.now(), clock.timeZone()) <=
         midnight(localDate(clock.now(), clock.timeZone()), clock.timeZone()),
     query,
+    chart,
     filterState,
     filterLabel: (filter: Filter) => filterName(filter, names()),
   };

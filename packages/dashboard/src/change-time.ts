@@ -11,6 +11,9 @@ type LocalKind =
   | "resize"
   | "shortcuts"
   | "search"
+  | "chart-read"
+  | "chart-highlight"
+  | "chart-menu"
   | "expand-checklist";
 type Tools = {
   now: () => number;

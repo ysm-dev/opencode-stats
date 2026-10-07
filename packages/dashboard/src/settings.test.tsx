@@ -41,7 +41,9 @@ const dashboard = () => {
     ]),
   );
   const engine = inThreadEngine(server.fetch);
-  const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+  const view = render(() => (
+    <Dashboard client={engine.client} ready={Promise.resolve()} media={() => initialMedia} />
+  ));
   const user = userEvent.setup();
   return {
     server,
@@ -473,3 +475,4 @@ it("reports a late native write refusal and keeps preference changes working for
     await close();
   }
 });
+import { initialMedia } from "./media-size.tsx";

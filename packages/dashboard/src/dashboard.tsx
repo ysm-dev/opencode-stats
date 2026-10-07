@@ -9,6 +9,9 @@ import { PageState, PageActions } from "./page-context.ts";
 import { preserveFilterFocus } from "./filter-focus.ts";
 import { changes, stateMark } from "./change-time.ts";
 import { PreviousNumber, StepHeadlines } from "./step-headlines.tsx";
+import { UsageChart } from "./usage-chart.tsx";
+import { MediaSizeProvider, type MediaSize } from "./media-size.tsx";
+import type { Accessor } from "solid-js";
 import {
   Link,
   Outlet,
@@ -134,6 +137,7 @@ const Overview = () => {
         <PreviousNumber metric="sessions" />
       </section>
       <StepHeadlines />
+      <UsageChart />
     </>
   );
 };
@@ -242,6 +246,7 @@ declare module "@tanstack/solid-router" {
 const CompleteDashboard = (props: {
   state: EngineState;
   router: ReturnType<typeof makeRouter>;
+  media?: Accessor<MediaSize> | undefined;
 }) => {
   return (
     <MetaProvider>
@@ -257,7 +262,9 @@ const CompleteDashboard = (props: {
         >
           {(state) => (
             <PageState.Provider value={state}>
-              <RouterProvider router={props.router} />
+              <MediaSizeProvider value={props.media}>
+                <RouterProvider router={props.router} />
+              </MediaSizeProvider>
             </PageState.Provider>
           )}
         </Show>
@@ -266,7 +273,11 @@ const CompleteDashboard = (props: {
   );
 };
 
-export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void | object> }) => {
+export const Dashboard = (props: {
+  client: PageClient;
+  ready: PromiseLike<void | object>;
+  media?: Accessor<MediaSize> | undefined;
+}) => {
   const [state, setState] = createSignal<EngineState>();
   const router = makeRouter();
   let latest: EngineState | undefined;
@@ -350,7 +361,7 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
   return (
     <PageActions.Provider value={actions}>
       <Show when={state()}>
-        {(complete) => <CompleteDashboard state={complete()} router={router} />}
+        {(complete) => <CompleteDashboard state={complete()} router={router} media={props.media} />}
       </Show>
     </PageActions.Provider>
   );
@@ -360,4 +371,5 @@ export const mountDashboard = (
   root: HTMLElement,
   client: PageClient,
   ready: PromiseLike<void | object>,
-) => render(() => <Dashboard client={client} ready={ready} />, root);
+  media?: Accessor<MediaSize>,
+) => render(() => <Dashboard client={client} ready={ready} media={media} />, root);

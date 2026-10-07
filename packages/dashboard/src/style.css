@@ -286,6 +286,104 @@ h2 {
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+.usage-chart {
+  margin-top: 32px;
+  min-width: 0;
+}
+.chart-choices,
+.chart-segments,
+.chart-read-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-block: 8px;
+}
+.chart-choices button,
+.chart-choices [data-component="select-v2"],
+.chart-readout button {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px 8px;
+  color: var(--dashboard-text-base);
+  background: var(--dashboard-base) !important;
+  border: 1px solid var(--dashboard-edge-base);
+  border-radius: 4px;
+}
+.chart-choices [data-slot="select-v2-value-text"],
+.chart-choices [data-slot="select-v2-chevron"] {
+  color: var(--dashboard-text-base);
+}
+.chart-segments [aria-pressed="true"] {
+  box-shadow: inset 0 -2px var(--dashboard-selected-base);
+}
+.chart-hit {
+  position: relative;
+  width: 100%;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.chart-hit [aria-hidden="true"] {
+  pointer-events: none;
+}
+.chart-hit svg,
+.chart-swatch {
+  forced-color-adjust: none;
+}
+.chart-readout li {
+  min-width: 0;
+  max-width: 100%;
+}
+.chart-cursor {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--dashboard-focus-base);
+  pointer-events: none;
+}
+.chart-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-left: 40px;
+  color: var(--dashboard-muted-base);
+}
+.chart-readout h3 {
+  font-size: 13px;
+}
+.chart-readout ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  padding: 0;
+}
+.chart-readout li button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.chart-swatch {
+  width: 8px;
+  height: 16px;
+  flex: none;
+}
+.usage-chart[data-coarse="true"] button,
+.usage-chart[data-coarse="true"] [data-component="select-v2"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+.usage-chart[data-forced-colours="true"] .chart-swatch {
+  border: 1px solid CanvasText;
+}
+.chart-options-coarse [data-component="menu-v2-item"] {
+  min-height: 44px;
+  min-width: 44px;
+}
 .filters-heading {
   display: flex;
   align-items: center;

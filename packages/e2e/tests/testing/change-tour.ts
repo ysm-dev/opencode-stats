@@ -5,6 +5,7 @@ import type { preferencesServer } from "./preferences-server.ts";
 import { wholeChange, watchChangeRequests } from "./whole-paint.ts";
 import { tourTime, tourVisibility } from "./change-clock.ts";
 import { buildCommitPaints } from "./build-paint.ts";
+import { chartTour } from "./chart-tour.ts";
 
 // Every ticket introducing a kind adds it here. This same tour is reusable by
 // CI and the reference runner; all content/writes here are explicitly synthetic.
@@ -32,6 +33,12 @@ export const currentChangeKinds = [
   "settings-menu",
   "expand-checklist",
   "shortcuts",
+  "chart-metric",
+  "chart-split",
+  "drill",
+  "chart-read",
+  "chart-highlight",
+  "chart-menu",
 ] as const;
 export const tourStart = Date.UTC(2026, 9, 7, 23, 58, 10);
 type Input = { page: Page; touch: boolean };
@@ -210,6 +217,7 @@ export function changeTour(page: Page, server: Server, guard: Guard, touch: bool
       await buildCommitPaints(page, (amount) => write(server, amount), now);
       guard.live(false);
       await rangesAndFilters(input);
+      await chartTour(page, touch, repeat);
       await appearance(input, repeat);
       await liveChanges(input, server, guard, repeat);
       guard.live(false);

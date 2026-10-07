@@ -13,6 +13,8 @@
     "@opencode-stats/engine": "workspace:*",
     "@opencode/ui": "2.0.21",
     "@solidjs/meta": "0.29.4",
+    "@tanstack/charts": "1.0.0",
+    "@tanstack/solid-charts": "1.0.0",
     "@tanstack/solid-router": "1.170.38",
     "solid-js": "1.9.15"
   },

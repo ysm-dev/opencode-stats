@@ -19,12 +19,16 @@ const waitingForFonts = (steps: Parameters<typeof syntheticCopy>[0] = []) => {
   const fonts = deferred();
   const server = inMemoryDashboardServer(syntheticCopy(steps));
   const engine = inThreadEngine(server.fetch);
-  const view = render(() => <Dashboard client={engine.client} ready={fonts.promise} />);
+  const view = render(() => (
+    <Dashboard client={engine.client} ready={fonts.promise} media={() => initialMedia} />
+  ));
   return { fonts, server, engine, view };
 };
 
 const dashboardView = (engine: ReturnType<typeof inThreadEngine>) =>
-  render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+  render(() => (
+    <Dashboard client={engine.client} ready={Promise.resolve()} media={() => initialMedia} />
+  ));
 
 beforeEach(() => {
   dashboardEnvironment("/?range=all");
@@ -72,7 +76,9 @@ describe("Overview", () => {
       ),
     );
     const engine = inThreadEngine(server.fetch);
-    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    const view = render(() => (
+      <Dashboard client={engine.client} ready={Promise.resolve()} media={() => initialMedia} />
+    ));
     try {
       const region = await view.findByRole("region", { name: "Sessions" });
       expect(region.querySelector(".headline-number")?.textContent).toBe("1");
@@ -214,7 +220,9 @@ describe("Overview", () => {
       () => load.promise,
     );
     const engine = inThreadEngine(server.fetch);
-    const view = render(() => <Dashboard client={engine.client} ready={fonts.promise} />);
+    const view = render(() => (
+      <Dashboard client={engine.client} ready={fonts.promise} media={() => initialMedia} />
+    ));
     const user = userEvent.setup();
     try {
       expect(view.container.textContent).toBe("");
@@ -253,7 +261,7 @@ describe("Overview", () => {
     const engine = inThreadEngine(server.fetch);
     const root = document.createElement("div");
     document.body.append(root);
-    const unmount = mountDashboard(root, engine.client, Promise.resolve());
+    const unmount = mountDashboard(root, engine.client, Promise.resolve(), () => initialMedia);
     try {
       await vi.waitFor(() => expect(server.requests).toBe(1));
       expect(root.textContent).toBe("");
@@ -305,3 +313,4 @@ describe("Overview", () => {
     }
   });
 });
+import { initialMedia } from "./media-size.tsx";

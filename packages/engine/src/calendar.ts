@@ -4,8 +4,17 @@ const zoned = (instant: number, timeZone: string) =>
   DateTime.makeZonedUnsafe(instant, { timeZone });
 export const localDate = (instant: number, timeZone: string) =>
   DateTime.formatIsoDate(zoned(instant, timeZone));
-export const midnight = (date: string, timeZone: string) =>
-  DateTime.toEpochMillis(DateTime.makeZonedUnsafe(date, { timeZone, adjustForTimeZone: true }));
+const midnights = new Map<string, number>();
+export const midnight = (date: string, timeZone: string) => {
+  const key = `${timeZone}\0${date}`;
+  const cached = midnights.get(key);
+  if (cached !== undefined) return cached;
+  const value = DateTime.toEpochMillis(
+    DateTime.makeZonedUnsafe(date, { timeZone, adjustForTimeZone: true }),
+  );
+  midnights.set(key, value);
+  return value;
+};
 export const addDates = (date: string, days: number) =>
   DateTime.formatIsoDate(DateTime.add(DateTime.makeUnsafe(date), { days }));
 // Date ordinals in UTC, not the duration of local days in a timezone.

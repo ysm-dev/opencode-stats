@@ -50,10 +50,13 @@ export function installWholePaintObserver(observing = true) {
       // This container contains several independent checklist search states.
       // Its own global mark is checked, and every checklist/row is checked below.
       if (region.classList.contains("filters")) continue;
-      const local = region.closest(".filter-checklist")?.getAttribute("data-local-state") ?? "";
+      const local =
+        region.getAttribute("data-local-state") ??
+        region.closest(".filter-checklist")?.getAttribute("data-local-state") ??
+        "";
       retainDrawing(
         region,
-        `${region.getAttribute("data-state")}/${local}`,
+        `${region.getAttribute("data-state")}/${local}/${region.getAttribute("data-media-state") ?? region.getAttribute("data-size-state") ?? ""}`,
         JSON.stringify({
           text: region.textContent,
           inputs: [...region.querySelectorAll<HTMLInputElement>("input")].map((input) => [
@@ -72,6 +75,8 @@ export function installWholePaintObserver(observing = true) {
           ]),
           range: region.getAttribute("data-range"),
           updating: region.getAttribute("data-updating"),
+          svg: region.matches("svg") ? region.innerHTML : region.querySelector("svg")?.innerHTML,
+          chartCursor: region.querySelector<HTMLElement>(".chart-cursor")?.style.left,
         }),
       );
     }
@@ -159,6 +164,8 @@ export function installWholePaintObserver(observing = true) {
       !!document.querySelector(".tool-filter-divider") &&
       !!document.querySelector(".range-control") &&
       !!document.querySelector(".live-status") &&
+      !!document.querySelector(".chart-hit svg") &&
+      !!document.querySelector(".chart-readout") &&
       regions.length >= 12 &&
       states.size === 1 &&
       document.fonts.check("440 13px Inter");
@@ -200,6 +207,21 @@ export function installWholePaintObserver(observing = true) {
         [...list.querySelectorAll("[data-local-state]")].some(
           (node) => node.getAttribute("data-local-state") !== mark,
         )
+      )
+        flag("mixed-frame");
+    }
+    for (const chart of document.querySelectorAll(".usage-chart")) {
+      const surface = chart.querySelector(".chart-hit");
+      const mark = surface?.getAttribute("data-local-state");
+      if (
+        [
+          ...chart.querySelectorAll(".chart-hit, .chart-hit svg, .chart-readout, .chart-spoken"),
+        ].some((node) => node.getAttribute("data-local-state") !== mark)
+      )
+        flag("mixed-frame");
+      if (
+        surface?.getAttribute("data-size-state") !==
+        chart.querySelector("svg")?.getAttribute("data-size-state")
       )
         flag("mixed-frame");
     }
@@ -335,6 +357,9 @@ export async function wholeChange(page: Page, kind: string, action: () => Promis
       "filter",
       "remove-filter",
       "clear-filters",
+      "chart-metric",
+      "chart-split",
+      "drill",
     ].includes(kind)
   )
     expect(data.completedAddress, "whole-paint:completed-address").toBe(true);
