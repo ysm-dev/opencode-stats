@@ -117,26 +117,44 @@ main {
   display: block;
   height: 16px;
   font-size: 10px;
+  background: var(--dashboard-base);
 }
 .graph-scroll {
   overflow-x: auto;
   min-width: 0;
   flex: 1;
 }
-.graph-surface {
+.graph-plot {
+  position: relative;
   width: 100%;
   height: 176px;
+}
+.graph-surface {
+  width: 100%;
+  height: 100%;
   display: block;
   forced-color-adjust: none;
 }
 .graph-surface:focus-visible {
   outline-offset: -4px;
 }
+.graph-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 .graph-label {
-  fill: var(--dashboard-muted-base);
+  position: absolute;
+  top: 12px;
+  transform: translate(-50%, -50%);
+  color: var(--dashboard-muted-base);
+  background: var(--dashboard-base);
   font-size: 11px;
+  line-height: 1;
 }
 .graph-week {
+  top: 160px;
   font-size: 9px;
 }
 .graph-surface rect,
@@ -196,7 +214,7 @@ main {
 .graph-streaks dt {
   color: var(--dashboard-muted-base);
 }
-.contribution-graph[data-narrow="true"] .graph-surface {
+.contribution-graph[data-narrow="true"] .graph-plot {
   width: var(--graph-width);
 }
 .contribution-graph[data-coarse="true"] .graph-metrics button,

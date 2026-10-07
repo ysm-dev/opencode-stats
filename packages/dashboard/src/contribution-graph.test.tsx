@@ -41,11 +41,18 @@ const pointer = (
 ) => {
   const rect = node.tagName.toLowerCase() === "rect";
   const event = new Event(type, { bubbles: true });
+  const label = node instanceof HTMLElement ? node : undefined;
   Object.assign(event, {
     pointerType,
     button,
-    clientX: Number(node.getAttribute("x")) + (rect ? 6.5 : 0),
-    clientY: Number(node.getAttribute("y")) + (rect ? 6.5 : 0),
+    clientX: label
+      ? (Number.parseFloat(label.style.left) * svg.getBoundingClientRect().width) / 100
+      : Number(node.getAttribute("x")) + 6.5,
+    clientY: rect
+      ? Number(node.getAttribute("y")) + 6.5
+      : node.hasAttribute("data-month")
+        ? 12
+        : 160,
   });
   fireEvent(svg, event);
 };
@@ -151,11 +158,11 @@ it("uses one nearest-hit surface, including gaps, and decides tap-versus-mouse p
   expect(window.location.search).toBe("?range=today");
   pointer(svg, oct1, "mouse");
   await vi.waitFor(() => expect(window.location.search).toContain("from=2026-10-01&to=2026-10-01"));
-  pointer(svg, svg.querySelector('[data-week="2026-09-28"]')!, "mouse");
+  pointer(svg, document.querySelector('[data-week="2026-09-28"]')!, "mouse");
   await vi.waitFor(() =>
     expect(window.location.search).toContain("from=2026-09-28&to=2026-10-04&kind=week"),
   );
-  pointer(svg, svg.querySelector('[data-month="2026-09-01"]')!, "mouse");
+  pointer(svg, document.querySelector('[data-month="2026-09-01"]')!, "mouse");
   await vi.waitFor(() =>
     expect(window.location.search).toContain("from=2026-09-01&to=2026-09-30&kind=month"),
   );
