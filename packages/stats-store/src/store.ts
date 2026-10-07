@@ -60,12 +60,13 @@ export type { StoreRuntime } from "./database.ts";
 export { statsStoreVersion } from "./build.ts";
 export { sqlFailure, SqlFailure } from "./errors.ts";
 export type { BuildEvent } from "./build-events.ts";
+export type { StoreEvent } from "./build-events.ts";
 
 export const stayInSync = Effect.fnUntraced(function* (
   options: StoreOptions,
   runtime: StoreRuntime,
   announce: (copy: StoreCopy) => void,
-  report: (event: import("./build-events.ts").BuildEvent) => void = () => {},
+  report: (event: import("./build-events.ts").StoreEvent) => void = () => {},
 ) {
   const readonly = true;
   const paths = yield* Effect.try({
@@ -173,11 +174,7 @@ export const stayInSync = Effect.fnUntraced(function* (
     );
   let last: StoreCursor | undefined;
   const notify = (copy: StoreCopy) => {
-    if (
-      copy.revision === 0 ||
-      (last?.generation === copy.generation && last.revision === copy.revision)
-    )
-      return;
+    if (last?.generation === copy.generation && last.revision === copy.revision) return;
     last = copy;
     announce(copy);
   };

@@ -1,5 +1,7 @@
 import type { EngineClock } from "./clock.ts";
-import { clockLabel } from "./time-labels.ts";
+import { clockLabel, dateLabel } from "./time-labels.ts";
+import { localDate } from "./calendar.ts";
+import { stopReason, type SyncStop } from "@opencode-stats/browser-copy/api";
 
 export function createLiveStatus(clock: EngineClock) {
   const time = (timestamp: number) => clockLabel(timestamp, clock.timeZone(), clock.locale());
@@ -8,7 +10,8 @@ export function createLiveStatus(clock: EngineClock) {
   let pausedAt: number | undefined;
   let pausedClock = "";
   let resuming = false;
-  let warning = false;
+  let warning = "";
+  let stop: SyncStop | null = null;
   let announcement = "";
   const read = () => {
     const stale = disconnectedAt !== undefined && clock.now() - disconnectedAt >= 5000;
@@ -18,13 +21,23 @@ export function createLiveStatus(clock: EngineClock) {
         liveLabel: "Paused",
         statusLine: `Paused at ${pausedClock}`,
         announcement,
+        ...(stop ? { stop } : {}),
       };
+    const since = stale ? disconnectedAt! : stop?.since;
+    const date = since === undefined ? "" : localDate(since, clock.timeZone());
+    const stamp =
+      since === undefined
+        ? ""
+        : `${date === localDate(clock.now(), clock.timeZone()) ? "" : `${dateLabel(date, clock.locale())}, `}${time(since)}`;
     const statusLine = stale
-      ? `Not updating since ${time(disconnectedAt!)} · the dashboard server isn't running`
-      : "";
-    if (stale && !warning) announcement = statusLine;
-    if (!stale && warning) announcement = "Up to date again";
-    warning = stale;
+      ? `Not updating since ${stamp} · the dashboard server isn't running`
+      : stop
+        ? `Not updating since ${stamp} · ${stopReason(stop, time)}`
+        : "";
+    const key = stale ? "server" : stop ? stopReason(stop, String) : "";
+    if (key && key !== warning) announcement = statusLine;
+    if (!key && warning) announcement = "Up to date again";
+    warning = key;
     const seconds =
       lastWrite === undefined
         ? undefined
@@ -37,13 +50,17 @@ export function createLiveStatus(clock: EngineClock) {
           : `Last write ${seconds} s ago`;
     return {
       paused: false,
-      liveLabel: stale ? "Not updating" : liveLabel,
+      liveLabel: key ? "Not updating" : liveLabel,
       statusLine,
       announcement,
+      ...(stop ? { stop } : {}),
     };
   };
   return {
     read,
+    syncStop: (value: SyncStop | null) => {
+      stop = value;
+    },
     wrote: () => {
       lastWrite = clock.now();
     },

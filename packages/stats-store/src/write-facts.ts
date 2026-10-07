@@ -1,7 +1,16 @@
 import { eq } from "drizzle-orm";
 import * as Effect from "effect/Effect";
 import { Database } from "./database.ts";
-import { metadata, steps, prompts, sessions, tombstones } from "./schema.ts";
+import {
+  metadata,
+  steps,
+  prompts,
+  sessions,
+  sessionFacts,
+  dimensionNames,
+  projectFacts,
+  tombstones,
+} from "./schema.ts";
 import type { SourceFact, SourceReader, SourceSession, SourceProject } from "./source-reader.ts";
 import { makeDimensions, owningSession, saveDetails, stepAttribution } from "./dimensions.ts";
 import { replacePrompts } from "./write-prompts.ts";
@@ -45,6 +54,7 @@ const replaceFacts = Effect.fnUntraced(function* (
   const db = yield* Database;
   const old = yield* db.select().from(steps).where(eq(steps.session, id));
   const previousById = new Map(old.map((row) => [row.id, row]));
+  let changed = false;
   const session = byId.get(id);
   const owner = session ? owningSession(session, byId) : id;
   for (const fact of facts) {
@@ -68,6 +78,7 @@ const replaceFacts = Effect.fnUntraced(function* (
     };
     const previous = previousById.get(row.id);
     if (previous && keys.every((key) => previous[key] === row[key])) continue;
+    changed = true;
     yield* db
       .insert(steps)
       .values({ ...row, revision })
@@ -75,12 +86,61 @@ const replaceFacts = Effect.fnUntraced(function* (
     yield* db.delete(tombstones).where(eq(tombstones.id, row.id));
   }
   for (const row of old.filter((step) => !facts.some((fact) => fact.id === step.id))) {
+    changed = true;
     yield* db.delete(steps).where(eq(steps.id, row.id));
     yield* db
       .insert(tombstones)
       .values({ id: row.id, revision, deletedAt: now })
       .onConflictDoUpdate({ target: tombstones.id, set: { revision, deletedAt: now } });
   }
+  return changed;
+});
+
+const replaceSnapshot = Effect.fnUntraced(function* (
+  snapshot: Snapshot,
+  revision: number,
+  now: number,
+  inventory: Map<string, SourceSession>,
+  code: ReturnType<Effect.Success<ReturnType<typeof makeDimensions>>>,
+  pricer: StepPricer,
+) {
+  const db = yield* Database;
+  const facts = snapshot.session ? snapshot.facts : [];
+  const changed = yield* replaceFacts(snapshot.id, facts, revision, now, inventory, code, pricer);
+  const calls = yield* replaceTools(
+    snapshot.id,
+    snapshot.session ? snapshot.tools : [],
+    revision,
+    now,
+    code,
+  );
+  const delivered = yield* replacePrompts(
+    snapshot.id,
+    snapshot.session ? snapshot.prompts : [],
+    facts,
+    revision,
+    now,
+    inventory,
+    code,
+  );
+  if (snapshot.session)
+    yield* db
+      .insert(sessions)
+      .values(snapshot.session)
+      .onConflictDoUpdate({ target: sessions.id, set: snapshot.session });
+  else yield* db.delete(sessions).where(eq(sessions.id, snapshot.id));
+  return changed || calls || delivered || !snapshot.session;
+});
+
+const exposedChanges = Effect.fnUntraced(function* (revision: number) {
+  const db = yield* Database;
+  const names = yield* db
+    .select()
+    .from(dimensionNames)
+    .where(eq(dimensionNames.revision, revision));
+  const projects = yield* db.select().from(projectFacts).where(eq(projectFacts.revision, revision));
+  const deleted = yield* db.select().from(tombstones).where(eq(tombstones.revision, revision));
+  return names.length > 0 || projects.length > 0 || deleted.length > 0;
 });
 
 export const commitUnit = Effect.fnUntraced(function* (
@@ -93,10 +153,12 @@ export const commitUnit = Effect.fnUntraced(function* (
   registry: Effect.Success<ReturnType<typeof makeDimensions>>,
   refreshDetails: boolean,
   pricer: StepPricer,
+  suppressNoop = false,
 ) {
   const db = yield* Database;
-  yield* db.$client.withTransaction(
+  return yield* db.$client.withTransaction(
     Effect.gen(function* () {
+      const changed = new Set<string>();
       const header = (yield* db.select().from(metadata))[0]!;
       const revision = header.revision + 1;
       const code = registry(revision);
@@ -109,29 +171,8 @@ export const commitUnit = Effect.fnUntraced(function* (
         yield* saveDetails([...inventory.values()], projects, code, revision, now);
       if (snapshots)
         for (const snapshot of snapshots) {
-          if (!snapshot.session) {
-            yield* replaceFacts(snapshot.id, [], revision, now, inventory, code, pricer);
-            yield* replaceTools(snapshot.id, [], revision, now, code);
-            yield* replacePrompts(snapshot.id, [], [], revision, now, inventory, code);
-            yield* db.delete(sessions).where(eq(sessions.id, snapshot.id));
-            continue;
-          }
-          const session = snapshot.session;
-          yield* replaceFacts(session.id, snapshot.facts, revision, now, inventory, code, pricer);
-          yield* replaceTools(session.id, snapshot.tools, revision, now, code);
-          yield* replacePrompts(
-            session.id,
-            snapshot.prompts,
-            snapshot.facts,
-            revision,
-            now,
-            inventory,
-            code,
-          );
-          yield* db
-            .insert(sessions)
-            .values(session)
-            .onConflictDoUpdate({ target: sessions.id, set: session });
+          if (yield* replaceSnapshot(snapshot, revision, now, inventory, code, pricer))
+            changed.add(snapshot.id);
         }
       if (removed)
         for (const id of removed) {
@@ -147,14 +188,30 @@ export const commitUnit = Effect.fnUntraced(function* (
         (value, row) => Math.min(value, row.start),
         starts[0]?.start ?? 0,
       );
+      const completeFrom = header.historyComplete ? earliest : (unreadLatest ?? earliest);
+      const complete = header.historyComplete || unreadLatest === null;
+      for (const row of yield* db
+        .select()
+        .from(sessionFacts)
+        .where(eq(sessionFacts.revision, revision)))
+        changed.add(row.id);
+      if (
+        suppressNoop &&
+        changed.size === 0 &&
+        header.historyCompleteFrom === completeFrom &&
+        header.historyComplete === complete &&
+        !(yield* exposedChanges(revision))
+      )
+        return { changed, committed: false };
       yield* db
         .update(metadata)
         .set({
           revision,
-          historyCompleteFrom: header.historyComplete ? earliest : (unreadLatest ?? earliest),
-          historyComplete: header.historyComplete || unreadLatest === null,
+          historyCompleteFrom: completeFrom,
+          historyComplete: complete,
         })
         .where(eq(metadata.id, 1));
+      return { changed, committed: true };
     }),
   );
 });

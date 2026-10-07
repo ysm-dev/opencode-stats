@@ -1,18 +1,27 @@
 import * as Effect from "effect/Effect";
 import * as PubSub from "effect/PubSub";
 import * as Stream from "effect/Stream";
-import type { CopyCursor, LiveAnnouncement } from "./api.ts";
+import type { CopyCursor, LiveAnnouncement, SyncStop } from "./api.ts";
 import { formatVersion } from "./binary.ts";
 
 export function createLiveFeed(current: () => CopyCursor, release: string) {
   const announcements = Effect.runSync(PubSub.sliding<void>(1));
-  let latest: CopyCursor | undefined;
+  let latest: LiveAnnouncement | undefined;
+  let stop: SyncStop | null = null;
+  let opened = false;
   const stream = Stream.unwrap(
     Effect.gen(function* () {
       // Subscribe before reading the opening cursor so a simultaneous commit cannot disappear.
       const subscription = yield* PubSub.subscribe(announcements);
       const { generation, revision } = current();
-      const opening: LiveAnnouncement = { generation, revision, release, format: formatVersion };
+      opened = true;
+      const opening: LiveAnnouncement = {
+        generation,
+        revision,
+        release,
+        format: formatVersion,
+        stop,
+      };
       const revisions = Stream.mapEffect(Stream.fromSubscription(subscription), () =>
         Effect.map(Effect.yieldNow, () => latest!),
       );
@@ -22,7 +31,13 @@ export function createLiveFeed(current: () => CopyCursor, release: string) {
   return {
     stream,
     announce: ({ generation, revision }: CopyCursor) => {
-      latest = { generation, revision };
+      latest = { generation, revision, stop };
+      PubSub.publishUnsafe(announcements, undefined);
+    },
+    status: (value: SyncStop | null) => {
+      stop = value;
+      if (!latest && !opened) return;
+      latest = { ...current(), stop };
       PubSub.publishUnsafe(announcements, undefined);
     },
     close: () => Effect.runPromise(PubSub.shutdown(announcements)),

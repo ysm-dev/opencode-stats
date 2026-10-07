@@ -6,7 +6,7 @@ import type { SourceAdapter } from "./source-reader.ts";
 import type { DatabaseAdapter, StorePaths } from "./database.ts";
 import * as Cause from "effect/Cause";
 import { SqlFailure } from "./errors.ts";
-import type { BuildEvent } from "./build-events.ts";
+import type { StoreEvent } from "./build-events.ts";
 
 type WorkerFailure = {
   readonly kind: "sqlite";
@@ -14,7 +14,7 @@ type WorkerFailure = {
   readonly statement: "readSource" | "writeSteps" | "readStore";
 };
 export type WorkerPort = {
-  postMessage(value: boolean | "stop" | "stopped" | StorePaths | WorkerFailure | BuildEvent): void;
+  postMessage(value: boolean | "stop" | "stopped" | StorePaths | WorkerFailure | StoreEvent): void;
   addEventListener(type: "message", listener: (event: MessageEvent) => void): void;
   removeEventListener(type: "message", listener: (event: MessageEvent) => void): void;
 };

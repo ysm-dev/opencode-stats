@@ -45,7 +45,8 @@ export class NodeBunDatabase {
   }
   query(sql: string) {
     this.record.queries.push(sql);
-    if (/from\s+"?session_message/iu.test(sql) && busy.remaining > 0) {
+    // Inject busy retries into transcript snapshots, not the covering-index inventory queries.
+    if (/from\s+session_message\s+where\s+session_id=\?/iu.test(sql) && busy.remaining > 0) {
       busy.remaining -= 1;
       busy.attempted();
       throw Object.assign(new Error("Synthetic lock"), { code: "SQLITE_BUSY", errno: 5 });

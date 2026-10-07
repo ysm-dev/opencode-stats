@@ -8,6 +8,7 @@ import {
   renameSync,
   symlinkSync,
   realpathSync,
+  linkSync,
 } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -43,7 +44,9 @@ it("reports first builds once, not ordinary starts, and reports release rebuilds
       options,
       () => {},
       nodeRuntime,
-      (event) => events.push(event),
+      (event) => {
+        if (event.kind === "build.start" || event.kind === "build.end") events.push(event);
+      },
     );
     expect(first.historyComplete).toBe(true);
     expect(events).toMatchObject([
@@ -55,7 +58,9 @@ it("reports first builds once, not ordinary starts, and reports release rebuilds
       options,
       () => {},
       nodeRuntime,
-      (event) => events.push(event),
+      (event) => {
+        if (event.kind === "build.start" || event.kind === "build.end") events.push(event);
+      },
     );
     expect(events).toHaveLength(2);
     const db = new DatabaseSync(filename(f.source, f.folder));
@@ -65,7 +70,9 @@ it("reports first builds once, not ordinary starts, and reports release rebuilds
       options,
       () => {},
       nodeRuntime,
-      (event) => events.push(event),
+      (event) => {
+        if (event.kind === "build.start" || event.kind === "build.end") events.push(event);
+      },
     );
     expect(next.generation).not.toBe(first.generation);
     expect(events.slice(2)).toMatchObject([
@@ -108,7 +115,9 @@ it.each(["not-sqlite", "corrupt-pages", "integrity", "layout"])(
         options,
         () => {},
         nodeRuntime,
-        (event) => events.push(event),
+        (event) => {
+          if (event.kind === "build.start" || event.kind === "build.end") events.push(event);
+        },
       );
       expect(rebuilt.generation).not.toBe(old.generation);
       expect(events).toMatchObject([
@@ -239,6 +248,7 @@ it.each([
   ["-wal", false],
   ["-shm", false],
   [".source", false],
+  [".sync", false],
   ["-wal", true],
 ] as const)(
   "protects exact source bytes at a vanished database's derived %s path (aliased cache: %s) without deleting any of its files",
@@ -259,8 +269,30 @@ it.each([
       expect(copy.historyComplete).toBe(true);
       expect(readFileSync(served).equals(bytes)).toBe(true);
       const deleted = vi.mocked(rmSync).mock.calls.map(([file]) => String(file));
-      for (const part of ["", "-wal", "-shm", ".source"])
+      for (const part of ["", "-wal", "-shm", ".source", ".sync"])
         expect(deleted).not.toContain(`${stale}${part}`);
+    } finally {
+      f.dispose();
+    }
+  },
+);
+
+it.each(["", "-wal", "-shm"])(
+  "protects every served %s inode alias in obsolete cache groups",
+  async (suffix) => {
+    const f = syntheticFixture();
+    try {
+      await readBuilt({ source: f.source, cacheHome: f.folder }, () => {}, nodeRuntime);
+      const served = `${realpathSync(f.source)}${suffix}`;
+      const before = readFileSync(served);
+      const stale = filename(`/synthetic-vanished-${suffix}.db`, f.folder);
+      writeFileSync(`${stale}.source`, `/synthetic-vanished-${suffix}.db`);
+      linkSync(served, stale);
+      vi.mocked(rmSync).mockClear();
+      await readBuilt({ source: f.source, cacheHome: f.folder }, () => {}, nodeRuntime);
+      if (suffix !== "-shm") expect(readFileSync(served).equals(before)).toBe(true);
+      expect(existsSync(stale)).toBe(true);
+      expect(vi.mocked(rmSync).mock.calls.map(([file]) => String(file))).not.toContain(stale);
     } finally {
       f.dispose();
     }
@@ -278,9 +310,21 @@ it("never deletes a served source that is itself an authenticated .source marker
     const bytes = readFileSync(served);
     renameSync(source, `${source}.away`);
     vi.mocked(rmSync).mockClear();
-    await expect(
-      readBuilt({ source: served, cacheHome: f.folder }, () => {}, nodeRuntime),
-    ).rejects.toMatchObject({ statement: "readSource" });
+    const events: import("./store.ts").StoreEvent[] = [];
+    const copy = await readBuilt(
+      { source: served, cacheHome: f.folder },
+      () => {},
+      nodeRuntime,
+      (event) => events.push(event),
+    );
+    expect(copy.steps).toEqual([]);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        kind: "sync.stopped",
+        reason: "source.unreadable",
+        code: "damaged",
+      }),
+    );
     expect(readFileSync(served).equals(bytes)).toBe(true);
     const deleted = vi.mocked(rmSync).mock.calls.map(([file]) => String(file));
     expect(deleted).not.toContain(served);
@@ -327,7 +371,9 @@ it.each([
         options,
         () => {},
         nodeRuntime,
-        (event) => events.push(event),
+        (event) => {
+          if (event.kind === "build.start" || event.kind === "build.end") events.push(event);
+        },
       );
       expect(next.generation).not.toBe(old.generation);
       expect(next.steps).toEqual(old.steps);

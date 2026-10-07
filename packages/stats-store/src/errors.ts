@@ -4,6 +4,8 @@ export type Statement = "readSource" | "writeSteps" | "readStore";
 const codes = [
   "SQLITE_ERROR",
   "SQLITE_BUSY",
+  "SQLITE_LOCKED",
+  "SQLITE_PERM",
   "SQLITE_FULL",
   "SQLITE_READONLY",
   "SQLITE_CORRUPT",
@@ -11,6 +13,10 @@ const codes = [
   "SQLITE_CANTOPEN",
   "SQLITE_CONSTRAINT",
   "SQLITE_IOERR",
+  "ENOENT",
+  "EACCES",
+  "EPERM",
+  "ENOSPC",
 ] as const;
 
 export class SqlFailure extends Error {
@@ -41,9 +47,19 @@ export function sqlFailure(
     return new SqlFailure("UNEXPECTED", statement);
   seen.add(input);
   if (Cause.isCause(input)) return sqlFailure(Cause.squash(input), statement, seen);
-  // node:sqlite uses ERR_SQLITE_ERROR; the numeric code carries the real SQLite failure.
-  if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 8)
-    return new SqlFailure("SQLITE_READONLY", statement);
+  const nativeCode = Object.getOwnPropertyDescriptor(input, "errcode")?.value;
+  if (typeof nativeCode === "number") {
+    const mapped = new Map<number, (typeof codes)[number]>([
+      [3, "SQLITE_PERM"],
+      [5, "SQLITE_BUSY"],
+      [6, "SQLITE_LOCKED"],
+      [8, "SQLITE_READONLY"],
+      [13, "SQLITE_FULL"],
+      [14, "SQLITE_CANTOPEN"],
+    ]).get(nativeCode & 255);
+    if (mapped) return new SqlFailure(mapped, statement);
+  }
+  // node:sqlite uses ERR_SQLITE_ERROR for both; the numeric code distinguishes damage.
   if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 11)
     return new SqlFailure("SQLITE_CORRUPT", statement);
   if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 26)

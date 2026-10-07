@@ -129,7 +129,7 @@ it("refuses an existing but unreadable source before taking a lock or exposing a
           XDG_STATE_HOME: fixture.folder,
         }),
       ),
-    ).rejects.toThrow("OpenCode database must be an existing readable file.");
+    ).rejects.toThrow("OpenCode database must be an existing file.");
     expect(existsSync(join(fixture.folder, "opencode-stats"))).toBe(false);
   } finally {
     chmodSync(fixture.source, 0o600);
@@ -199,9 +199,7 @@ it("the process boundary prints only our decided messages and never raw startup 
     await Effect.runPromise(
       processProgram(["--db", fixture.folder], nodeServer, nodeRuntime, nodeLock),
     );
-    expect(error).toHaveBeenCalledExactlyOnceWith(
-      "OpenCode database must be an existing readable file.\n",
-    );
+    expect(error).toHaveBeenCalledExactlyOnceWith("OpenCode database must be an existing file.\n");
     error.mockClear();
     await Effect.runPromise(
       processProgram(

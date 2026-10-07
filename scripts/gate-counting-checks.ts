@@ -20,6 +20,18 @@ export function* countingChecks(extension: string): Generator<Check> {
   const source = readFileSync(`${store}/source-reader.ts`, "utf8");
   const types = readFileSync(`${store}/testing/types.ts`, "utf8");
   yield {
+    gate: `OpenCode exact schema recognition (${extension})`,
+    files: {
+      [`${store}/gate-canary.${extension}`]: readFileSync(
+        `${store}/source-schema.ts`,
+        "utf8",
+      ).replace("row.type.toUpperCase()", '"SILENTLY_WRONG_TYPE"'),
+      [`${store}/source-schema.ts`]: `export * from "./gate-canary.${extension}";\n`,
+    },
+    command: ["test", `${store}/source-schema.test.ts`],
+    expect: ["recognizes the complete pinned", "failed"],
+  };
+  yield {
     gate: `stats-store statements freshness (${extension})`,
     files: {
       [`${store}/gate-canary.${extension}`]: schema.replace(

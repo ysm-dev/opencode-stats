@@ -12,7 +12,7 @@ type Session = {
   controller: AbortController;
   stopStream?: () => Promise<void>;
   work?: Promise<void> | undefined;
-  target?: CopyCursor | undefined;
+  target?: LiveAnnouncement | undefined;
   opening: boolean;
   kind: ChangeKind;
 };
@@ -116,15 +116,23 @@ export function createLiveEngine(
       const before = copies.received();
       const newer =
         !before || wanted.generation !== before.generation || wanted.revision > before.revision;
-      if (!newer && !current.opening) continue;
-      await apply(current, wanted.generation === before?.generation ? before : undefined);
+      if (
+        !newer &&
+        !current.opening &&
+        (!("stop" in wanted) ||
+          JSON.stringify(wanted.stop ?? null) === JSON.stringify(status.read().stop ?? null))
+      )
+        continue;
+      if (newer || current.opening)
+        await apply(current, wanted.generation === before?.generation ? before : undefined);
       if (session !== current) return;
+      if ("stop" in wanted) status.syncStop(wanted.stop ?? null);
       current.opening = false;
       if (newer && before) status.wrote();
       status.connected();
-      if (copies.canPaint())
+      if (copies.canPaint() || status.read().liveLabel === "Not updating")
         changed(
-          current.kind === "live" && (!before?.historyComplete || !facts.current()!.historyComplete)
+          current.kind === "live" && (!before?.historyComplete || !facts.current()?.historyComplete)
             ? "build"
             : current.kind,
         );

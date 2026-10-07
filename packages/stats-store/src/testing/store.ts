@@ -10,12 +10,18 @@ export const observedStore = Effect.fnUntraced(function* (
   options: StoreOptions,
   runtime: StoreRuntime,
   onCopy: (copy: StoreCopy) => void = () => {},
+  report: Parameters<typeof stayInSync>[3] = () => {},
 ) {
   const commits = yield* Queue.unbounded<StoreCopy>();
-  const store = yield* stayInSync(options, runtime, (copy) => {
-    onCopy(copy);
-    Queue.offerUnsafe(commits, copy);
-  });
+  const store = yield* stayInSync(
+    options,
+    runtime,
+    (copy) => {
+      onCopy(copy);
+      Queue.offerUnsafe(commits, copy);
+    },
+    report,
+  );
   return { ...store, committed: Queue.take(commits) };
 });
 

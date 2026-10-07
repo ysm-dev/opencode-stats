@@ -50,7 +50,12 @@ function stateFor(
 ): EngineState {
   if (range === undefined) return { screen: "problem", reason: "invalid-address" };
   const current = live.current();
-  if (!current || !live.ready()) return { screen: "problem", reason: "copy-unavailable" };
+  if (!current || !live.ready())
+    return {
+      screen: "problem",
+      reason: "copy-unavailable",
+      ...(live.status().stop ? { stop: live.status().stop! } : {}),
+    };
   const { now, timeZone, locale } = live.time();
   const history = live.history(now, timeZone);
   const historyLabel = dateLabel(localDate(history, timeZone), locale, false);
@@ -121,6 +126,9 @@ function stateFor(
       status.statusLine,
       status.paused,
     ),
+    announcement: status.announcement.startsWith("Not updating")
+      ? historyLine(current.historyComplete, historyLabel, status.announcement, status.paused)
+      : status.announcement,
     filterAnnouncement: "",
   };
 }

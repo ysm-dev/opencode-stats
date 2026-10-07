@@ -16,7 +16,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { StorePaths } from "./database.ts";
 
-export type StoreOptions = { readonly source: string; readonly cacheHome?: string };
+export type StoreOptions = {
+  readonly source: string;
+  readonly cacheHome?: string;
+  readonly resolvedSource?: string;
+};
 
 function cachedSource(file: string) {
   try {
@@ -26,9 +30,18 @@ function cachedSource(file: string) {
   }
 }
 
+function identity(file: string) {
+  try {
+    const stat = statSync(file);
+    return `${stat.dev}:${stat.ino}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export function storePaths(options: StoreOptions): StorePaths {
-  const source = realpathSync(options.source);
-  if (!statSync(source).isFile()) throw new Error();
+  const source = options.resolvedSource ?? realpathSync(options.source);
+  if (options.resolvedSource === undefined && !statSync(source).isFile()) throw new Error();
   const folder = join(
     options.cacheHome ?? (process.env["XDG_CACHE_HOME"] || join(homedir(), ".cache")),
     "opencode-stats",
@@ -36,21 +49,30 @@ export function storePaths(options: StoreOptions): StorePaths {
   mkdirSync(folder, { recursive: true, mode: 0o700 });
   chmodSync(folder, 0o700);
   const store = join(folder, `${createHash("sha256").update(source).digest("hex")}.db`);
+  const protectedPaths = [source, options.source].flatMap((file) => [
+    file,
+    `${file}-wal`,
+    `${file}-shm`,
+  ]);
+  const protectedIdentities = new Set(
+    protectedPaths.map(identity).filter((value) => value !== undefined),
+  );
+  const protectedFile = (file: string) =>
+    file === store ||
+    protectedPaths.includes(file) ||
+    protectedIdentities.has(identity(file) ?? "");
   for (const entry of readdirSync(folder)) {
     if (!/^[0-9a-f]{64}\.db\.source$/.test(entry)) continue;
+    const files = ["", "-wal", "-shm", ".source", ".sync"].map((suffix) =>
+      join(folder, `${entry.slice(0, -7)}${suffix}`),
+    );
+    // Do not even open a marker if it aliases the served database or its WAL companions.
+    if (files.some(protectedFile)) continue;
     const saved = cachedSource(join(folder, entry));
     if (saved === undefined) continue;
     const name = `${createHash("sha256").update(saved).digest("hex")}.db`;
     if (`${name}.source` !== entry) continue;
-    const files = ["", "-wal", "-shm", ".source"].map((suffix) => join(folder, `${name}${suffix}`));
-    if (
-      files.some(
-        (file) =>
-          file === store || file === source || (existsSync(file) && realpathSync(file) === source),
-      ) ||
-      existsSync(saved)
-    )
-      continue;
+    if (existsSync(saved)) continue;
     for (const file of files) rmSync(file, { force: true });
   }
   closeSync(openSync(store, "a", 0o600));

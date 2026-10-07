@@ -80,3 +80,34 @@ it("paints packed live edits and deletes within two seconds, whole and without r
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   expect(navigations).toBe(1);
 });
+
+it("a packed unknown-newer migration preserves statistics and shows the standalone fix, then recovers whole", async () => {
+  await using fixture = await preferencesBrowser(chromium);
+  const page = await fixture.context.newPage();
+  await page.goto(`${fixture.server.origin}/?range=all`);
+  const tokens = page.getByRole("region", { name: "Tokens" }).getByText("987", { exact: true });
+  await tokens.waitFor();
+  fixture.server.writer.migration("20261007120000_unknown_newer");
+  const line = page.locator('.update-status[data-sync-reason="schema.newer"]');
+  await line.waitFor();
+  expect(await line.textContent()).toMatch(
+    /^Not updating since .+ · OpenCode's database is newer than opencode-stats 0\.2\.0 understands · run bunx opencode-stats@latest$/u,
+  );
+  expect(await line.getAttribute("data-warning")).toBe("true");
+  expect(await tokens.count()).toBe(1);
+  expect(await page.locator(".live-status").getAttribute("data-updating")).toBe("false");
+  fixture.server.writer.message({
+    id: "msg-preferences",
+    session: "ses-preferences",
+    seq: 0,
+    start: 1,
+    tokens: { input: 2000 },
+  });
+  await page.waitForTimeout(550);
+  expect(await tokens.count()).toBe(1);
+  fixture.server.writer.migration("20261007120000_unknown_newer", false);
+  await page.getByRole("region", { name: "Tokens" }).getByText("2,000", { exact: true }).waitFor();
+  expect(await page.locator(".update-status").count()).toBe(0);
+  expect(await page.locator(".live-status").getAttribute("data-updating")).toBe("true");
+  expect(await page.getByRole("status").filter({ hasText: "Up to date again" }).count()).toBe(1);
+});

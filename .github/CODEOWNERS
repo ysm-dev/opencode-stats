@@ -55,6 +55,8 @@
 /packages/stats-store/src/fingerprint.test.ts @ysm-dev
 /packages/stats-store/src/types.test.ts @ysm-dev
 /packages/stats-store/src/fingerprints.json @ysm-dev
+/packages/stats-store/src/source-schema/ @ysm-dev
+/packages/stats-store/src/source-schema.test.ts @ysm-dev
 /docs/licenses/drizzle-orm.txt @ysm-dev
 /native/sqlite/ @ysm-dev
 /scripts/native-build.ts @ysm-dev

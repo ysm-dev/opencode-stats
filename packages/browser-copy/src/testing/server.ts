@@ -4,7 +4,7 @@ import * as HttpRouter from "effect/http/HttpRouter";
 import * as HttpServer from "effect/http/HttpServer";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 import * as Stream from "effect/Stream";
-import { BrowserCopyApi, createLiveFeed } from "../api.ts";
+import { BrowserCopyApi, createLiveFeed, type SyncStop } from "../api.ts";
 import { encode, formatVersion } from "../binary.ts";
 import { mapStepFields, stepFields, type BrowserCopy } from "../facts.ts";
 import { syntheticCopy } from "./synthetic.ts";
@@ -127,6 +127,7 @@ export function inMemoryDashboardServer(
     return server.handler(request);
   };
   return {
+    status: (stop: SyncStop | null) => feed.status(stop),
     fetch,
     addresses,
     dispose: async () => {

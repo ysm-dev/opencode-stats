@@ -99,6 +99,8 @@ describe("launcher start command", () => {
           join(folder, "server.ts"),
           "--port",
           "22439",
+          "--db-source",
+          "(`OPENCODE_DB`)",
           "--db",
           join(folder, "opencode/synthetic.db"),
         ],

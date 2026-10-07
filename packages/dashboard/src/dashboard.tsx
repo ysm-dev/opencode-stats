@@ -153,6 +153,7 @@ const LiveStatus = () => {
       data-generation={state().generation}
       data-revision={state().revision}
       data-updating={!state().paused && state().liveLabel !== "Not updating"}
+      data-sync-reason={state().stop?.reason ?? ""}
       aria-label={
         state().paused
           ? "Paused · Resume live updates"
@@ -181,6 +182,7 @@ const UpdateStatus = () => {
           class="update-status"
           data-state={stateMark(state())}
           data-warning={state().liveLabel === "Not updating"}
+          data-sync-reason={state().stop?.reason ?? ""}
         >
           {state().statusLine}
           <Show when={state().paused}>
