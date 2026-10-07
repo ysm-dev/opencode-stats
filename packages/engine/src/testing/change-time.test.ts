@@ -21,6 +21,20 @@ const postedTiming = (compute = 0, elapsed = 0) => {
   return posted.data;
 };
 
+function receiptClient() {
+  let listener!: (event: MessageEvent) => void;
+  const port: ChannelPort = {
+    postMessage: () => {},
+    addEventListener: (_type, receive) => {
+      listener = receive;
+    },
+    removeEventListener: () => {},
+  };
+  const client = createPageClient(port, () => {});
+  onTestFinished(() => client.dispose());
+  return { client, receive: (data: object) => listener(new MessageEvent("message", { data })) };
+}
+
 const step = (input: number) => ({
   start: 1,
   input,
@@ -204,31 +218,18 @@ it.each(["paint", "close", "superseded", "request", "replace"])(
     vi.useFakeTimers();
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
-    let receive!: (event: MessageEvent) => void;
-    const port: ChannelPort = {
-      postMessage: () => {},
-      addEventListener: (_type, listener) => {
-        receive = listener;
-      },
-      removeEventListener: () => {},
-    };
-    const client = createPageClient(port, () => {});
-    onTestFinished(() => client.dispose());
+    const { client, receive } = receiptClient();
     const listener = vi.fn<(state: EngineState, timing: ChangeTime) => void>();
     client.subscribe(listener);
     const first = disposition === "replace" ? client.request({ kind: "all-time" }) : undefined;
     const posted = createPostClock();
-    receive(
-      new MessageEvent("message", {
-        data: {
-          id: first ? 1 : 0,
-          sequence: 1,
-          state: { screen: "problem", reason: "copy-unavailable" },
-          timing: { kind: "live", compute: 0, elapsed: 0 },
-          posted: posted.data,
-        },
-      }),
-    );
+    receive({
+      id: first ? 1 : 0,
+      sequence: 1,
+      state: { screen: "problem", reason: "copy-unavailable" },
+      timing: { kind: "live", compute: 0, elapsed: 0 },
+      posted: posted.data,
+    });
     expect(listener).not.toHaveBeenCalled();
     if (disposition === "close") client.dispose();
     if (disposition === "request" || disposition === "replace") {
@@ -236,17 +237,13 @@ it.each(["paint", "close", "superseded", "request", "replace"])(
     }
     expect(await first).toEqual(disposition === "replace" ? { kind: "replaced" } : undefined);
     if (disposition === "superseded") {
-      receive(
-        new MessageEvent("message", {
-          data: {
-            id: 0,
-            sequence: 2,
-            state: { screen: "problem", reason: "invalid-address" },
-            timing: { kind: "live", compute: 0, elapsed: 0 },
-            posted: postedTiming(14, 20),
-          },
-        }),
-      );
+      receive({
+        id: 0,
+        sequence: 2,
+        state: { screen: "problem", reason: "invalid-address" },
+        timing: { kind: "live", compute: 0, elapsed: 0 },
+        posted: postedTiming(14, 20),
+      });
     }
     now += 10000;
     posted.complete(12, 20);
@@ -256,6 +253,50 @@ it.each(["paint", "close", "superseded", "request", "replace"])(
     expect(listener.mock.calls.map(([, timing]) => timing)).toMatchObject(
       paints ? [{ compute: disposition === "superseded" ? 14 : 12, elapsed: 20, page: 0 }] : [],
     );
+  },
+);
+
+it.each([0, 2])(
+  "a replaced unready receipt becomes inert before reading its ready flag %i",
+  async (ready) => {
+    vi.useFakeTimers();
+    const { client, receive } = receiptClient();
+    const painted = vi.fn<(state: EngineState, timing: ChangeTime) => void>();
+    client.subscribe(painted);
+    const first = client.request({ kind: "all-time" });
+    const posted = createPostClock();
+    const stale = {
+      id: 1,
+      sequence: 1,
+      state: { screen: "problem", reason: "copy-unavailable" },
+      timing: { kind: "all-time", compute: 0, elapsed: 0 },
+      posted: posted.data,
+    };
+    receive(stale);
+    expect(vi.getTimerCount()).toBe(1);
+    const current = client.request({ kind: "address", address: "http://[" });
+    expect(await first).toEqual({ kind: "replaced" });
+    Atomics.store(new Int32Array(posted.data.buffer, 16, 1), 0, ready);
+    await vi.runOnlyPendingTimersAsync();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(painted).not.toHaveBeenCalled();
+    receive({
+      id: 2,
+      sequence: 2,
+      state: { screen: "problem", reason: "invalid-address" },
+      timing: { kind: "address", compute: 0, elapsed: 0 },
+      posted: postedTiming(1, 1),
+    });
+    expect(await current).toEqual({
+      kind: "paint",
+      state: { screen: "problem", reason: "invalid-address" },
+    });
+    expect(painted).toHaveBeenCalledOnce();
+    // No request remains: even a newer serial for the old request cannot revive
+    // its unready/invalid record or start another poll.
+    receive({ ...stale, sequence: 3 });
+    expect(painted).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
   },
 );
 

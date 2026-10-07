@@ -1,71 +1,138 @@
-import type { BrowserType } from "playwright";
+import type { BrowserType, Page } from "playwright";
 import { expect, it } from "vitest";
-import { preferencesBrowser } from "./preferences-server.ts";
+import { preferencesBrowser, type preferencesServer } from "./preferences-server.ts";
+import { readCleanChangeMeasures } from "./change-measures.ts";
 import { installWholePaintObserver, paintEvidence, watchChangeRequests } from "./whole-paint.ts";
 import { changeTour, currentChangeKinds, tourStart } from "./change-tour.ts";
 import { installTourClock } from "./change-clock.ts";
 
-export const testWholePaintTour = (browser: BrowserType, label: string) =>
+const tourBrowser = (browser: BrowserType, width: number) =>
+  preferencesBrowser(browser, {
+    hasTouch: width === 360,
+    viewport: { width, height: 720 },
+    timezoneId: "UTC",
+    locale: "en-GB",
+    colorScheme: "light",
+  });
+
+function seedTour(server: Awaited<ReturnType<typeof preferencesServer>>) {
+  server.writer.reset();
+  server.writer.session("ses-tour");
+  server.writer.message({
+    id: "msg-tour",
+    session: "ses-tour",
+    seq: 0,
+    start: tourStart - 60000,
+    model: "synthetic-model-a",
+    provider: "synthetic-provider",
+    tokens: { input: 200 },
+    tools: [
+      {
+        id: "read",
+        name: "read",
+        status: "completed",
+        ran: tourStart - 59000,
+        completed: tourStart - 58000,
+      },
+      { id: "shell", name: "bash", status: "error", error: "tool.execution" },
+      {
+        id: "execute",
+        name: "execute",
+        status: "completed",
+        nested: [{ id: "nested", name: "hidden.lookup", status: "completed" }],
+      },
+    ],
+  });
+  server.writer.session("ses-tour-before");
+  server.writer.message({
+    id: "msg-tour-before",
+    session: "ses-tour-before",
+    seq: 0,
+    start: tourStart - 86400000,
+    model: "synthetic-model-b",
+    provider: "synthetic-provider",
+    tokens: { input: 100 },
+  });
+  for (const letter of ["c", "d", "e", "f", "g"]) {
+    const session = `ses-tour-${letter}`;
+    server.writer.session(session);
+    server.writer.message({
+      id: `msg-tour-${letter}`,
+      session,
+      seq: 0,
+      start: tourStart - 60000,
+      provider: `synthetic-provider-extra-${letter}`,
+      model: `synthetic-model-${letter}`,
+      tokens: { input: 10 },
+    });
+  }
+}
+
+function assertCurrentKinds(kinds: readonly string[]) {
+  for (const kind of currentChangeKinds)
+    expect(
+      kinds.filter((name) => name === kind).length,
+      `unobserved-kind:${kind}`,
+    ).toBeGreaterThanOrEqual(2);
+}
+
+async function assertHeldFontBlank(page: Page) {
+  const observations = await page.evaluate(async () => {
+    const root = document.getElementById("root");
+    const read = () => ({
+      drawn: !!root?.children.length,
+      font: document.fonts.check("440 13px Inter"),
+      fontStatus: document.fonts.status,
+      raf: window.wholePaint.evidence.rafCount,
+      tasks: window.wholePaint.evidence.samples,
+      blank: window.wholePaint.evidence.blank,
+    });
+    const snapshots = [read()];
+    // Native task checkpoints, not rAF polling: WebKit can suppress rendering
+    // callbacks while the required face is unavailable. Counters stay honest.
+    for (let check = 0; check < 2; check++) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      snapshots.push(read());
+    }
+    return snapshots;
+  });
+  process.stdout.write(`held-font-boundary counts ${JSON.stringify(observations)}\n`);
+  const evidence = `whole-paint:held-font:${JSON.stringify(observations)}`;
+  expect(
+    observations.every((sample) => !sample.drawn),
+    evidence,
+  ).toBe(true);
+  expect(
+    observations.every((sample) => !sample.font),
+    evidence,
+  ).toBe(true);
+  expect(await page.locator("#root").textContent(), "whole-paint:early-load-paint").toBe("");
+}
+
+async function openChangeTour(browser: BrowserType, width: number, observing: boolean) {
+  await using resources = new AsyncDisposableStack();
+  const f = resources.use(await tourBrowser(browser, width));
+  seedTour(f.server);
+  await installTourClock(f.context, tourStart);
+  await f.context.addInitScript(installWholePaintObserver, observing);
+  const page = await f.context.newPage();
+  const workerCreated = page.waitForEvent("worker");
+  await page.goto(`${f.server.origin}/?range=all`);
+  await page.waitForFunction(
+    () => document.querySelector(".headline-number")?.textContent === "350",
+  );
+  expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+  expect(await (await workerCreated).evaluate(() => crossOriginIsolated)).toBe(true);
+  if (observing) await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
+  return Object.assign(resources.move(), { server: f.server, context: f.context, page });
+}
+
+export const testWholePaintLoads = (browser: BrowserType, label: string) =>
   it.each([360, 1280])(
-    `${label} whole-paint packed tour at %i: whole frames, local changes, complete loads and no motion`,
+    `${label} complete packed first-visit and reload paints at %i retain font and copy barriers`,
     async (width) => {
-      await using f = await preferencesBrowser(browser, {
-        hasTouch: width === 360,
-        viewport: { width, height: 720 },
-        timezoneId: "UTC",
-        locale: "en-GB",
-        colorScheme: "light",
-      });
-      f.server.writer.reset();
-      f.server.writer.session("ses-tour");
-      f.server.writer.message({
-        id: "msg-tour",
-        session: "ses-tour",
-        seq: 0,
-        start: tourStart - 60000,
-        model: "synthetic-model-a",
-        provider: "synthetic-provider",
-        tokens: { input: 200 },
-        tools: [
-          {
-            id: "read",
-            name: "read",
-            status: "completed",
-            ran: tourStart - 59000,
-            completed: tourStart - 58000,
-          },
-          { id: "shell", name: "bash", status: "error", error: "tool.execution" },
-          {
-            id: "execute",
-            name: "execute",
-            status: "completed",
-            nested: [{ id: "nested", name: "hidden.lookup", status: "completed" }],
-          },
-        ],
-      });
-      f.server.writer.session("ses-tour-before");
-      f.server.writer.message({
-        id: "msg-tour-before",
-        session: "ses-tour-before",
-        seq: 0,
-        start: tourStart - 86400000,
-        model: "synthetic-model-b",
-        provider: "synthetic-provider",
-        tokens: { input: 100 },
-      });
-      for (const letter of ["c", "d", "e", "f", "g"]) {
-        const session = `ses-tour-${letter}`;
-        f.server.writer.session(session);
-        f.server.writer.message({
-          id: `msg-tour-${letter}`,
-          session,
-          seq: 0,
-          start: tourStart - 60000,
-          provider: `synthetic-provider-extra-${letter}`,
-          model: `synthetic-model-${letter}`,
-          tokens: { input: 10 },
-        });
-      }
+      await using f = await tourBrowser(browser, width);
+      seedTour(f.server);
       await installTourClock(f.context, tourStart);
       await f.context.addInitScript(installWholePaintObserver);
       const page = await f.context.newPage();
@@ -91,8 +158,7 @@ export const testWholePaintTour = (browser: BrowserType, label: string) =>
         // A fresh browser's first visit has no decoded font cache. Prove the
         // required face is actually unavailable, not just a redundant preload.
         expect(await page.evaluate(() => document.fonts.check("440 13px Inter"))).toBe(false);
-        await page.waitForFunction(() => window.wholePaint.evidence.blank > 1);
-        expect(await page.locator("#root").textContent(), "whole-paint:early-load-paint").toBe("");
+        await assertHeldFontBlank(page);
       } finally {
         fontRelease.resolve();
       }
@@ -124,20 +190,47 @@ export const testWholePaintTour = (browser: BrowserType, label: string) =>
         () => document.querySelector(".headline-number")?.textContent === "350",
       );
       await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
-      await paintEvidence(page);
+      const evidence = await paintEvidence(page);
+      expect(evidence.blank).toBeGreaterThan(0);
+    },
+  );
+
+export const testWholePaintTour = (browser: BrowserType, label: string) =>
+  it.each([360, 1280])(
+    `${label} whole-paint packed tour at %i: every current change twice, whole frames, local requests and no motion`,
+    async (width) => {
+      await using f = await openChangeTour(browser, width, true);
+      const { page } = f;
       const guard = watchChangeRequests(f.context);
       await changeTour(page, f.server, guard, width === 360);
       guard.check();
-      const evidence = await paintEvidence(page);
-      expect(evidence.blank).toBeGreaterThan(0);
+      await paintEvidence(page);
       const kinds = await page.evaluate(() =>
-        performance.getEntriesByType("measure").map((entry) => entry.name),
+        performance
+          .getEntriesByType("measure")
+          .filter((entry) => entry.name.startsWith("opencode-stats:change:"))
+          .map((entry) => entry.name.slice("opencode-stats:change:".length)),
       );
-      for (const kind of currentChangeKinds) {
-        expect(
-          kinds.filter((name) => name === `opencode-stats:change:${kind}`).length,
-          `unobserved-kind:${kind}`,
-        ).toBeGreaterThanOrEqual(2);
-      }
+      assertCurrentKinds(kinds);
+    },
+  );
+
+export const testCleanChangeTimeTour = (browser: BrowserType, label: string) =>
+  it.each([360, 1280])(
+    `${label} observer-free User Timing tour at %i uses the dashboard's native own-work measures`,
+    async (width) => {
+      await using f = await openChangeTour(browser, width, false);
+      const { page } = f;
+      const guard = watchChangeRequests(f.context);
+      await changeTour(page, f.server, guard, width === 360);
+      guard.check();
+      const measures = await readCleanChangeMeasures(page);
+      assertCurrentKinds(measures.map((entry) => entry.kind));
+      expect(await page.evaluate(() => window.wholePaint.evidence.samples)).toBe(0);
+      expect(
+        await page.evaluate(
+          () => performance.getEntriesByName("opencode-stats:whole-paint-probe").length,
+        ),
+      ).toBe(0);
     },
   );

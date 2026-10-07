@@ -5,7 +5,7 @@ import { compareE2e, e2eFiles, partitionE2e, prepareE2e, selectE2e } from "../e2
 
 const files = e2eFiles();
 assert.ok(files.length > 0, "No e2e files discovered");
-for (const count of [1, 2, 4]) {
+for (const count of [1, 2, 3, 4]) {
   const groups = partitionE2e(files, count);
   assert.deepEqual(groups.flat().toSorted(), files.toSorted(), "E2e shards must be exhaustive");
   assert.equal(new Set(groups.flat()).size, files.length, "E2e shards must be disjoint");
@@ -59,10 +59,11 @@ for (const file of ["ranges.test.ts", "filters.test.ts", "whole-paint-canaries.t
     opencode: false,
   });
 for (const browser of ["chromium", "webkit"])
-  assert.deepEqual(prepareE2e([`whole-paint-${browser}.test.ts`]), {
-    browsers: [browser],
-    opencode: false,
-  });
+  for (const kind of ["whole-paint", "change-time", "whole-load"])
+    assert.deepEqual(prepareE2e([`${kind}-${browser}.test.ts`]), {
+      browsers: [browser],
+      opencode: false,
+    });
 assert.deepEqual(prepareE2e(["future.test.tsx"]), {
   browsers: ["chromium", "webkit"],
   opencode: true,

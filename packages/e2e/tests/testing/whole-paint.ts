@@ -1,5 +1,10 @@
 import type { BrowserContext, Page } from "playwright";
 import { expect } from "vitest";
+import {
+  readChangeMeasures,
+  assertSummedMeasures,
+  readCleanChangeMeasures,
+} from "./change-measures.ts";
 
 export const wholePaintChecks = [
   "mixed-frame",
@@ -11,7 +16,7 @@ type Check = (typeof wholePaintChecks)[number];
 
 // Installed synthetic pages only. Keep diagnostics to counters and named checks;
 // snapshots are used for comparisons, never printed in failures or reports.
-export function installWholePaintObserver() {
+export function installWholePaintObserver(observing = true) {
   const page = document;
   const evidence = {
     failures: [] as string[],
@@ -19,6 +24,7 @@ export function installWholePaintObserver() {
     blank: 0,
     complete: 0,
     raf: 0,
+    rafCount: 0,
   };
   const fail = (check: string) => {
     if (!evidence.failures.includes(check)) evidence.failures.push(check);
@@ -30,8 +36,6 @@ export function installWholePaintObserver() {
     drawn: false,
     complete: false,
   };
-  let pending = { drawing: frame };
-  const frames: Array<typeof pending> = [];
   const flag = (check: string) => {
     frame.failures.push(check);
   };
@@ -167,7 +171,19 @@ export function installWholePaintObserver() {
     durations.some((property) =>
       style[property].split(",").some((duration) => Number.parseFloat(duration) > 0),
     );
+  const commit = () => {
+    evidence.samples++;
+    for (const check of frame.failures) fail(check);
+    for (const { region, key, drawing } of frame.drawings) {
+      const before = painted.get(region);
+      if (before?.key === key && before.drawing !== drawing) fail("mixed-frame");
+      painted.set(region, { key, drawing });
+    }
+    if (!frame.drawn) evidence.blank++;
+    else if (frame.complete) evidence.complete++;
+  };
   const sample = () => {
+    const started = performance.now();
     frame = { failures: [], drawings: [], drawn: false, complete: false };
     const root = document.getElementById("root");
     const drawn = !!root?.children.length;
@@ -197,50 +213,44 @@ export function installWholePaintObserver() {
       )
         flag("animation");
     }
-    pending.drawing = frame;
-  };
-  const channel = new MessageChannel();
-  channel.port1.addEventListener("message", () => {
-    const completeFrame = frames.shift()!.drawing;
-    evidence.samples++;
-    for (const check of completeFrame.failures) fail(check);
-    for (const { region, key, drawing } of completeFrame.drawings) {
-      const before = painted.get(region);
-      if (before?.key === key && before.drawing !== drawing) fail("mixed-frame");
-      painted.set(region, { key, drawing });
-    }
-    if (!completeFrame.drawn) evidence.blank++;
-    else if (completeFrame.complete) evidence.complete++;
-  });
-  channel.port1.start();
-  // Read only at rendering callbacks, never in an input handler or a post-paint
-  // task. Retain the *last* rAF drawing, then judge that immutable snapshot after
-  // paint. Later rAF work is included; earlier unpainted intermediates are not.
-  const nativeFrame = window.requestAnimationFrame.bind(window);
-  window.requestAnimationFrame = (run) =>
-    nativeFrame((time) => {
-      run.call(window, time);
-      queueMicrotask(sample);
+    commit();
+    performance.measure("opencode-stats:whole-paint-probe", {
+      start: started,
+      duration: performance.now() - started,
     });
+  };
+  window.wholePaint = { observing, evidence, snapshot, sample };
+  // Timing tours keep only the on-demand pause/hidden snapshot helper. They do
+  // not install a frame probe, alter rAF, or subtract an estimated probe cost.
+  if (!observing) return;
+  const channel = new MessageChannel();
+  channel.port1.addEventListener("message", sample);
+  channel.port1.start();
+  // Queue the probe at the start of the rendering turn, but read after that
+  // entire task: rAF, arbitrary microtask chains, and all ResizeObserver rounds.
+  // HTML's unshipped-port queue orders this before local MessageChannel tasks
+  // posted later in the turn (including the canaries' post-paint restoration).
+  // Other task sources may intervene: this is not a compositor/physical-screen
+  // API. Keep timing consumers on the separate observer-free tour.
   const observeFrame = () => {
-    pending = { drawing: frame };
-    frames.push(pending);
+    evidence.rafCount++;
     channel.port2.postMessage(null);
     evidence.raf = requestAnimationFrame(observeFrame);
   };
-  window.wholePaint = { evidence, snapshot, sample };
   evidence.raf = requestAnimationFrame(observeFrame);
 }
 
 declare global {
   interface Window {
     wholePaint: {
+      observing: boolean;
       evidence: {
         failures: string[];
         samples: number;
         blank: number;
         complete: number;
         raf: number;
+        rafCount: number;
       };
       snapshot: () => string;
       sample: () => void;
@@ -253,6 +263,10 @@ export function assertPaintCheck(check: Check, failed: readonly string[]) {
 }
 
 export async function paintEvidence(page: Page) {
+  expect(
+    await page.evaluate(() => window.wholePaint.observing),
+    "whole-paint:observer-disabled",
+  ).toBe(true);
   const evidence = await page.evaluate(() => {
     const { failures, samples, blank, complete } = window.wholePaint.evidence;
     return { failures, samples, blank, complete };
@@ -299,39 +313,7 @@ export async function wholeChange(page: Page, kind: string, action: () => Promis
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       }),
   );
-  const measures = await page.evaluate((name) => {
-    // oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: browser User Timing detail is untrusted, and must narrow to four numbers
-    const parts = (input: unknown) => {
-      if (
-        typeof input !== "object" ||
-        input === null ||
-        !("input" in input) ||
-        typeof input.input !== "number" ||
-        !("compute" in input) ||
-        typeof input.compute !== "number" ||
-        !("page" in input) ||
-        typeof input.page !== "number" ||
-        !("paint" in input) ||
-        typeof input.paint !== "number"
-      )
-        throw new Error(`whole-paint:invalid-clock:${name}`);
-      return [input.input, input.compute, input.page, input.paint];
-    };
-    return performance.getEntriesByName(`opencode-stats:change:${name}`).map((entry) => {
-      if (!(entry instanceof PerformanceMeasure)) throw new Error("whole-paint:missing-measure");
-      return { duration: entry.duration, parts: parts(entry.detail) };
-    });
-  }, kind);
-  for (const { duration, parts } of measures) {
-    expect(
-      parts.every((part) => Number.isFinite(part) && part >= 0),
-      "whole-paint:invalid-clock",
-    ).toBe(true);
-    expect(duration, "whole-paint:unsummed-clock").toBeCloseTo(
-      parts.reduce((sum, part) => sum + part, 0),
-      5,
-    );
-  }
+  assertSummedMeasures(await readChangeMeasures(page, kind));
   // Any number of complete states may paint during an action: in particular a
   // real minute, live update or focus refresh can overlap it. The observer checks
   // agreement of drawn-state IDs and stable actual properties for each ID, not
@@ -355,5 +337,6 @@ export async function wholeChange(page: Page, kind: string, action: () => Promis
       ),
       "whole-paint:completed-address",
     ).toBe(true);
-  await paintEvidence(page);
+  if (await page.evaluate(() => window.wholePaint.observing)) await paintEvidence(page);
+  else await readCleanChangeMeasures(page);
 }

@@ -19,7 +19,13 @@ const work: Readonly<Record<string, Work>> = {
   // engines at the existing file/shard seam; refine these estimates on hosted CI.
   "whole-paint-chromium.test.ts": [35, ["chromium"]],
   "whole-paint-webkit.test.ts": [35, ["webkit"]],
-  "whole-paint-canaries.test.ts": [14, ["chromium", "webkit"]],
+  // Independent uninstrumented clocks and post-rAF phase canaries: conservative
+  // costs until hosted samples exist; all original test/job deadlines remain.
+  "change-time-chromium.test.ts": [35, ["chromium"]],
+  "change-time-webkit.test.ts": [35, ["webkit"]],
+  "whole-load-chromium.test.ts": [15, ["chromium"]],
+  "whole-load-webkit.test.ts": [15, ["webkit"]],
+  "whole-paint-canaries.test.ts": [25, ["chromium", "webkit"]],
   "preference-evidence.test.ts": [8, ["chromium"]],
   "preferences-chromium.test.ts": [17, ["chromium"]],
   "source.test.ts": [19, ["chromium"]],

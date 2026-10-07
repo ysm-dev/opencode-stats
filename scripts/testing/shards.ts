@@ -36,7 +36,7 @@ const packed = object(jobs["packed"]);
 const packedMatrix = object(object(packed["strategy"])["matrix"]);
 assert.deepEqual(packedMatrix["os"], ["macos-latest", "windows-latest"]);
 assert.deepEqual(packedMatrix["include"], [
-  ...["1/2", "2/2"].map((selector) => ({ os: "ubuntu-latest", shard: selector })),
+  ...["1/3", "2/3", "3/3"].map((selector) => ({ os: "ubuntu-latest", shard: selector })),
   ...["1/4", "2/4", "3/4", "4/4"].map((selector) => ({
     os: "macos-15-intel",
     shard: selector,

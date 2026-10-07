@@ -22,8 +22,14 @@ export function createPageClient(port: ChannelPort, reload: () => void) {
   let signalStarted = 0;
   const listeners = new Set<(state: EngineState, timing: ChangeTime) => void>();
   const decodeAnswer = Schema.decodeUnknownSync(Answer);
+  const eligible = (answer: CompleteAnswer) =>
+    !closed &&
+    answer.sequence > paintedSequence &&
+    (answer.id === 0 ? pending === undefined : pending?.id === answer.id);
   const complete = (answer: CompleteAnswer, started: number, pageWork: number): void => {
-    if (closed || answer.sequence <= paintedSequence) return;
+    // A retry must become inert as soon as its request is replaced, even if the
+    // old sender never completes or subsequently writes an invalid ready flag.
+    if (!eligible(answer)) return;
     const pageStarted = performance.now();
     const posted = readPostClock(answer.posted);
     if (posted === undefined) {
@@ -35,13 +41,10 @@ export function createPageClient(port: ChannelPort, reload: () => void) {
     }
     let input = signalInput;
     let inputStarted = signalStarted || started - posted.elapsed;
-    if (answer.id === 0) {
-      if (pending) return;
-    } else {
-      if (pending?.id !== answer.id) return;
-      input = pending.input;
-      inputStarted = pending.started;
-      pending.resolve({ kind: "paint", state: answer.state });
+    if (answer.id !== 0) {
+      input = pending!.input;
+      inputStarted = pending!.started;
+      pending!.resolve({ kind: "paint", state: answer.state });
       pending = undefined;
     }
     signalInput = signalStarted = 0;
@@ -63,7 +66,6 @@ export function createPageClient(port: ChannelPort, reload: () => void) {
       reload();
       return;
     }
-    if (answer.id === 0 ? !!pending : pending?.id !== answer.id) return;
     complete(answer, started, performance.now() - started);
   };
   port.addEventListener("message", receive);
