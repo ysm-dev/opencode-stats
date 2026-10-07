@@ -201,7 +201,7 @@ async function rejectMotionStyles(page: Page) {
       if (pseudo === "inline")
         document
           .querySelector<HTMLElement>("main h1")!
-          .style.setProperty("transition", "color 10s", "important");
+          .style.setProperty("transition", "color 0s, background-color 10s", "important");
       else {
         const style = document.createElement("style");
         document.head.append(style);

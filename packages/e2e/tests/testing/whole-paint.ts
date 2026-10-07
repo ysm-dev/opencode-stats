@@ -232,9 +232,10 @@ export function installWholePaintObserver(observing = true) {
   // later. Keep reading every element each frame without reallocating wrappers.
   const styles = new WeakMap<Element, CSSStyleDeclaration[]>();
   const moving = (style: CSSStyleDeclaration) =>
-    durations.some((property) =>
-      style[property].split(",").some((duration) => Number.parseFloat(duration) > 0),
-    );
+    durations.some((property) => {
+      const value = style[property];
+      return value !== "0s" && value.split(",").some((duration) => Number.parseFloat(duration) > 0);
+    });
   const commit = () => {
     evidence.samples++;
     for (const { check, cause } of frame.failures) fail(check, cause);

@@ -133,7 +133,7 @@ jobs:
         with:
           node-version: lts/*
       - uses: actions/cache/restore@v6.1.0
-        if: runner.os == 'Windows'
+        if: runner.os != 'Linux'
         id: bun-cache
         with:
           path: |
@@ -142,7 +142,7 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-bun-packages-1.4.2-${{ hashFiles('bun.lock', 'bunfig.toml', 'patches/**') }}
       - run: bun install --frozen-lockfile
       - uses: actions/cache/save@v6.1.0
-        if: runner.os == 'Windows' && steps.bun-cache.outputs.cache-hit != 'true'
+        if: runner.os != 'Linux' && steps.bun-cache.outputs.cache-hit != 'true'
         with:
           path: |
             ~/.bun/install/cache/*
