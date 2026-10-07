@@ -283,10 +283,14 @@ it.each([0, 1, 2, 3])(
                       provider: "p",
                       model: `m-${index}`,
                       agent: "plan",
-                      variant: action === 1 ? undefined : "high",
-                      error: action === 2 ? "aborted" : action === 3 ? "api.error" : undefined,
-                      streamEnd: action === 4 ? 4 : undefined,
-                      completed: action === 5 ? 5 : undefined,
+                      ...(action === 1 ? {} : { variant: "high" }),
+                      ...(action === 2
+                        ? { error: "aborted" }
+                        : action === 3
+                          ? { error: "api.error" }
+                          : {}),
+                      ...(action === 4 ? { streamEnd: 4 } : {}),
+                      ...(action === 5 ? { completed: 5 } : {}),
                     });
                   yield* time.tick;
                 }

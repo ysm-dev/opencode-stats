@@ -75,7 +75,9 @@ it("prices exact context thresholds, legacy tiers, named modes and reasoning wit
   ];
   for (const [seq, model] of models.entries()) writer.message(pricedMessage(model, model, seq));
   writer.message({ ...pricedMessage("other-provider", "free", 11), provider: "other" });
-  writer.message({ ...pricedMessage("missing-usage", "free", 12), tokens: undefined });
+  const missingUsage = { ...pricedMessage("missing-usage", "free", 12) };
+  delete missingUsage.tokens;
+  writer.message(missingUsage);
   writer.message({ ...pricedMessage("partial-usage", "exact", 13), tokens: { input: 1 } });
   for (const [seq, context] of [200000, 200001].entries())
     writer.message({

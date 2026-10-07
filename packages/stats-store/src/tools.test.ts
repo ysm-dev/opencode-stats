@@ -22,9 +22,9 @@ function transitionMessage(action: number, start: number): SyntheticMessage {
         id: "call",
         name: action === 1 ? "bash" : "server.lookup",
         status: action === 2 ? "streaming" : action === 3 ? "error" : "completed",
-        error: action === 3 ? "tool.interrupted" : undefined,
-        ran: action === 4 ? start : undefined,
-        completed: action === 5 ? start + 10 : undefined,
+        ...(action === 3 ? { error: "tool.interrupted" } : {}),
+        ...(action === 4 ? { ran: start } : {}),
+        ...(action === 5 ? { completed: start + 10 } : {}),
       },
     ],
   };

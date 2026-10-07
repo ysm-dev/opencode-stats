@@ -34,7 +34,8 @@ export const startServer = Effect.fnUntraced(function* (
     }
     if (!read) return Response.empty({ status: 405 });
     if (path.startsWith("/api/browser-copy") && copy) {
-      if (copy.whole().byteLength === 0) return Response.empty({ status: 503 });
+      const whole = copy.whole();
+      if (!Effect.isEffect(whole) && whole.byteLength === 0) return Response.empty({ status: 503 });
       return yield* api!;
     }
     if (

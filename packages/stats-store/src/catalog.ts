@@ -63,15 +63,10 @@ export function parseCatalog(input: unknown): Catalog {
     : Schema.decodeUnknownSync(envelope)(input);
 }
 
-type Rates = {
-  input: number;
-  output: number;
-  cache_read?: number;
-  cache_write?: number;
-};
-export type Price = Required<Rates> & { tiers: readonly (Required<Rates> & { size: number })[] };
+type Rates = ReturnType<typeof normalized>;
+export type Price = Rates & { tiers: readonly (Rates & { size: number })[] };
 export type CatalogModel = { name: string; price: Price | null };
-const normalized = (value: Rates) => ({
+const normalized = (value: Pick<Tariff, "input" | "output" | "cache_read" | "cache_write">) => ({
   input: value.input,
   output: value.output,
   cache_read: value.cache_read ?? 0,
