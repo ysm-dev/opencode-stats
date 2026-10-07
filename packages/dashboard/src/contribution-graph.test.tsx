@@ -4,8 +4,8 @@ import { syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import { dashboardEnvironment } from "./testing/environment.ts";
 import { dashboardFixture } from "./testing/dashboard-fixture.tsx";
 import { accessible } from "./testing/accessibility.ts";
-import { initialMedia } from "./media-size.tsx";
-import { createSignal } from "solid-js";
+import { initialMedia, type MediaSize } from "./media-size.tsx";
+import { createSignal, type Accessor } from "solid-js";
 
 beforeEach(() => {
   dashboardEnvironment("/?range=today");
@@ -53,6 +53,22 @@ const marks = () =>
   new Set(
     [...document.querySelectorAll("[data-state]")].map((node) => node.getAttribute("data-state")),
   );
+const graphScrolling = (media: Accessor<MediaSize>) => {
+  const positions = new WeakMap<Element, number>();
+  const width = () => media().columnWidth - 32;
+  const content = () => (media().columnWidth < 720 ? 848 : width());
+  vi.spyOn(Element.prototype, "scrollWidth", "get").mockImplementation(content);
+  vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(width);
+  vi.spyOn(Element.prototype, "scrollLeft", "get").mockImplementation(function (this: Element) {
+    return Math.min(positions.get(this) ?? 0, content() - width());
+  });
+  vi.spyOn(Element.prototype, "scrollLeft", "set").mockImplementation(function (
+    this: Element,
+    value: number,
+  ) {
+    positions.set(this, Math.max(0, Math.min(value, content() - width())));
+  });
+};
 
 it("draws Monday-first 365-day geometry, outlines only the range, and presents ten headlines and accessible readouts", async () => {
   await using f = dashboardFixture(syntheticCopy(rows));
@@ -285,40 +301,81 @@ it("holds drawn metric/selection state while answers wait and never announces li
 });
 
 it("opens sideways scrolling at today and scrolls keyboard reading into view", async () => {
-  const descriptors = ["scrollWidth", "clientWidth"].map(
-    (name) => [name, Object.getOwnPropertyDescriptor(HTMLElement.prototype, name)] as const,
-  );
-  Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
-    configurable: true,
-    get: () => 848,
-  });
-  Object.defineProperty(HTMLElement.prototype, "clientWidth", {
-    configurable: true,
-    get: () => 240,
-  });
-  try {
-    await using f = dashboardFixture(syntheticCopy(rows), queueMicrotask, () => ({
-      ...initialMedia,
-      columnWidth: 360,
-    }));
-    const svg = await surface(f.view);
-    const scroll = document.querySelector<HTMLElement>(".graph-scroll")!;
-    expect(scroll.scrollLeft).toBe(848);
-    svg.focus();
-    await f.user.keyboard("{Home}");
-    expect(scroll.scrollLeft).toBe(0);
-    await f.user.keyboard("{End}");
-    expect(scroll.scrollLeft).toBeGreaterThan(0);
-    const before = scroll.scrollLeft;
-    await f.user.keyboard("{ArrowUp}");
-    expect(scroll.scrollLeft).toBe(before);
-  } finally {
-    for (const [name, descriptor] of descriptors) {
-      if (descriptor) Object.defineProperty(HTMLElement.prototype, name, descriptor);
-      else Reflect.deleteProperty(HTMLElement.prototype, name);
-    }
-  }
+  const media = () => ({ ...initialMedia, columnWidth: 272 });
+  graphScrolling(media);
+  await using f = dashboardFixture(syntheticCopy(rows), queueMicrotask, media);
+  const svg = await surface(f.view);
+  const scroll = document.querySelector<HTMLElement>(".graph-scroll")!;
+  expect(scroll.scrollLeft).toBe(608);
+  svg.focus();
+  await f.user.keyboard("{Home}");
+  expect(scroll.scrollLeft).toBe(0);
+  await f.user.keyboard("{End}");
+  expect(scroll.scrollLeft).toBeGreaterThan(0);
+  const before = scroll.scrollLeft;
+  await f.user.keyboard("{ArrowUp}");
+  expect(scroll.scrollLeft).toBe(before);
 });
+
+it("opens a newly narrow graph at today without resetting an ongoing narrow scroll", async () => {
+  const [media, setMedia] = createSignal({ ...initialMedia, columnWidth: 720 });
+  graphScrolling(media);
+  await using f = dashboardFixture(syntheticCopy(rows), queueMicrotask, media);
+  const svg = await surface(f.view);
+  const scroll = document.querySelector<HTMLElement>(".graph-scroll")!;
+  expect(scroll.scrollLeft).toBe(0);
+  const answers = f.engine.answers.length;
+  const global = svg.getAttribute("data-state");
+  setMedia({ ...initialMedia, columnWidth: 719 });
+  expect(scroll.scrollLeft).toBe(161);
+  scroll.scrollLeft = 64;
+  pointer(svg, svg.querySelector('[data-date="2026-10-01"]')!, "touch");
+  setMedia({ ...initialMedia, columnWidth: 360, coarse: true });
+  expect(scroll.scrollLeft).toBe(64);
+  await f.user.click(f.view.getByRole("button", { name: "Steps", exact: true }));
+  await vi.waitFor(() => expect(window.location.search).toContain("graph=steps"));
+  expect(scroll.scrollLeft).toBe(64);
+  expect(f.engine.answers).toHaveLength(answers + 1);
+  expect(svg.getAttribute("data-state")).not.toBe(global);
+  expect(marks().size).toBe(1);
+});
+
+it.each([
+  { key: "Home", date: "2025-10-08" },
+  { key: "ArrowLeft", date: "2026-09-30" },
+])(
+  "keeps the $date reading and focused action visible on entering the narrow form",
+  async ({ key, date }) => {
+    const [media, setMedia] = createSignal(initialMedia);
+    graphScrolling(media);
+    await using f = dashboardFixture(syntheticCopy(rows), queueMicrotask, media);
+    const svg = await surface(f.view);
+    svg.focus();
+    await f.user.keyboard(`{${key}}`);
+    await f.user.tab();
+    const action = f.view.getByRole("button", { name: "This day" });
+    const readout = document.querySelector(".graph-readout")!.textContent;
+    const spoken = document.querySelector(
+      '.contribution-graph [aria-live="polite"][data-local-state]',
+    )!.textContent;
+    const answers = f.engine.answers.length;
+    setMedia({ ...initialMedia, columnWidth: 360 });
+    expect(document.activeElement).toBe(action);
+    expect(document.querySelector(".graph-readout")!.textContent).toBe(readout);
+    expect(
+      document.querySelector('.contribution-graph [aria-live="polite"][data-local-state]')!
+        .textContent,
+    ).toBe(spoken);
+    const selected = svg.querySelector('[data-reading="true"]')!;
+    expect(selected.getAttribute("data-date")).toBe(date);
+    const scroll = document.querySelector<HTMLElement>(".graph-scroll")!;
+    const x = Number(selected.getAttribute("x"));
+    expect(x).toBeGreaterThanOrEqual(scroll.scrollLeft);
+    expect(x + 13).toBeLessThanOrEqual(scroll.scrollLeft + scroll.clientWidth);
+    expect(f.engine.answers).toHaveLength(answers);
+    expect(marks().size).toBe(1);
+  },
+);
 
 it("keeps focused readout actions and their nearest day when the local-day window moves", async () => {
   await using f = dashboardFixture(
