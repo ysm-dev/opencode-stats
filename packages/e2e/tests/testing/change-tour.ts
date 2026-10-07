@@ -189,33 +189,37 @@ async function liveChanges(input: Input, server: Server, guard: Guard, repeat: n
   await wholeChange(page, "visible", () => tourVisibility(page, false));
 }
 
-export async function changeTour(page: Page, server: Server, guard: Guard, touch: boolean) {
+export function changeTour(page: Page, server: Server, guard: Guard, touch: boolean) {
   let now = tourStart;
   const input = { page, touch };
-  for (const dimension of ["Model", "Provider"]) {
-    await wholeChange(page, "expand-checklist", () =>
-      activate(
-        input,
-        page
-          .getByRole("region", { name: dimension, exact: true })
-          .getByRole("button", { name: /more$/ }),
-      ),
-    );
-  }
-  for (let repeat = 0; repeat < 2; repeat++) {
-    guard.live(true);
-    await buildCommitPaints(page, (amount) => write(server, amount), now);
-    guard.live(false);
-    await rangesAndFilters(input);
-    await appearance(input, repeat);
-    await liveChanges(input, server, guard, repeat);
-    guard.live(false);
-    now += 60000;
-    await wholeChange(page, "minute", () => tourTime(page, now));
-    // Jump over midnight without accelerating the monotonic work/paint clock.
-    now = Date.UTC(2026, 9, 8 + repeat, 0, 0, 10);
-    await wholeChange(page, "day", () => tourTime(page, now));
-    await choose(input, "preset", /^Time range/, "All time");
-    guard.check();
-  }
+  return {
+    prepare: async () => {
+      for (const dimension of ["Model", "Provider"]) {
+        await wholeChange(page, "expand-checklist", () =>
+          activate(
+            input,
+            page
+              .getByRole("region", { name: dimension, exact: true })
+              .getByRole("button", { name: /more$/ }),
+          ),
+        );
+      }
+    },
+    round: async (repeat: number) => {
+      guard.live(true);
+      await buildCommitPaints(page, (amount) => write(server, amount), now);
+      guard.live(false);
+      await rangesAndFilters(input);
+      await appearance(input, repeat);
+      await liveChanges(input, server, guard, repeat);
+      guard.live(false);
+      now += 60000;
+      await wholeChange(page, "minute", () => tourTime(page, now));
+      // Jump over midnight without accelerating the monotonic work/paint clock.
+      now = Date.UTC(2026, 9, 8 + repeat, 0, 0, 10);
+      await wholeChange(page, "day", () => tourTime(page, now));
+      await choose(input, "preset", /^Time range/, "All time");
+      guard.check();
+    },
+  };
 }

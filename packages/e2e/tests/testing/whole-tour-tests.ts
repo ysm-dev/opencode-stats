@@ -1,10 +1,21 @@
 import type { BrowserType, Page } from "playwright";
-import { expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { preferencesBrowser, type preferencesServer } from "./preferences-server.ts";
-import { readCleanChangeMeasures } from "./change-measures.ts";
-import { installWholePaintObserver, paintEvidence, watchChangeRequests } from "./whole-paint.ts";
+import {
+  readChangeEvidence,
+  readCleanChangeMeasures,
+  assertSummedMeasures,
+} from "./change-measures.ts";
+import {
+  installWholePaintObserver,
+  paintEvidence,
+  assertPaintEvidence,
+  watchChangeRequests,
+} from "./whole-paint.ts";
 import { changeTour, currentChangeKinds, tourStart } from "./change-tour.ts";
 import { installTourClock } from "./change-clock.ts";
+import { tourRounds, tourWidths } from "./tour-plan.ts";
+import { createTourEvidence, trackTourEvidence } from "./tour-evidence.ts";
 
 const tourBrowser = (browser: BrowserType, width: number) =>
   preferencesBrowser(browser, {
@@ -74,6 +85,9 @@ function assertCurrentKinds(kinds: readonly string[]) {
       kinds.filter((name) => name === kind).length,
       `unobserved-kind:${kind}`,
     ).toBeGreaterThanOrEqual(2);
+  expect(kinds.filter((kind) => kind === "build").length).toBeGreaterThanOrEqual(
+    tourRounds.length * 2,
+  );
 }
 
 async function assertHeldFontBlank(page: Page) {
@@ -116,7 +130,15 @@ async function openChangeTour(browser: BrowserType, width: number, observing: bo
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
   expect(await (await workerCreated).evaluate(() => crossOriginIsolated)).toBe(true);
   if (observing) await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
-  return Object.assign(resources.move(), { server: f.server, context: f.context, page });
+  const guard = watchChangeRequests(f.context);
+  const tour = changeTour(page, f.server, guard, width === 360);
+  return Object.assign(resources.move(), {
+    server: f.server,
+    context: f.context,
+    page,
+    guard,
+    tour,
+  });
 }
 
 export const testWholePaintLoads = (browser: BrowserType, label: string) =>
@@ -187,43 +209,58 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
     },
   );
 
-export const testWholePaintTour = (browser: BrowserType, label: string) =>
-  it.each([360, 1280])(
-    `${label} whole-paint packed tour at %i: every current change twice, whole frames, local requests and no motion`,
-    async (width) => {
-      expect.hasAssertions();
-      await using f = await openChangeTour(browser, width, true);
-      const { page } = f;
-      const guard = watchChangeRequests(f.context);
-      await changeTour(page, f.server, guard, width === 360);
-      guard.check();
-      await paintEvidence(page);
-      const kinds = await page.evaluate(() =>
-        performance
-          .getEntriesByType("measure")
-          .filter((entry) => entry.name.startsWith("opencode-stats:change:"))
-          .map((entry) => entry.name.slice("opencode-stats:change:".length)),
-      );
-      assertCurrentKinds(kinds);
-    },
-  );
+async function verifyObservedTour(f: Awaited<ReturnType<typeof openChangeTour>>) {
+  f.guard.check();
+  const data = await readChangeEvidence(f.page);
+  assertPaintEvidence(data);
+  assertSummedMeasures(data.measures);
+  assertCurrentKinds(data.measures.map((entry) => entry.kind));
+}
 
+async function verifyCleanTour(f: Awaited<ReturnType<typeof openChangeTour>>) {
+  f.guard.check();
+  const measures = await readCleanChangeMeasures(f.page);
+  assertCurrentKinds(measures.map((entry) => entry.kind));
+  expect(await f.page.evaluate(() => window.wholePaint.evidence.samples)).toBe(0);
+  expect(
+    await f.page.evaluate(
+      () => performance.getEntriesByName("opencode-stats:whole-paint-probe").length,
+    ),
+  ).toBe(0);
+}
+
+function testPartitionedTour(browser: BrowserType, label: string, observing: boolean) {
+  const mode = observing ? "whole-paint" : "observer-free";
+  const verify = observing ? verifyObservedTour : verifyCleanTour;
+  describe.sequential.each(tourWidths)(`${label} ${mode} complete tour at %i`, (width) => {
+    let f: Awaited<ReturnType<typeof openChangeTour>> | undefined;
+    const completed: number[] = [];
+    afterAll(async () => {
+      await f?.[Symbol.asyncDispose]();
+    });
+    it.each(tourRounds)("retains every native action in round %i", async (round) => {
+      expect.hasAssertions();
+      const trace = createTourEvidence(`${label}/${mode}/${width}/round-${round}`);
+      if (!f) {
+        f = await trace("fixture", "setup", () => openChangeTour(browser, width, observing));
+        trackTourEvidence(f.page, trace);
+        await f.tour.prepare();
+      }
+      trackTourEvidence(f.page, trace);
+      await f.tour.round(round);
+      completed.push(round);
+      f.guard.check();
+    });
+    it("proves both rounds and every kind completed, including both build milestones", async () => {
+      expect.hasAssertions();
+      expect(completed).toEqual(tourRounds);
+      expect(f).toBeDefined();
+      await verify(f!);
+    });
+  });
+}
+
+export const testWholePaintTour = (browser: BrowserType, label: string) =>
+  testPartitionedTour(browser, label, true);
 export const testCleanChangeTimeTour = (browser: BrowserType, label: string) =>
-  it.each([360, 1280])(
-    `${label} observer-free User Timing tour at %i uses the dashboard's native own-work measures`,
-    async (width) => {
-      await using f = await openChangeTour(browser, width, false);
-      const { page } = f;
-      const guard = watchChangeRequests(f.context);
-      await changeTour(page, f.server, guard, width === 360);
-      guard.check();
-      const measures = await readCleanChangeMeasures(page);
-      assertCurrentKinds(measures.map((entry) => entry.kind));
-      expect(await page.evaluate(() => window.wholePaint.evidence.samples)).toBe(0);
-      expect(
-        await page.evaluate(
-          () => performance.getEntriesByName("opencode-stats:whole-paint-probe").length,
-        ),
-      ).toBe(0);
-    },
-  );
+  testPartitionedTour(browser, label, false);

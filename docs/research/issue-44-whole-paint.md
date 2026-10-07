@@ -204,3 +204,38 @@ the independently budgeted load/interaction seams address those harness
 assumptions; the precise WebKit suppression behaviour still needs the new hosted
 counters. No timeout was raised, and no unavailable-font/early-page assertion or
 tour action was removed.
+
+## macOS tour workload fit
+
+Hosted runs 37553604995 and 37555272626 pass all three Linux packed shards,
+including native RO and nested-microtask canaries, load barriers and clean clocks.
+Their macOS Chromium cases hit the unchanged 30-second ceiling in both observed
+and observer-free modes; some Intel WebKit cases also hit it. This establishes a
+workload-fit problem, not evidence that probe cost alone caused it. The earlier
+Intel 4/4 job also expires at five minutes. Actual action/phase costs are not yet
+known.
+
+`wholeChange` now waits for the native post-paint measure and, in observed mode,
+a newer ordered frame-probe sample. The former two additional RAFs were unrelated
+empty frames after that completion. One protocol read collects the newly published
+kind's measures, frame evidence, address agreement and contamination counters.
+Every new measure's four-part sum is still checked, as are all frame/request/
+pause/hidden assertions; prior measures are not redundantly revalidated on every
+action, and the clean consumer still verifies the full set at final coverage.
+
+The two repetitions are registered as sequential **round cases**, sharing only
+their own engine/width/mode fixture. The fixture initializes lazily in the first
+case, not in a potentially over-budget setup hook, and closes in the unchanged
+ten-second teardown budget. Preparation still expands both checklists once. Each
+round retains the original build, range/filter/search, appearance/resize,
+pause/live/hidden, minute/day and All time order and native clicks/taps. No kind,
+repetition, width, mode or platform is removed. The final coverage case requires
+completed rounds `[0,1]`, every kind at least twice and four build milestone paints.
+
+`scripts/testing/e2e-plan.ts` proves the 16 distinct engine × mode × width × round
+cases, validates the actual registration axes and both browser entry files.
+No extra macOS runners or changed DAG dependencies are introduced. Failure-only
+host-side evidence reports five phase totals, the active phase and at most 16
+recent named-kind timings; it neither reads content nor substitutes for the
+dashboard clock. Hosted green and actual remaining macOS phase costs are still
+pending; source inspection is not a timing result.

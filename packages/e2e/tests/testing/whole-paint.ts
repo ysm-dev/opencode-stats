@@ -1,9 +1,11 @@
 import type { BrowserContext, Page } from "playwright";
 import { expect } from "vitest";
+import { tourWork } from "./tour-evidence.ts";
 import {
-  readChangeMeasures,
+  readChangeEvidence,
   assertSummedMeasures,
-  readCleanChangeMeasures,
+  assertCleanChangeEvidence,
+  type ChangeEvidence,
 } from "./change-measures.ts";
 
 export const wholePaintChecks = [
@@ -262,19 +264,17 @@ export function assertPaintCheck(check: Check, failed: readonly string[]) {
   if (failed.includes(check)) throw new Error(`whole-paint:${check}`);
 }
 
-export async function paintEvidence(page: Page) {
-  expect(
-    await page.evaluate(() => window.wholePaint.observing),
-    "whole-paint:observer-disabled",
-  ).toBe(true);
-  const evidence = await page.evaluate(() => {
-    const { failures, samples, blank, complete } = window.wholePaint.evidence;
-    return { failures, samples, blank, complete };
-  });
+export function assertPaintEvidence(data: ChangeEvidence) {
+  expect(data.observing, "whole-paint:observer-disabled").toBe(true);
+  const evidence = data.evidence!;
   for (const check of wholePaintChecks) assertPaintCheck(check, evidence.failures);
   expect(evidence.samples).toBeGreaterThan(0);
   expect(evidence.complete).toBeGreaterThan(0);
   return evidence;
+}
+
+export async function paintEvidence(page: Page) {
+  return assertPaintEvidence(await readChangeEvidence(page));
 }
 
 export function watchChangeRequests(context: BrowserContext) {
@@ -296,24 +296,32 @@ export function watchChangeRequests(context: BrowserContext) {
 }
 
 export async function wholeChange(page: Page, kind: string, action: () => Promise<void>) {
-  const before = await page.evaluate((name) => {
-    return {
-      count: performance.getEntriesByName(`opencode-stats:change:${name}`).length,
-    };
-  }, kind);
-  await action();
-  await page.waitForFunction(
-    ({ name, count }) =>
-      performance.getEntriesByName(`opencode-stats:change:${name}`).length > count,
-    { name: kind, count: before.count },
+  const before = await tourWork(page, kind, "baseline", () =>
+    page.evaluate((name) => {
+      return {
+        count: performance.getEntriesByName(`opencode-stats:change:${name}`).length,
+        observing: window.wholePaint.observing,
+        samples: window.wholePaint.evidence.samples,
+      };
+    }, kind),
   );
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      }),
+  await tourWork(page, kind, "action", action);
+  await tourWork(page, kind, "paint", () =>
+    page.waitForFunction(
+      ({ name, count, observing, samples }) =>
+        performance.getEntriesByName(`opencode-stats:change:${name}`).length > count &&
+        (!observing || window.wholePaint.evidence.samples > samples),
+      { name: kind, ...before },
+    ),
   );
-  assertSummedMeasures(await readChangeMeasures(page, kind));
+  // The native measure is published in its post-paint MessageChannel task.
+  // The early frame probe's local port task precedes it. Waiting for both
+  // completion and a newer probe sample certifies the action's frame without
+  // asking the browser for two unrelated empty frames afterwards.
+  const data = await tourWork(page, kind, "evidence", () =>
+    readChangeEvidence(page, kind, before.count),
+  );
+  assertSummedMeasures(data.measures);
   // Any number of complete states may paint during an action: in particular a
   // real minute, live update or focus refresh can overlap it. The observer checks
   // agreement of drawn-state IDs and stable actual properties for each ID, not
@@ -329,14 +337,7 @@ export async function wholeChange(page: Page, kind: string, action: () => Promis
       "clear-filters",
     ].includes(kind)
   )
-    expect(
-      await page.evaluate(
-        () =>
-          document.querySelector(".range-control")!.getAttribute("data-range") ===
-          location.pathname + location.search,
-      ),
-      "whole-paint:completed-address",
-    ).toBe(true);
-  if (await page.evaluate(() => window.wholePaint.observing)) await paintEvidence(page);
-  else await readCleanChangeMeasures(page);
+    expect(data.completedAddress, "whole-paint:completed-address").toBe(true);
+  if (data.observing) assertPaintEvidence(data);
+  else assertCleanChangeEvidence(data);
 }

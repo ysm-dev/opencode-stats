@@ -2,6 +2,44 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { compareE2e, e2eFiles, partitionE2e, prepareE2e, selectE2e } from "../e2e-plan.ts";
+import { tourRounds, tourWidths } from "../../packages/e2e/tests/testing/tour-plan.ts";
+
+assert.deepEqual(tourRounds, [0, 1], "No repetition may be dropped or duplicated");
+assert.deepEqual(tourWidths, [360, 1280], "Both native-input widths remain required");
+const tourCases = ["chromium", "webkit"].flatMap((browser) =>
+  ["whole-paint", "change-time"].flatMap((mode) =>
+    tourWidths.flatMap((width) =>
+      tourRounds.map((round) => `${browser}/${mode}/${width}/${round}`),
+    ),
+  ),
+);
+assert.equal(tourCases.length, 16);
+assert.equal(
+  new Set(tourCases).size,
+  16,
+  "Native tour round partition must be exhaustive and disjoint",
+);
+const tourHarness = readFileSync("packages/e2e/tests/testing/whole-tour-tests.ts", "utf8");
+for (const registration of [
+  "describe.sequential.each(tourWidths)",
+  "it.each(tourRounds)",
+  "expect(completed).toEqual(tourRounds)",
+])
+  assert.ok(
+    tourHarness.includes(registration),
+    "Registered native tour must use and verify the proven axes",
+  );
+for (const browser of ["chromium", "webkit"])
+  for (const [file, entry] of [
+    ["whole-paint", "testWholePaintTour"],
+    ["change-time", "testCleanChangeTimeTour"],
+  ])
+    assert.ok(
+      readFileSync(`packages/e2e/tests/${file}-${browser}.test.ts`, "utf8").includes(
+        `${entry}(${browser},`,
+      ),
+      "Each mode/engine must register its complete tour",
+    );
 
 const files = e2eFiles();
 assert.ok(files.length > 0, "No e2e files discovered");
