@@ -43,9 +43,9 @@ it("does not mutate the announced partial-history warning when pause, resume or 
     observer.observe(liveRegion, { childList: true, characterData: true, subtree: true });
     const user = userEvent.setup();
     await user.click(view.getByRole("button", { name: /Pause live updates/ }));
-    await view.findByRole("button", { name: "Resume", exact: true });
+    await view.findByRole("button", { name: "Resume" });
     expect(liveRegion.textContent).toBe(original);
-    await user.click(view.getByRole("button", { name: "Resume", exact: true }));
+    await user.click(view.getByRole("button", { name: "Resume" }));
     await vi.waitFor(() =>
       expect(view.container.querySelector(".update-status")?.textContent).toContain("not updating"),
     );

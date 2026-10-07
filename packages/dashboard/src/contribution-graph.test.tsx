@@ -193,7 +193,7 @@ it("keeps Tokens/Steps/estimated Cost in the URL, distinguishes free from unavai
   await vi.waitFor(() => expect(window.location.search).toContain("graph=steps"));
   pointer(svg, svg.querySelector('[data-date="2026-10-01"]')!, "touch");
   expect(document.querySelector(".graph-readout")!.textContent).toContain("1 steps");
-  await f.user.click(metric.getByRole("button", { name: "≈ Estimated cost", exact: true }));
+  await f.user.click(metric.getByRole("button", { name: "≈ Estimated cost" }));
   await vi.waitFor(() => expect(window.location.search).toContain("graph=cost"));
   const readout = document.querySelector(".graph-readout")!;
   expect(readout.querySelector('[aria-hidden="true"]')!.textContent).toBe("≈ $0 estimated cost");
@@ -249,7 +249,7 @@ it.each([
     await using f = dashboardFixture(syntheticCopy(steps));
     const svg = await surface(f.view);
     const metric = within(f.view.getByRole("group", { name: "Contribution metric" }));
-    await f.user.click(metric.getByRole("button", { name: "≈ Estimated cost", exact: true }));
+    await f.user.click(metric.getByRole("button", { name: "≈ Estimated cost" }));
     await vi.waitFor(() => expect(window.location.search).toContain("graph=cost"));
     svg.focus();
     await f.user.keyboard("{ArrowUp}");
@@ -273,16 +273,14 @@ it("holds drawn metric/selection state while answers wait and never announces li
   const metric = within(f.view.getByRole("group", { name: "Contribution metric" }));
   held = true;
   const before = document.querySelector(".contribution-graph")!.getAttribute("data-state");
-  await f.user.click(metric.getByRole("button", { name: "≈ Estimated cost", exact: true }));
+  await f.user.click(metric.getByRole("button", { name: "≈ Estimated cost" }));
   await vi.waitFor(() => expect(answers).toHaveLength(1));
   expect(metric.getByRole("button", { name: "Tokens" }).getAttribute("aria-pressed")).toBe("true");
   expect(document.querySelector(".contribution-graph")!.getAttribute("data-state")).toBe(before);
   answers.shift()!();
   await vi.waitFor(() =>
     expect(
-      metric
-        .getByRole("button", { name: "≈ Estimated cost", exact: true })
-        .getAttribute("aria-pressed"),
+      metric.getByRole("button", { name: "≈ Estimated cost" }).getAttribute("aria-pressed"),
     ).toBe("true"),
   );
   expect(marks().size).toBe(1);
@@ -353,7 +351,7 @@ it("opens a newly narrow graph at today without resetting an ongoing narrow scro
   pointer(svg, svg.querySelector('[data-date="2026-10-01"]')!, "touch");
   setMedia({ ...initialMedia, columnWidth: 360, coarse: true });
   expect(scroll.scrollLeft).toBe(64);
-  await f.user.click(f.view.getByRole("button", { name: "Steps", exact: true }));
+  await f.user.click(f.view.getByRole("button", { name: "Steps" }));
   await vi.waitFor(() => expect(window.location.search).toContain("graph=steps"));
   expect(scroll.scrollLeft).toBe(64);
   expect(f.engine.answers).toHaveLength(answers + 1);

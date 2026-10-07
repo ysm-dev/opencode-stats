@@ -9,6 +9,7 @@ import { nodeSource } from "../runtime.node.ts";
 import type { SourceAdapter } from "../source-reader.ts";
 import { sync } from "../sync.ts";
 import type { StoreRuntime } from "../database.ts";
+import type { SqlFailure } from "../errors.ts";
 
 export class InThreadWorker {
   readonly listeners = new Map<string, Set<(event: MessageEvent) => void>>();
@@ -70,7 +71,7 @@ export const inThreadRuntime = {
   worker: workerClient((clock) => new InThreadWorker(nodeDatabase, nodeSource, clock)),
 };
 
-export const sourceFaultRuntime = (fault: () => Error | undefined): StoreRuntime => ({
+export const sourceFaultRuntime = (fault: () => SqlFailure | undefined): StoreRuntime => ({
   database: nodeDatabase,
   worker: (paths, announce = () => Effect.void, report) =>
     sync(

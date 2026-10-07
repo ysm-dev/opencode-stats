@@ -33,7 +33,11 @@ jobs:
       # pruned incrementally, so a stale local node_modules can hide a removed
       # dependency that fails here.
       - run: bun install --frozen-lockfile
+      # Temporary diagnosis: isolate the native stationary-pointer regression.
+      - name: Pointer reading regression proof
+        run: bun run scripts/time-budget.ts vitest run packages/dashboard/src/pointer-reading.test.tsx
       - run: bun run ci:checks
+        if: always()
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
