@@ -29,10 +29,12 @@ it.each([chromium, webkit])(
               nodes.slice(0, 10).map((node) => {
                 const range = document.createRange();
                 range.selectNodeContents(node);
+                const box = node.getBoundingClientRect();
+                const text = range.getBoundingClientRect();
                 return {
                   text: node.textContent,
-                  box: node.getBoundingClientRect().toJSON(),
-                  textBox: range.getBoundingClientRect().toJSON(),
+                  box: [box.left, box.top, box.right, box.bottom],
+                  textBox: [text.left, text.top, text.right, text.bottom],
                   lineHeight: getComputedStyle(node).lineHeight,
                 };
               }),
