@@ -132,8 +132,14 @@ it("decides tap versus action per event, reads horizontal finger drags, allows v
   pointer("pointerdown", "touch", 80);
   pointer("pointerup", "touch", 80);
   pointer("click", "touch", 80);
+  // WebKit can report its compatibility click as mouse after touch pointerdown/up.
+  pointer("click", "mouse", 80);
   fireEvent.click(chart(), { clientX: 80, clientY: 0 });
+  chart().focus();
+  await f.user.keyboard("{Home}");
   expect(readout().textContent).toContain("1 Oct 2026");
+  expect(chart().getAttribute("aria-label")).toContain("by day");
+  expect(window.location.search).toBe("?range=7d");
   pointer("pointerleave", "touch", 80);
   expect(readout().textContent).toContain("1 Oct 2026");
   pointer("pointerdown", "touch", 80);
