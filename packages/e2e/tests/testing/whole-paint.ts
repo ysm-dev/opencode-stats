@@ -255,7 +255,7 @@ export function installWholePaintObserver(observing = true) {
       }
       if (
         surface?.getAttribute("data-size-state") !==
-        chart.querySelector("svg")?.getAttribute("data-size-state")
+        surface?.querySelector("svg")?.getAttribute("data-size-state")
       )
         flag("mixed-frame", "chart-size-marks");
     }

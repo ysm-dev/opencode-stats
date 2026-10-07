@@ -24,6 +24,28 @@ it.each([chromium, webkit])(
     await f.context.addInitScript(installWholePaintObserver);
     const page = await f.context.newPage();
     await page.goto(`${f.server.origin}/?range=7d`);
+    await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
+    const geometry = await page.evaluate(() => {
+      const chart = document.querySelector(".usage-chart")!;
+      const surface = chart.querySelector(".chart-hit")!;
+      const plot = surface.querySelector("svg")!;
+      const icon = chart.querySelector(".chart-choices svg")!;
+      return {
+        firstIsIcon: chart.querySelector("svg") === icon,
+        iconIsPlot: icon === plot,
+        iconSize: icon.getAttribute("data-size-state"),
+        plotMatches:
+          plot.hasAttribute("data-size-state") &&
+          plot.getAttribute("data-size-state") === surface.getAttribute("data-size-state"),
+      };
+    });
+    expect(geometry).toEqual({
+      firstIsIcon: true,
+      iconIsPlot: false,
+      iconSize: null,
+      plotMatches: true,
+    });
+    await paintEvidence(page);
     for (const change of ["svg", "highlight", "cursor", "readout", "size"] as const) {
       await page.waitForFunction(() => window.wholePaint.evidence.complete > 0);
       await wholeChange(page, "chart-read", () => page.locator(".chart-hit").press("Home"));
