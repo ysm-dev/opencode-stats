@@ -6,7 +6,7 @@ import { catalogModels, parseCatalog, type CatalogModel, type Price } from "./ca
 import type { SourceReader } from "./source-reader.ts";
 import snapshot from "./prices.json" with { type: "json" };
 import { mapTokenFields, type TokenKind } from "@opencode-stats/browser-copy";
-import { sqlFailure } from "./errors.ts";
+import { sqlFailure, syncFailure } from "./errors.ts";
 
 const snapshotCatalog = parseCatalog(snapshot);
 const snapshotModels = catalogModels(snapshotCatalog);
@@ -138,7 +138,7 @@ export const pricingForPass = (reader: SourceReader) => {
         Effect.catchCause((cause) => Effect.fail(sqlFailure(cause, "writeSteps"))),
       );
     },
-    Effect.catchCause((cause) => Effect.fail(sqlFailure(cause, "writeSteps"))),
+    Effect.catchCause((cause) => Effect.fail(syncFailure(cause, "writeSteps"))),
   );
 };
 export type StepPricer = Effect.Success<ReturnType<ReturnType<typeof pricingForPass>>>;

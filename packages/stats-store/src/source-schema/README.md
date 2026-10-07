@@ -30,6 +30,16 @@ recognition compares the complete migration set and every required table's exact
 manifest, permitting additional legacy and embedder-owned tables. It never runs
 OpenCode migrations or changes an OpenCode connection's journal.
 
+Every inventory, catalog-stamp, catalog-body and session read validates recognition
+inside the same short, synchronous read transaction as its source rows. The
+connection caches the full manifest only after a successful check, keyed by the
+snapshot's complete migration journal, import marker and SQLite schema version;
+each slice rereads that key in its own snapshot. A concurrent writer cannot put
+unknown-schema facts in an approved snapshot, and a failed manifest read cannot
+cache an older approval for a retry. Transactions end before asynchronous work,
+derived-store writes, retries or publication. The pass-level check still reports
+schema changes, but is not the approval for later slices.
+
 The full-column manifest refresh keeps the same pinned schemas and migrations.
 Its fingerprints are `d6f93f87c0bd142322ae636d2654df86a96f1a56286ae8aec00480aa01d74aab`
 (before 2.0.15) and `62415d20b5f2cd684351cfb3b85378baa426066eb9c06fa289e65568b9156847`
@@ -46,6 +56,8 @@ The per-store `.sync` sidecar is a private, atomically replaced receipt containi
 only the store generation, accepted migration list, completed-import flag and last
 successful reconciliation time and source-file identity. A replacement or repaired
 damaged source is conservatively reread even if its counters happen to match.
+Recovery work joins an active migration/import reread, including sessions already
+read before interruption; neither obligation is discarded when that pass finishes.
 It advances only after a complete successful pass. This allows migration/import
 rereads to resume after interruption or downtime without changing the SQLite
 layout, counted facts, store version (8), or binary format version (7).

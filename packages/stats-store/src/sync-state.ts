@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import type { SyncStop } from "@opencode-stats/browser-copy/api";
-import { SqlFailure, sqlFailure } from "./errors.ts";
+import { SchemaFailure, SqlFailure, sqlFailure } from "./errors.ts";
 import type { StoreEvent, BuildReport } from "./build-events.ts";
 import type { StorePaths } from "./database.ts";
 import { assertStoreDestination } from "./location.ts";
@@ -38,11 +38,6 @@ export const saveReceipt = (store: string, receipt: Receipt) =>
     catch: (error) => sqlFailure(error, "writeSteps"),
   });
 
-export class SchemaFailure extends Error {
-  constructor(readonly schema: "newer" | "v1" | "other") {
-    super("Unrecognized OpenCode schema.");
-  }
-}
 type Stopped = Extract<StoreEvent, { kind: "sync.stopped" | "sync.resumed" }>;
 export function syncState(report: BuildReport, started: number) {
   let current: Stopped | undefined;

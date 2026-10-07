@@ -133,8 +133,9 @@ function importMarker(db: NativeReader, names: ReadonlySet<string>) {
 
 export function schemaReader(db: NativeReader) {
   let stamp = "";
+  let reported = "";
   let result: SchemaResult;
-  return () => {
+  return (notify = true) => {
     const tables = Schema.decodeUnknownSync(Schema.Array(Schema.Struct({ name: Schema.String })))(
       db.all("SELECT name FROM sqlite_schema WHERE type='table'"),
     );
@@ -145,9 +146,8 @@ export function schemaReader(db: NativeReader) {
     const completed = marker?.["phase"] === "completed";
     const version = db.all("PRAGMA schema_version")[0]!["schema_version"];
     const next = JSON.stringify([migrations, journal.length, marker?.["value"], version]);
-    const changed = next !== stamp;
-    if (changed) {
-      stamp = next;
+    const changed = next !== reported;
+    if (next !== stamp) {
       const profile = Object.values(profiles.profiles).find(
         (item) => JSON.stringify(item.migrations) === JSON.stringify(migrations),
       );
@@ -163,7 +163,10 @@ export function schemaReader(db: NativeReader) {
         migrations,
         fingerprint: matches ? profile!.fingerprint : "unrecognized",
       };
+      // Cache only a completed check; a busy/error retry must not reuse old approval.
+      stamp = next;
     }
+    if (notify) reported = next;
     return { ...result!, completed, changed };
   };
 }
