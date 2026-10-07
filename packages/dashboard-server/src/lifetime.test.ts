@@ -360,6 +360,7 @@ it("a copy request waits during startup while control requests answer, then retu
     void request.then(
       () => {
         settled = true;
+        return undefined;
       },
       () => {
         settled = true;
