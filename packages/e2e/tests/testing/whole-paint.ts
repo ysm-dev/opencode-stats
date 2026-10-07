@@ -8,7 +8,7 @@ import {
   type ChangeEvidence,
 } from "./change-measures.ts";
 
-export const wholePaintChecks = [
+const wholePaintChecks = [
   "mixed-frame",
   "user-change-network",
   "early-load-paint",

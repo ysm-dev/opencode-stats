@@ -155,7 +155,41 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
       seedTour(f.server);
       await installTourClock(f.context, tourStart);
       await f.context.addInitScript(installWholePaintObserver);
+      await f.context.addInitScript(() => {
+        const load = document.fonts.load.bind(document.fonts);
+        document.fonts.load = (...args) => {
+          console.debug(
+            "[DEBUG-font-barrier] before",
+            JSON.stringify({
+              args,
+              status: document.fonts.status,
+              faces: [...document.fonts].map((face) => [face.family, face.weight, face.status]),
+              styles: [
+                ...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+              ].map((link) => [link.href, !!link.sheet]),
+            }),
+          );
+          return load(...args).then((faces) => {
+            console.debug(
+              "[DEBUG-font-barrier] resolved",
+              JSON.stringify({
+                args,
+                ready: document.fonts.check(...args),
+                faces: faces.map((face) => [face.family, face.weight, face.status]),
+              }),
+            );
+            return faces;
+          });
+        };
+      });
       const page = await f.context.newPage();
+      const fontTrace: string[] = [];
+      page.on("console", (message) => {
+        if (message.text().startsWith("[DEBUG-font-barrier]")) fontTrace.push(message.text());
+      });
+      onTestFailed(() => {
+        process.stderr.write(`${fontTrace.join("\n")}\n`);
+      });
       const workerCreated = page.waitForEvent("worker");
       const copied = page.waitForResponse(
         (response) => new URL(response.url()).pathname === "/api/browser-copy",
