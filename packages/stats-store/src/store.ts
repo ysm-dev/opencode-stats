@@ -155,7 +155,8 @@ export const stayInSync = Effect.fnUntraced(function* (
               (row) => !row.id.startsWith("session:") && !row.id.startsWith("project:"),
             ),
             pricing: {
-              catalog: (yield* db.select().from(pricingCatalog))[0]!,
+              catalog:
+                (yield* db.select().from(pricingCatalog))[0] ?? unbuiltCopy().pricing.catalog,
               models: yield* db.select().from(modelPrices).orderBy(modelPrices.id),
             },
             ...dimensions,

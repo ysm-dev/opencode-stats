@@ -186,6 +186,10 @@ it.each([
     );
     expect(copy.revision).toBe(0);
     expect(copy.steps).toEqual([]);
+    expect(copy.pricing).toEqual({
+      catalog: { id: 1, source: "unavailable", stamp: null, updatedAt: 0, digest: null },
+      models: [],
+    });
     expect(events).toContainEqual(expect.objectContaining({ kind: "schema.checked", result }));
     expect(events).toContainEqual(
       expect.objectContaining({ kind: "sync.stopped", reason: `schema.${result}` }),
