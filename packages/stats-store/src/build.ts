@@ -230,8 +230,8 @@ export const reconcile = Effect.fnUntraced(
     pricer: StepPricer,
     sourceVersion: number,
     forced: Set<string>,
-    reread: Set<string>,
-    differing: Set<string>,
+    reread: Set<string> = new Set(),
+    differing: Set<string> = new Set(),
     report: BuildReport,
   ) {
     const { byId, pending, removed, ordered, saved, initialCommit } = yield* reconciliationPlan(
