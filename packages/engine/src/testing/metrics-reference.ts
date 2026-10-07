@@ -28,6 +28,15 @@ const referenceCost = (facts: readonly Row[]) => {
     pricedShare: share(tokenSum(priced), tokenSum(facts)),
   };
 };
+const referenceErrors = (facts: readonly Row[], names: readonly DimensionName[]) =>
+  names
+    .filter((name) => name.dimension === "error" && name.id !== "aborted")
+    .map((name) => {
+      const failed = facts.filter((row) => row.error === name.code).length;
+      return { id: name.id, name: name.name, failed, rate: share(failed, facts.length) };
+    })
+    .filter((error) => error.failed > 0)
+    .toSorted((a, b) => a.id.localeCompare(b.id));
 
 export function referenceMetrics(
   rows: readonly Row[],
@@ -64,14 +73,7 @@ export function referenceMetrics(
     (row) => row.input !== null && row.cacheRead !== null && row.cacheWrite !== null,
   );
   const sizes = contexts.map((row) => row.input! + row.cacheRead! + row.cacheWrite!);
-  const errors = names
-    .filter((name) => name.dimension === "error" && name.id !== "aborted")
-    .map((name) => {
-      const failed = facts.filter((row) => row.error === name.code).length;
-      return { id: name.id, name: name.name, failed, rate: share(failed, steps) };
-    })
-    .filter((error) => error.failed > 0)
-    .toSorted((a, b) => a.id.localeCompare(b.id));
+  const errors = referenceErrors(facts, names);
   const failed = errors.reduce((sum, error) => sum + error.failed, 0);
   const aborted = names.find((name) => name.dimension === "error" && name.id === "aborted")?.code;
   return {
