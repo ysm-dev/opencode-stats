@@ -12,7 +12,8 @@ export const PreviousNumber = (props: {
     | "response"
     | "cacheHitRate"
     | "tools"
-    | "cost";
+    | "cost"
+    | "activeDays";
 }) => {
   const state = useContext(PageState)!;
   return (
@@ -25,9 +26,9 @@ export const PreviousNumber = (props: {
     </Show>
   );
 };
-const number = (value: number | null, digits = 2) =>
+export const number = (value: number | null, digits = 2) =>
   value === null ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: digits });
-const percent = (value: number | null) => (value === null ? "—" : `${number(value * 100)}%`);
+export const percent = (value: number | null) => (value === null ? "—" : `${number(value * 100)}%`);
 const duration = (value: number | null) => (value === null ? "—" : `${number(value / 1000, 3)} s`);
 export const HeadlineText = (props: { text: string; about: boolean }) => (
   <>
@@ -132,6 +133,13 @@ export const StepHeadlines = () => {
         metric="cacheHitRate"
       />
       <ToolHeadline />
+      <Headline
+        id="active-days"
+        title="Active days"
+        value={number(state().activeDays)}
+        line={`${number(state().graph.currentStreak)} day current streak`}
+        metric="activeDays"
+      />
     </>
   );
 };

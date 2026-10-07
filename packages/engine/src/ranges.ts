@@ -3,9 +3,8 @@ import { addDates, dateCount, localDate, midnight } from "./calendar.ts";
 
 export const Preset = Schema.Literals(["today", "7d", "30d", "90d", "180d", "365d", "all"]);
 export type Preset = typeof Preset.Type;
-export type TimeRange =
-  | Preset
-  | { from: string; to: string; kind?: "day" | "week" | "month" | undefined };
+export type CalendarUnit = "day" | "week" | "month";
+export type TimeRange = Preset | { from: string; to: string; kind?: CalendarUnit | undefined };
 export type Period = { start: number; end: number; from: string; to: string; days: number };
 export const presetLabels: Record<Preset, string> = {
   today: "Today",
@@ -93,13 +92,27 @@ export function resolveRange(
   };
 }
 
-function normalizeRange(range: TimeRange, now: number, timeZone: string): TimeRange {
+export function normalizeRange(range: TimeRange, now: number, timeZone: string): TimeRange {
   if (typeof range === "string" || range.to !== localDate(now, timeZone)) return range;
   const days = dateCount(range.from, range.to);
   return (
     presets.find((key) => key !== "all" && (key === "today" ? 1 : Number.parseInt(key)) === days) ??
     range
   );
+}
+
+export function calendarRange(date: string, unit: CalendarUnit): Exclude<TimeRange, string> {
+  date = parseDate(date);
+  const weekday = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const from =
+    unit === "month" ? `${date.slice(0, 7)}-01` : unit === "week" ? addDates(date, -weekday) : date;
+  const nextMonth = new Date(`${from}T00:00:00Z`);
+  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+  const to =
+    unit === "month"
+      ? addDates(nextMonth.toISOString().slice(0, 10), -1)
+      : addDates(from, unit === "week" ? 6 : 0);
+  return { from, to, kind: unit };
 }
 
 export function shiftRange(

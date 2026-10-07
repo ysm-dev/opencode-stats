@@ -6,16 +6,11 @@ import { StepMetrics } from "./step-metrics.ts";
 import { ToolMetrics } from "./tool-metrics.ts";
 import { Chart } from "./chart.ts";
 import { ChartMetric, ChartSplit } from "./chart-choice.ts";
+import { ContributionGraph, GraphMetric } from "./contributions.ts";
 
 const Action = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("chart-metric"), metric: ChartMetric }),
   Schema.Struct({ kind: Schema.Literal("chart-split"), split: ChartSplit }),
-  Schema.Struct({
-    kind: Schema.Literal("drill"),
-    from: Schema.String,
-    to: Schema.String,
-    unit: Schema.Literals(["day", "week", "month"]),
-  }),
   Schema.Struct({ kind: Schema.Literal("address"), address: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("all-time") }),
   Schema.Struct({ kind: Schema.Literals(["preset", "remove-fixed"]), preset: Preset }),
@@ -27,6 +22,14 @@ const Action = Schema.Union([
     announce: Schema.optional(Schema.Boolean),
   }),
   Schema.Struct({ kind: Schema.Literal("clear-filters") }),
+  Schema.Struct({ kind: Schema.Literal("graph-metric"), metric: GraphMetric }),
+  Schema.Struct({
+    kind: Schema.Literal("drill"),
+    from: Schema.String,
+    to: Schema.String,
+    unit: Schema.Literals(["day", "week", "month"]),
+    source: Schema.optional(Schema.Literal("graph")),
+  }),
 ]);
 export type EngineAction = typeof Action.Type;
 const Tokens = Schema.Struct({
@@ -69,12 +72,16 @@ const State = Schema.Union([
       cacheHitRate: Schema.String,
       tools: Schema.String,
       cost: Schema.String,
+      activeDays: Schema.String,
       caption: Schema.String,
     }),
     tokens: Tokens,
     metrics: StepMetrics,
     tools: ToolMetrics,
     chart: Chart,
+    activeDays: Schema.Number,
+    graph: ContributionGraph,
+    selectionAnnouncement: Schema.String,
     recordedFromLabel: Schema.String,
     filters: Schema.Array(Schema.Struct({ ...Filter.fields, name: Schema.String })),
     checklists: Schema.Array(

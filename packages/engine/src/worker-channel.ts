@@ -18,6 +18,7 @@ import {
   shiftRange,
   rangeAddress,
   presets,
+  normalizeRange,
   type TimeRange,
 } from "./ranges.ts";
 import {
@@ -38,15 +39,27 @@ import {
   normalizeChart,
   type ChartChoice,
 } from "./chart-choice.ts";
+import {
+  contributionGraph,
+  graphAddress,
+  parseGraphMetric,
+  type GraphMetric,
+  withGraphMetric,
+} from "./contributions.ts";
 
 const measuredChange = (value: number | null, before: number | null) =>
   value === null || before === null ? "" : changeLabel(value, before);
+const actionKind = (action: EngineAction | undefined, fallback: ChangeKind): ChangeKind =>
+  action?.kind === "drill" && action.source === "graph"
+    ? "graph-select"
+    : (action?.kind ?? fallback);
 
 function stateFor(
   range: TimeRange | undefined,
   filters: readonly Filter[],
   choice: ChartChoice,
   live: ReturnType<typeof createLiveEngine>,
+  metric: GraphMetric,
 ): EngineState {
   if (range === undefined) return { screen: "problem", reason: "invalid-address" };
   const current = live.current();
@@ -56,7 +69,7 @@ function stateFor(
   const historyLabel = dateLabel(localDate(history, timeZone), locale, false);
   const status = live.status();
   const period = resolveRange(range, now, timeZone, history);
-  const amounts = live.query(period, timeZone, filters);
+  const amounts = live.query(period, timeZone, filters, now);
   const previous = previousPeriod(range, period, timeZone, history);
   const comparison = {
     tokens: "",
@@ -68,13 +81,15 @@ function stateFor(
     cacheHitRate: "",
     tools: "",
     cost: "",
+    activeDays: "",
     caption: "",
   };
   if (previous) {
-    const before = live.query(previous, timeZone, filters);
+    const before = live.query(previous, timeZone, filters, now);
     comparison.tokens = changeLabel(amounts.tokens.total, before.tokens.total);
     comparison.sessions = changeLabel(amounts.sessions.total, before.sessions.total);
     comparison.tools = changeLabel(amounts.tools.calls, before.tools.calls);
+    comparison.activeDays = changeLabel(amounts.activeDays, before.activeDays);
     for (const key of ["steps", "prompts", "failed"] as const)
       comparison[key] = changeLabel(amounts.metrics[key], before.metrics[key]);
     comparison.response = measuredChange(amounts.metrics.response.p50, before.metrics.response.p50);
@@ -87,7 +102,10 @@ function stateFor(
   }
   return {
     screen: "dashboard",
-    address: chartAddress(filterAddress(rangeAddress(range), filters), choice),
+    address: graphAddress(
+      chartAddress(filterAddress(rangeAddress(range), filters), choice),
+      metric,
+    ),
     chart: live.chart(period, timeZone, locale, filters, choice),
     rangeLabel: rangeLabel(range, period, locale),
     range: {
@@ -104,9 +122,15 @@ function stateFor(
     timeZone,
     historyStart: history,
     historyComplete: current.historyComplete,
-    summary: `You ran ${amounts.metrics.steps.toLocaleString("en-US")} steps across ${amounts.sessions.total.toLocaleString("en-US")} sessions ${period.start < history ? `since ${historyLabel}` : summarySpan(range, period, locale)}.`,
+    summary: `You ran ${amounts.metrics.steps.toLocaleString("en-US")} steps across ${amounts.sessions.total.toLocaleString("en-US")} sessions ${period.start < history && period.end > history ? `since ${historyLabel}` : summarySpan(range, period, locale)}.`,
     comparison,
     ...amounts,
+    graph: contributionGraph(
+      live.activity(timeZone, filters, now),
+      localDate(now, timeZone),
+      metric,
+    ),
+    selectionAnnouncement: "",
     recordedFromLabel:
       amounts.metrics.response.recordedFrom === null
         ? ""
@@ -135,6 +159,8 @@ export function connectEngine(
   let range: TimeRange | undefined = "30d";
   let filters: readonly Filter[] = [];
   let choice = defaultChart;
+  let metric: GraphMetric = "tokens";
+  let lastState: EngineState | undefined;
   let filterChange:
     | Extract<EngineAction, { kind: "filter" | "remove-filter" | "clear-filters" }>
     | undefined;
@@ -144,6 +170,10 @@ export function connectEngine(
   const selectRange = (action: EngineAction) => {
     filterChange = undefined;
     filterAnnouncement = "";
+    if (action.kind === "graph-metric") {
+      metric = action.metric;
+      return;
+    }
     live.refreshTime();
     const { now, timeZone } = live.time();
     if (action.kind === "address" || action.kind === "drill") {
@@ -152,10 +182,12 @@ export function connectEngine(
           action.kind === "address"
             ? action.address
             : rangeAddress({ from: action.from, to: action.to, kind: action.unit });
-        range = parseRange(address, network.baseUrl);
+        const parsed = parseRange(address, network.baseUrl);
+        range = action.kind === "drill" ? normalizeRange(parsed, now, timeZone) : parsed;
         if (action.kind === "address") {
           filters = parseFilters(address, network.baseUrl);
           choice = parseChart(address, network.baseUrl);
+          metric = parseGraphMetric(address, network.baseUrl);
         }
       } catch {
         range = undefined;
@@ -187,9 +219,23 @@ export function connectEngine(
     if (live.current() && !live.ready() && live.status().liveLabel !== "Not updating") return;
     const started = clock.workNow();
     const id = pending?.id ?? 0;
-    const changeKind = pending?.action.kind ?? kind;
+    const changeKind = actionKind(pending?.action, kind);
     pending = undefined;
-    const state = stateFor(range, filters, choice, live);
+    let state =
+      changeKind === "graph-metric" && lastState?.screen === "dashboard"
+        ? {
+            ...lastState,
+            address: graphAddress(
+              chartAddress(filterAddress(rangeAddress(range!), filters), choice),
+              metric,
+            ),
+            graph: withGraphMetric(lastState.graph, metric),
+            selectionAnnouncement: "",
+          }
+        : stateFor(range, filters, choice, live, metric);
+    if (state.screen === "dashboard" && changeKind === "graph-select")
+      state = { ...state, selectionAnnouncement: state.rangeLabel };
+    lastState = state;
     if (state.screen === "dashboard" && filterChange) {
       if (filterChange.kind === "clear-filters") filterAnnouncement = "Filters cleared";
       else if (filterChange.announce) {

@@ -79,6 +79,131 @@ main {
   padding: 24px;
   min-width: 0;
 }
+.contribution-graph {
+  margin-block: 24px;
+}
+.graph-metrics,
+.graph-actions,
+.graph-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.graph-metrics button,
+.graph-actions button {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--dashboard-edge-base);
+  border-radius: 4px;
+  background: var(--dashboard-base);
+  color: var(--dashboard-text-base);
+}
+.graph-metrics [aria-pressed="true"] {
+  box-shadow: inset 0 -2px var(--dashboard-selected-base);
+}
+.graph-calendar {
+  display: flex;
+  margin-block: 12px;
+}
+.graph-weekdays {
+  flex: none;
+  width: 32px;
+  padding-top: 32px;
+  color: var(--dashboard-muted-base);
+}
+.graph-weekdays span {
+  display: block;
+  height: 16px;
+  font-size: 10px;
+}
+.graph-scroll {
+  overflow-x: auto;
+  min-width: 0;
+  flex: 1;
+}
+.graph-surface {
+  width: 100%;
+  height: 176px;
+  display: block;
+  forced-color-adjust: none;
+}
+.graph-surface:focus-visible {
+  outline-offset: -4px;
+}
+.graph-label {
+  fill: var(--dashboard-muted-base);
+  font-size: 11px;
+}
+.graph-week {
+  font-size: 9px;
+}
+.graph-surface rect,
+.graph-level {
+  fill: var(--dashboard-empty);
+  background: var(--dashboard-empty);
+}
+.graph-surface [data-level="1"],
+.graph-level[data-level="1"] {
+  fill: var(--dashboard-level-1);
+  background: var(--dashboard-level-1);
+}
+.graph-surface [data-level="2"],
+.graph-level[data-level="2"] {
+  fill: var(--dashboard-level-2);
+  background: var(--dashboard-level-2);
+}
+.graph-surface [data-level="3"],
+.graph-level[data-level="3"] {
+  fill: var(--dashboard-level-3);
+  background: var(--dashboard-level-3);
+}
+.graph-surface [data-level="4"],
+.graph-level[data-level="4"] {
+  fill: var(--dashboard-level-4);
+  background: var(--dashboard-level-4);
+}
+.graph-surface [data-level="-1"] {
+  fill: url(#graph-unavailable);
+}
+.graph-hatch {
+  stroke: var(--dashboard-edge-base);
+  stroke-width: 1px;
+}
+.graph-surface [data-selected="true"] {
+  stroke: var(--dashboard-edge-base);
+  stroke-width: 1px;
+}
+.graph-surface [data-reading="true"] {
+  stroke: var(--dashboard-focus-base);
+  stroke-width: 2px;
+}
+.graph-level {
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+}
+.graph-streaks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.graph-streaks dd {
+  margin: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.graph-streaks dt {
+  color: var(--dashboard-muted-base);
+}
+.contribution-graph[data-narrow="true"] .graph-surface {
+  width: var(--graph-width);
+}
+.contribution-graph[data-coarse="true"] .graph-metrics button,
+.contribution-graph[data-coarse="true"] .graph-actions button {
+  min-height: 44px;
+  min-width: 44px;
+}
 header {
   margin-bottom: 24px;
 }

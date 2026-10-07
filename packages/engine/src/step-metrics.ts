@@ -3,6 +3,7 @@ import type { DimensionName, promptFields } from "@opencode-stats/browser-copy";
 import type { Fact } from "./amounts.ts";
 import type { Period } from "./ranges.ts";
 import { Cost, emptyCost, addCost, costTotals } from "./cost.ts";
+import { nearestRank as rank } from "./statistics.ts";
 
 const measured = Schema.NullOr(Schema.Number);
 export const StepMetrics = Schema.Struct({
@@ -31,8 +32,6 @@ export const StepMetrics = Schema.Struct({
   cost: Cost,
 });
 export type PromptFact = Readonly<Record<(typeof promptFields)[number], number>>;
-const rank = (sorted: readonly number[], percentile: number): number | null =>
-  sorted.length === 0 ? null : sorted[Math.ceil(percentile * sorted.length) - 1]!;
 const ratio = (numerator: number, denominator: number): number | null =>
   denominator === 0 ? null : numerator / denominator;
 const inPeriod = (start: number, period: Period) => start >= period.start && start < period.end;

@@ -1,7 +1,10 @@
 export { createPageClient } from "./client.ts";
 export type { EngineAction, EngineState, RequestOutcome } from "./protocol.ts";
-export { calendarBuckets } from "./calendar.ts";
-export { presets, presetLabels } from "./ranges.ts";
+export { calendarBuckets, addDates, dateCount } from "./calendar.ts";
+export { presets, presetLabels, calendarRange } from "./ranges.ts";
+export type { CalendarUnit } from "./ranges.ts";
+export type { ContributionGraph, GraphMetric } from "./contributions.ts";
+export { dateLabel } from "./time-labels.ts";
 export { filterLabels } from "./filters.ts";
 export type { ChangeTime } from "./change.ts";
 export { chartMetrics, chartSplits, chartMetricLabels, chartSplitLabels } from "./chart-choice.ts";

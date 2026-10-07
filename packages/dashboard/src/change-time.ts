@@ -14,7 +14,8 @@ type LocalKind =
   | "chart-read"
   | "chart-highlight"
   | "chart-menu"
-  | "expand-checklist";
+  | "expand-checklist"
+  | "graph-read";
 type Tools = {
   now: () => number;
   frame: (run: () => void) => void;

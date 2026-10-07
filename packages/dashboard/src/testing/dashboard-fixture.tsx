@@ -12,9 +12,10 @@ export function dashboardFixture(
   deliverAnswer: (deliver: () => void) => void = queueMicrotask,
   media: Accessor<MediaSize> = () => initialMedia,
   timeZone = "UTC",
+  initialTime?: number,
 ) {
   const server = inMemoryDashboardServer(copy);
-  const clock = manualClock();
+  const clock = manualClock(initialTime);
   const engine = inThreadEngine(server.fetch, deliverAnswer, {
     ...clock,
     timeZone: () => timeZone,

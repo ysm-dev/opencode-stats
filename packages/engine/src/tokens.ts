@@ -14,7 +14,14 @@ import * as Option from "effect/Option";
 import type { EngineClock } from "./clock.ts";
 import { placeSessions, matchingPlacements } from "./sessions.ts";
 import { emptyAmounts, adjust, totals, type Fact } from "./amounts.ts";
-import { emptyDays, updateDay, dayTotals, checklistAmounts } from "./days.ts";
+import {
+  emptyDays,
+  updateDay,
+  dayTotals,
+  checklistAmounts,
+  activityDays,
+  dayActiveCount,
+} from "./days.ts";
 import {
   compileFilters,
   filterDimensions,
@@ -108,6 +115,7 @@ async function applyCalls(
 export function createFacts(clock: EngineClock) {
   let snapshot = emptySnapshot();
   const filteredPlacements = new Map<string, ReturnType<typeof matchingPlacements>>();
+  const activityCache = new Map<string, ReturnType<typeof activityDays>>();
   let placements = {
     roots: new Map<number, number>(),
     subagents: new Map<number, number>(),
@@ -186,6 +194,7 @@ export function createFacts(clock: EngineClock) {
       // Persistent maps leave the prior complete copy available throughout every slice.
       snapshot = next;
       filteredPlacements.clear();
+      activityCache.clear();
       placements = sessions;
       current = {
         generation: copy.generation,
@@ -234,9 +243,9 @@ export function createFacts(clock: EngineClock) {
     }
     return placed;
   };
-  const query = (period: Period, timeZone: string, filters: readonly Filter[]) => {
+  const query = (period: Period, timeZone: string, filters: readonly Filter[], now: number) => {
     indexZone(timeZone);
-    const start = history(clock.now(), timeZone);
+    const start = history(now, timeZone);
     period = { ...period, start: Math.max(period.start, start) };
     const compiled = compileFilters(filters, names());
     const placed = placementsFor(filters, compiled);
@@ -252,7 +261,31 @@ export function createFacts(clock: EngineClock) {
         names(),
         period,
       ),
+      activeDays: dayActiveCount(snapshot.days, period, compiled),
     };
+  };
+  const activity = (timeZone: string, filters: readonly Filter[], now: number) => {
+    indexZone(timeZone);
+    const start = history(now, timeZone);
+    const key = JSON.stringify([timeZone, now, start, filters]);
+    let value = activityCache.get(key);
+    if (!value) {
+      value = activityDays(
+        snapshot.days,
+        {
+          start,
+          end: now,
+          from: localDate(start, timeZone),
+          to: localDate(now, timeZone),
+          days: 0,
+        },
+        compileFilters(filters, names()),
+      );
+      // Only retain the current clock's filter results, not every minute ever seen.
+      activityCache.clear();
+      activityCache.set(key, value);
+    }
+    return value;
   };
   const filterState = (period: Period, timeZone: string, filters: readonly Filter[]) => {
     indexZone(timeZone);
@@ -329,6 +362,7 @@ export function createFacts(clock: EngineClock) {
         midnight(localDate(clock.now(), clock.timeZone()), clock.timeZone()),
     query,
     chart,
+    activity,
     filterState,
     filterLabel: (filter: Filter) => filterName(filter, names()),
   };

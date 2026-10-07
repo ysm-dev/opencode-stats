@@ -45,6 +45,10 @@ export function installWholePaintObserver(observing = true) {
   const retainDrawing = (region: Element, key: string, drawing: string) => {
     frame.drawings.push({ region, key, drawing });
   };
+  const graphDrawing = (root: ParentNode) =>
+    [...root.querySelectorAll(".graph-surface, .graph-surface rect, .graph-surface text")].map(
+      (node) => [...node.attributes].map((attribute) => [attribute.name, attribute.value]),
+    );
   const observeRegions = (regions: Element[]) => {
     for (const region of regions) {
       // This container contains several independent checklist search states.
@@ -52,7 +56,9 @@ export function installWholePaintObserver(observing = true) {
       if (region.classList.contains("filters")) continue;
       const local =
         region.getAttribute("data-local-state") ??
-        region.closest(".filter-checklist")?.getAttribute("data-local-state") ??
+        region
+          .closest(".filter-checklist, .contribution-graph")
+          ?.getAttribute("data-local-state") ??
         "";
       const svg = region.matches("svg") ? region : region.querySelector("svg");
       retainDrawing(
@@ -76,6 +82,9 @@ export function installWholePaintObserver(observing = true) {
             bar.style.flexGrow,
           ]),
           range: region.getAttribute("data-range"),
+          coarse: region.getAttribute("data-coarse"),
+          narrow: region.getAttribute("data-narrow"),
+          graph: graphDrawing(region),
           updating: region.getAttribute("data-updating"),
           svg: svg && {
             viewBox: svg.getAttribute("viewBox"),
@@ -161,6 +170,7 @@ export function installWholePaintObserver(observing = true) {
         bar.style.flexGrow,
       ]),
       range: document.querySelector(".range-control")?.textContent,
+      graph: graphDrawing(document),
       title: document.title,
       settings: document.querySelector(".settings-sheet")?.textContent,
       options: [...document.querySelectorAll('[role="option"]')].map((node) => [
@@ -177,7 +187,10 @@ export function installWholePaintObserver(observing = true) {
   const pageComplete = (states: Set<string | null>, regions: Element[]) => {
     const dashboardComplete =
       !!page.querySelector("main h1") &&
-      document.querySelectorAll(".headline-number").length === 9 &&
+      document.querySelectorAll(".headline-number").length === 10 &&
+      document.querySelectorAll(".graph-surface rect[data-date]").length === 365 &&
+      !!document.querySelector(".graph-readout") &&
+      !!document.querySelector(".graph-streaks") &&
       document.querySelectorAll(".filter-checklist").length === 6 &&
       !!document.querySelector(".tool-outcomes") &&
       !!document.querySelector(".tool-filter-divider") &&
@@ -220,7 +233,7 @@ export function installWholePaintObserver(observing = true) {
     const states = new Set(regions.map((node) => node.getAttribute("data-state")));
     if (states.size > 1) flag("mixed-frame");
     observeRegions(regions);
-    for (const list of document.querySelectorAll(".filter-checklist")) {
+    for (const list of document.querySelectorAll(".filter-checklist, .contribution-graph")) {
       const mark = list.getAttribute("data-local-state");
       if (
         [...list.querySelectorAll("[data-local-state]")].some(
@@ -379,6 +392,8 @@ export async function wholeChange(page: Page, kind: string, action: () => Promis
       "chart-metric",
       "chart-split",
       "drill",
+      "graph-select",
+      "graph-metric",
     ].includes(kind)
   )
     expect(data.completedAddress, "whole-paint:completed-address").toBe(true);
