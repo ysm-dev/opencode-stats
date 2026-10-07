@@ -7,12 +7,14 @@ import { followCopy, loadCopy, type EngineNetwork } from "./network.ts";
 import { createHistoryCopy } from "./history-copy.ts";
 import { createLiveStatus } from "./live-status.ts";
 import { addDates, localDate, midnight } from "./calendar.ts";
+import { historyLine } from "./history.ts";
+import { dateLabel } from "./time-labels.ts";
 
 type Session = {
   controller: AbortController;
   stopStream?: () => Promise<void>;
   work?: Promise<void> | undefined;
-  target?: CopyCursor | undefined;
+  target?: LiveAnnouncement | undefined;
   opening: boolean;
   kind: ChangeKind;
 };
@@ -30,7 +32,17 @@ export function createLiveEngine(
   let readyStarted: number | undefined;
   const copies = createHistoryCopy(clock);
   const facts = copies.view;
-  const status = createLiveStatus(clock);
+  const status = createLiveStatus(clock, (line) => {
+    const current = facts.current();
+    if (!current || !facts.ready()) return line;
+    const zone = clock.timeZone();
+    const date = dateLabel(
+      localDate(facts.history(clock.now(), zone), zone),
+      clock.locale(),
+      false,
+    );
+    return historyLine(current.historyComplete, date, line, false);
+  });
   let session: Session | undefined;
   let visible = true;
   let paused = false;
@@ -116,15 +128,26 @@ export function createLiveEngine(
       const before = copies.received();
       const newer =
         !before || wanted.generation !== before.generation || wanted.revision > before.revision;
-      if (!newer && !current.opening) continue;
-      await apply(current, wanted.generation === before?.generation ? before : undefined);
+      if (
+        !newer &&
+        !current.opening &&
+        (!("stop" in wanted) ||
+          JSON.stringify(wanted.stop ?? null) === JSON.stringify(status.read().stop ?? null))
+      )
+        continue;
+      if (newer || current.opening)
+        await apply(current, wanted.generation === before?.generation ? before : undefined);
       if (session !== current) return;
+      // Recovery belongs to the paint that can expose the recovered copy, not
+      // to an incoming generation whose history still fails today's barrier.
+      if ("stop" in wanted && (wanted.stop || copies.canPaint()))
+        status.syncStop(wanted.stop ?? null);
       current.opening = false;
       if (newer && before) status.wrote();
       status.connected();
-      if (copies.canPaint())
+      if (copies.canPaint() || status.read().liveLabel === "Not updating")
         changed(
-          current.kind === "live" && (!before?.historyComplete || !facts.current()!.historyComplete)
+          current.kind === "live" && (!before?.historyComplete || !facts.current()?.historyComplete)
             ? "build"
             : current.kind,
         );

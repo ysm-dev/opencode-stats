@@ -57,10 +57,15 @@ it("announces real store commits and serves exact edits and tombstones through H
         revision: first.revision,
         release: version,
         format: formatVersion,
+        stop: null,
       });
       fixture.writer.message({ ...message, tokens: { input: 9 } });
       const next = await read();
-      expect(next).toEqual({ generation: first.generation, revision: first.revision + 1 });
+      expect(next).toEqual({
+        generation: first.generation,
+        revision: first.revision + 1,
+        stop: null,
+      });
       const address = (revision: number, generation = first.generation) =>
         `${origin}/api/browser-copy/changes?generation=${generation}&revision=${revision}`;
       const changes = decode(await (await fetch(address(first.revision))).arrayBuffer());

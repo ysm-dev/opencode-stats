@@ -35,6 +35,7 @@ const setup = (
     script: runtime.script ?? serverScript,
     port: options.port,
     db: database.path,
+    databaseSource: database.source,
     env,
     version,
   }).release;

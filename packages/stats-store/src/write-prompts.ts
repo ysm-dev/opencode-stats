@@ -17,6 +17,7 @@ export const replacePrompts = Effect.fnUntraced(function* (
 ) {
   const db = yield* Database;
   const previous = yield* db.select().from(prompts).where(eq(prompts.session, sessionId));
+  let changed = false;
   for (const prompt of delivered) {
     const next = steps.find((step) => step.position > prompt.position);
     const row = {
@@ -37,6 +38,7 @@ export const replacePrompts = Effect.fnUntraced(function* (
       "sessionCode",
     ] as const;
     if (old && keys.every((key) => old[key] === row[key])) continue;
+    changed = true;
     yield* db
       .insert(prompts)
       .values({ ...row, revision })
@@ -45,10 +47,12 @@ export const replacePrompts = Effect.fnUntraced(function* (
   }
   for (const old of previous) {
     if (delivered.some((prompt) => prompt.id === old.id)) continue;
+    changed = true;
     yield* db.delete(prompts).where(eq(prompts.id, old.id));
     yield* db
       .insert(tombstones)
       .values({ id: old.id, revision, deletedAt: now })
       .onConflictDoUpdate({ target: tombstones.id, set: { revision, deletedAt: now } });
   }
+  return changed;
 });

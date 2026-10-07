@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema";
+import { SyncStop } from "@opencode-stats/browser-copy/api";
 import { Preset } from "./ranges.ts";
 import { Filter, FilterDimension } from "./filters.ts";
 import { ComputeTime } from "./change.ts";
@@ -105,11 +106,13 @@ const State = Schema.Union([
     paused: Schema.Boolean,
     statusLine: Schema.String,
     announcement: Schema.String,
+    stop: Schema.optionalKey(Schema.NullOr(SyncStop)),
     filterAnnouncement: Schema.String,
   }),
   Schema.Struct({
     screen: Schema.Literal("problem"),
     reason: Schema.Literals(["copy-unavailable", "invalid-address"]),
+    stop: Schema.optionalKey(SyncStop),
   }),
 ]);
 export type EngineState = typeof State.Type;

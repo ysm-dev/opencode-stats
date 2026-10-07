@@ -13,16 +13,19 @@ import type { BrowserType, BrowserContextOptions } from "playwright";
 export const preferencesBrowser = async (
   engine: BrowserType,
   options: BrowserContextOptions = {},
+  beforeStart?: (writer: ReturnType<typeof syntheticDatabase>) => void,
 ) => {
   await using resources = new AsyncDisposableStack();
-  const server = resources.use(await preferencesServer());
+  const server = resources.use(await preferencesServer(beforeStart));
   const browser = resources.use(await engine.launch({ headless: true }));
   const context = resources.use(await browser.newContext(options));
   context.setDefaultTimeout(3000);
   return Object.assign(resources.move(), { server, context });
 };
 
-export const preferencesServer = async () => {
+export const preferencesServer = async (
+  beforeStart?: (writer: ReturnType<typeof syntheticDatabase>) => void,
+) => {
   const directory = await mkdtemp(join(tmpdir(), "stats-preferences-"));
   let disposeProcess: (() => Promise<void>) | undefined;
   let disposeWriter: (() => void) | undefined;
@@ -59,6 +62,7 @@ export const preferencesServer = async () => {
       start: 1,
       tokens: { input: 987 },
     });
+    beforeStart?.(writer);
     const port = await temporaryPort();
     const origin = `http://127.0.0.1:${port}`;
     const start = async () => {

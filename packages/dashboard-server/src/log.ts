@@ -10,6 +10,11 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { displayPath } from "@opencode-stats/launcher";
+import type { StoreEvent } from "@opencode-stats/stats-store";
+
+type StoreLogEvent<E extends StoreEvent> = E extends StoreEvent
+  ? { readonly event: E["kind"] } & Omit<E, "kind">
+  : never;
 
 type Lifetime = {
   readonly version: string;
@@ -19,18 +24,12 @@ type Lifetime = {
   readonly port: number;
 };
 export type LogEvent =
+  | StoreLogEvent<StoreEvent>
   | ({ readonly event: "start" | "stop" } & Lifetime)
   | {
       readonly event: "database";
       readonly database: string;
-      readonly source: "flag" | "plugin" | "environment" | "default";
-    }
-  | {
-      readonly event: "build.start" | "build.end";
-      readonly steps: number;
-      readonly milliseconds: number;
-      readonly sessions: number;
-      readonly reason: "first" | "version" | "damaged" | "resume";
+      readonly source: "flag" | "plugin" | "environment" | "service" | "default";
     }
   | {
       readonly event: "crash";

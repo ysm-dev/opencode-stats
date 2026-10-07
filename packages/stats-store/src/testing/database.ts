@@ -3,6 +3,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import schema from "../source-schema/2.0.22.json" with { type: "json" };
+import earliest from "../source-schema/2.0.0.json" with { type: "json" };
+import middle from "../source-schema/2.0.15.json" with { type: "json" };
+import profiles from "../source-schema/profiles.json" with { type: "json" };
+import legacy from "../source-schema/1.4.9.json" with { type: "json" };
 import { toolContent, type SyntheticTool } from "./tools.ts";
 
 export type SyntheticMessage = {
@@ -29,13 +33,16 @@ export type SyntheticMessage = {
   readonly cost?: number;
 };
 
-export function syntheticDatabase(filename: string) {
+export function syntheticDatabase(filename: string, release = "2.0.22") {
+  const supported = profiles.releases.find((item) => item.release === release);
+  if (!supported) throw new Error("Unsupported synthetic OpenCode release.");
+  const layout = supported.schema === "2.0.0" ? earliest : release === "2.0.22" ? schema : middle;
   const db = new DatabaseSync(filename);
   let closed = false;
   db.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL");
-  for (const statement of schema.statements) db.exec(statement);
+  for (const statement of layout.statements) db.exec(statement);
   db.exec("CREATE TABLE migration(id TEXT PRIMARY KEY, time_completed INTEGER NOT NULL)");
-  for (const id of schema.migrations) db.prepare("INSERT INTO migration VALUES (?,0)").run(id);
+  for (const id of layout.migrations) db.prepare("INSERT INTO migration VALUES (?,0)").run(id);
   db.prepare(
     "INSERT INTO project(id,worktree,time_created,time_updated,sandboxes) VALUES ('synthetic-project','/made-up',0,0,'[]')",
   ).run();
@@ -53,6 +60,25 @@ export function syntheticDatabase(filename: string) {
     }
   };
   return {
+    schema(statement: string) {
+      db.exec(statement);
+    },
+    migration(id: string, present = true) {
+      if (present) db.prepare("INSERT INTO migration VALUES (?,0)").run(id);
+      else db.prepare("DELETE FROM migration WHERE id=?").run(id);
+    },
+    migrate() {
+      db.exec(
+        "BEGIN IMMEDIATE; ALTER TABLE project ADD time_active integer DEFAULT 0 NOT NULL; UPDATE project SET time_active=time_updated",
+      );
+      db.prepare("INSERT INTO migration VALUES (?,0)").run("20260923013825_project_time_active");
+      db.exec("COMMIT");
+    },
+    importMarker(phase: string, cursor?: string) {
+      db.prepare(
+        "INSERT INTO kv(key,value,time_created,time_updated) VALUES ('migration.v1-v2',?,0,0) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      ).run(JSON.stringify({ phase, cursor }));
+    },
     catalog(value: string | null, updatedAt = 1) {
       if (value === null) db.prepare("DELETE FROM kv WHERE key='models-dev:catalog'").run();
       else
@@ -67,13 +93,14 @@ export function syntheticDatabase(filename: string) {
     ) {
       atomic(id, () => {
         db.prepare(
-          "INSERT INTO session_v2(id,project_id,parent_id,title,fork_session_id,slug,directory,version,time_created,time_updated) VALUES (?,?,?,?,?,'synthetic','/made-up','2.0.22',0,0)",
+          "INSERT INTO session_v2(id,project_id,parent_id,title,fork_session_id,slug,directory,version,time_created,time_updated) VALUES (?,?,?,?,?,'synthetic','/made-up',?,0,0)",
         ).run(
           id,
           details.project ?? "synthetic-project",
           parent,
           details.title ?? null,
           details.fork ?? null,
+          release,
         );
       });
     },
@@ -203,10 +230,10 @@ export function syntheticDatabase(filename: string) {
   };
 }
 
-export function syntheticFixture() {
+export function syntheticFixture(release = "2.0.22") {
   const folder = mkdtempSync(join(tmpdir(), "stats-store-synthetic-"));
   const source = join(folder, "opencode.db");
-  const writer = syntheticDatabase(source);
+  const writer = syntheticDatabase(source, release);
   return {
     folder,
     source,
@@ -216,6 +243,16 @@ export function syntheticFixture() {
       rmSync(folder, { recursive: true });
     },
   };
+}
+
+export function syntheticV1Database(filename: string, incomplete = false) {
+  const db = new DatabaseSync(filename);
+  for (const statement of legacy.statements) db.exec(statement);
+  if (incomplete) db.exec("ALTER TABLE message DROP COLUMN data");
+  db.exec(
+    "CREATE TABLE __drizzle_migrations(id integer PRIMARY KEY, hash text NOT NULL, created_at numeric, name text)",
+  );
+  db.close();
 }
 
 export function streamingFixture() {

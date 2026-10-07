@@ -3,25 +3,34 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as Effect from "effect/Effect";
 import { expect, it } from "vitest";
-import { stayInSync } from "./store.ts";
+import { stayInSync, type StoreEvent } from "./store.ts";
 import { syntheticFixture, inThreadRuntime } from "./testing/index.ts";
 import { nodeRuntime } from "./runtime.node.ts";
 
-it("worker IPC forwards only normalized SQL diagnostics from a genuine unsupported source", async () => {
+it("worker IPC keeps serving an empty copy and a typed stop reason for a genuine unsupported source", async () => {
   const folder = mkdtempSync(join(tmpdir(), "unsupported-source-"));
   const source = join(folder, "source.db");
   writeFileSync(source, "");
+  const events: StoreEvent[] = [];
   try {
-    await expect(
-      Effect.runPromise(
-        Effect.scoped(stayInSync({ source, cacheHome: folder }, inThreadRuntime, () => {})),
+    const copy = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* stayInSync(
+            { source, cacheHome: folder },
+            inThreadRuntime,
+            () => {},
+            (event) => events.push(event),
+          );
+          return yield* store.read();
+        }),
       ),
-    ).rejects.toMatchObject({
-      message: "Stats store build failed.",
-      kind: "sqlite",
-      code: "SQLITE_ERROR",
-      statement: "readSource",
-    });
+    );
+    expect(copy.revision).toBe(0);
+    expect(copy.steps).toEqual([]);
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: "sync.stopped", reason: "schema.other" }),
+    );
   } finally {
     rmSync(folder, { recursive: true });
   }

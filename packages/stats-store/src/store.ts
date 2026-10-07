@@ -12,6 +12,7 @@ import { countedSteps, readDimensions } from "./read-dimensions.ts";
 import { gt, eq, or } from "drizzle-orm";
 import { Database, type StoreRuntime } from "./database.ts";
 import { storePaths, type StoreOptions } from "./location.ts";
+import { unbuiltCopy } from "./unbuilt-copy.ts";
 import type {
   Step,
   StepDimensions,
@@ -60,12 +61,13 @@ export type { StoreRuntime } from "./database.ts";
 export { statsStoreVersion } from "./build.ts";
 export { sqlFailure, SqlFailure } from "./errors.ts";
 export type { BuildEvent } from "./build-events.ts";
+export type { StoreEvent } from "./build-events.ts";
 
 export const stayInSync = Effect.fnUntraced(function* (
   options: StoreOptions,
   runtime: StoreRuntime,
   announce: (copy: StoreCopy) => void,
-  report: (event: import("./build-events.ts").BuildEvent) => void = () => {},
+  report: (event: import("./build-events.ts").StoreEvent) => void = () => {},
 ) {
   const readonly = true;
   const paths = yield* Effect.try({
@@ -153,7 +155,8 @@ export const stayInSync = Effect.fnUntraced(function* (
               (row) => !row.id.startsWith("session:") && !row.id.startsWith("project:"),
             ),
             pricing: {
-              catalog: (yield* db.select().from(pricingCatalog))[0]!,
+              catalog:
+                (yield* db.select().from(pricingCatalog))[0] ?? unbuiltCopy().pricing.catalog,
               models: yield* db.select().from(modelPrices).orderBy(modelPrices.id),
             },
             ...dimensions,
@@ -172,25 +175,36 @@ export const stayInSync = Effect.fnUntraced(function* (
       Effect.catchCause((cause) => Effect.fail(sqlFailure(Cause.squash(cause), "readStore"))),
     );
   let last: StoreCursor | undefined;
+  let cacheBlocked = false;
   const notify = (copy: StoreCopy) => {
-    if (
-      copy.revision === 0 ||
-      (last?.generation === copy.generation && last.revision === copy.revision)
-    )
-      return;
+    if (last?.generation === copy.generation && last.revision === copy.revision) return;
     last = copy;
     announce(copy);
   };
+  const refresh = () =>
+    read().pipe(
+      Effect.map(notify),
+      Effect.catch((error) => {
+        if (!cacheBlocked) return Effect.fail(error);
+        // The public SQL reader still reports its exact failure. Only the served initial
+        // copy is synthetic: unbuilt, revision zero, and unable to claim today's history.
+        return Effect.sync(() => {
+          if (!last) notify(unbuiltCopy());
+        });
+      }),
+    );
   // Serve a usable existing store before the worker opens or reconciles the source.
   yield* read().pipe(
     Effect.map(notify),
     Effect.catch(() => Effect.void),
   );
-  yield* runtime.worker(
-    paths,
-    () => read().pipe(Effect.map(notify)),
-    (event) => Effect.sync(() => report(event)),
+  yield* runtime.worker(paths, refresh, (event) =>
+    Effect.sync(() => {
+      if (event.kind === "sync.stopped") cacheBlocked = event.reason === "store.unwritable";
+      if (event.kind === "sync.resumed") cacheBlocked = false;
+      report(event);
+    }),
   );
-  yield* read().pipe(Effect.map(notify));
+  yield* refresh();
   return { read };
 });

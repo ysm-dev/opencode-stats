@@ -358,8 +358,9 @@ export function createFacts(clock: EngineClock) {
     history,
     coversToday: () =>
       current!.historyComplete ||
-      history(clock.now(), clock.timeZone()) <=
-        midnight(localDate(clock.now(), clock.timeZone()), clock.timeZone()),
+      (current!.revision > 0 &&
+        history(clock.now(), clock.timeZone()) <=
+          midnight(localDate(clock.now(), clock.timeZone()), clock.timeZone())),
     query,
     chart,
     activity,

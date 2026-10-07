@@ -105,10 +105,13 @@ it("the Bun adapter uses one native readonly source, scalar synchronous session 
 it("the native Bun source refuses an open failure after path resolution without a writable fallback", async () => {
   const fixture = syntheticFixture();
   try {
-    await expect(
-      readBuilt({ source: fixture.source, cacheHome: fixture.folder }, () => {}, {
+    const events: import("./store.ts").StoreEvent[] = [];
+    const copy = await readBuilt(
+      { source: fixture.source, cacheHome: fixture.folder },
+      () => {},
+      {
         ...runtime,
-        worker: (paths, announce = () => Effect.void) =>
+        worker: (paths, announce = () => Effect.void, report) =>
           sync(
             paths,
             bunDatabase,
@@ -117,9 +120,15 @@ it("the native Bun source refuses an open failure after path resolution without 
               return bunSource(filename);
             },
             announce,
+            report,
           ),
-      }),
-    ).rejects.toMatchObject({ code: "SQLITE_ERROR", statement: "readSource" });
+      },
+      (event) => events.push(event),
+    );
+    expect(copy.steps).toEqual([]);
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: "sync.stopped", reason: "source.unreadable" }),
+    );
   } finally {
     renameSync(`${fixture.source}.away`, fixture.source);
     fixture.dispose();
@@ -152,9 +161,9 @@ it("busy session snapshots rollback before clock-driven retry waits", async () =
           const source = connections.find(
             (connection) => connection.filename === realpathSync(fixture.source),
           )!;
-          // Three busy retries, the inventory snapshot, then the session snapshot.
-          expect(source.queries.filter((query) => query === "BEGIN")).toHaveLength(5);
-          expect(source.queries.filter((query) => query === "ROLLBACK")).toHaveLength(5);
+          // The schema snapshot, three busy retries, the inventory, then the session snapshot.
+          expect(source.queries.filter((query) => query === "BEGIN")).toHaveLength(6);
+          expect(source.queries.filter((query) => query === "ROLLBACK")).toHaveLength(6);
           expect(source.asyncTransactions.every((value) => !value)).toBe(true);
         }).pipe(Effect.provide(TestClock.layer())),
       ),
