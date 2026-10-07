@@ -300,12 +300,12 @@ export const Dashboard = (props: { client: PageClient; ready: PromiseLike<void |
     latestTiming = timing;
     if (painted) paint(next, timing);
   });
+  // The existing responsive layout is CSS-only. Observe its real resize event
+  // and time the resulting paint without introducing a second layout model.
+  const resize = () => {
+    if (painted) changes.local("resize", () => {});
+  };
   onMount(() => {
-    // The existing responsive layout is CSS-only. Observe its real resize event
-    // and time the resulting paint without introducing a second layout model.
-    const resize = () => {
-      if (painted) changes.local("resize", () => {});
-    };
     const visibility = () => props.client.signal({ kind: "visibility", visible: !document.hidden });
     const focus = () => props.client.signal({ kind: "focus" });
     const restore = () => {

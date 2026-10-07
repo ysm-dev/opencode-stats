@@ -233,8 +233,8 @@ it.each(["paint", "close", "superseded", "request", "replace"])(
     if (disposition === "close") client.dispose();
     if (disposition === "request" || disposition === "replace") {
       void client.request({ kind: "all-time" });
-      if (first) expect(await first).toEqual({ kind: "replaced" });
     }
+    expect(await first).toEqual(disposition === "replace" ? { kind: "replaced" } : undefined);
     if (disposition === "superseded") {
       receive(
         new MessageEvent("message", {
@@ -253,12 +253,9 @@ it.each(["paint", "close", "superseded", "request", "replace"])(
     await vi.runOnlyPendingTimersAsync();
     const paints = disposition === "paint" || disposition === "superseded";
     expect(listener).toHaveBeenCalledTimes(paints ? 1 : 0);
-    if (paints)
-      expect(listener.mock.calls[0]![1]).toMatchObject({
-        compute: disposition === "superseded" ? 14 : 12,
-        elapsed: 20,
-        page: 0,
-      });
+    expect(listener.mock.calls.map(([, timing]) => timing)).toMatchObject(
+      paints ? [{ compute: disposition === "superseded" ? 14 : 12, elapsed: 20, page: 0 }] : [],
+    );
   },
 );
 

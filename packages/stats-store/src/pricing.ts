@@ -14,7 +14,7 @@ type Usage = Readonly<Record<TokenKind, number | null>>;
 function estimate(tokens: Usage, price: Price | null): number | null {
   if (!price || Object.values(tokens).some((value) => value === null)) return null;
   const context = tokens.input! + tokens.cacheRead! + tokens.cacheWrite!;
-  const tier = price.tiers.findLast((tier) => context > tier.size) ?? price;
+  const tier = price.tiers.findLast((candidate) => context > candidate.size) ?? price;
   return (
     (tokens.input! * tier.input +
       tokens.cacheRead! * tier.cache_read +
@@ -78,7 +78,9 @@ export const pricingForPass = (reader: SourceReader) => {
           for (const old of used) {
             const next = models!.get(old.id) ?? fallback(old.id);
             const price = priceJson(next);
-            const name = names.find((name) => name.dimension === "model" && name.id === old.id)!;
+            const name = names.find(
+              (candidate) => candidate.dimension === "model" && candidate.id === old.id,
+            )!;
             if (old.price !== price) {
               changed = true;
               const facts = yield* db.select().from(steps).where(eq(steps.model, name.code));
@@ -125,7 +127,7 @@ export const pricingForPass = (reader: SourceReader) => {
     ) {
       if (provider === null || model === null) return { estimatedCost: null, name: undefined };
       const id = `${provider}/${model}`;
-      const item = catalogModelsForPass!.get(id) ?? fallback(id);
+      const item = catalogModelsForPass.get(id) ?? fallback(id);
       if (!used.has(id)) {
         yield* db.insert(modelPrices).values({ id, name: item.name, price: priceJson(item) });
         used.add(id);

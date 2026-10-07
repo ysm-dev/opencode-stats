@@ -15,11 +15,11 @@ const body = Object.fromEntries(
     provider,
     {
       models: Object.fromEntries(
-        Object.entries(value.models).map(([model, value]) => [
+        Object.entries(value.models).map(([model, details]) => [
           model,
           {
-            cost: value.cost,
-            experimental: value.experimental,
+            cost: details.cost,
+            experimental: details.experimental,
           },
         ]),
       ),

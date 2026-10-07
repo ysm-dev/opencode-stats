@@ -71,14 +71,14 @@ type Rates = {
 };
 export type Price = Required<Rates> & { tiers: readonly (Required<Rates> & { size: number })[] };
 export type CatalogModel = { name: string; price: Price | null };
+const normalized = (value: Rates) => ({
+  input: value.input,
+  output: value.output,
+  cache_read: value.cache_read ?? 0,
+  cache_write: value.cache_write ?? 0,
+});
 function price(cost: Tariff | undefined): Price | null {
   if (!cost) return null;
-  const normalized = (value: Rates) => ({
-    input: value.input,
-    output: value.output,
-    cache_read: value.cache_read ?? 0,
-    cache_write: value.cache_write ?? 0,
-  });
   const tiers =
     cost.tiers === undefined
       ? cost.context_over_200k
