@@ -6,6 +6,7 @@ import { catalogModels, parseCatalog, type CatalogModel, type Price } from "./ca
 import type { SourceReader } from "./source-reader.ts";
 import snapshot from "./prices.json" with { type: "json" };
 import { mapTokenFields, type TokenKind } from "@opencode-stats/browser-copy";
+import { sqlFailure } from "./errors.ts";
 
 const snapshotCatalog = parseCatalog(snapshot);
 const snapshotModels = catalogModels(snapshotCatalog);
@@ -43,97 +44,101 @@ const syncPricing = Effect.fnUntraced(function* (reader: SourceReader) {
 
 export const pricingForPass = (reader: SourceReader) => {
   let models: ReadonlyMap<string, CatalogModel> | undefined;
-  return Effect.fnUntraced(function* (announce: () => Effect.Effect<void, Error>) {
-    const db = yield* Database;
-    const update = yield* syncPricing(reader);
-    if (!models || update.raw !== undefined) {
-      const raw = update.raw === undefined ? yield* reader.catalog : update.raw;
-      let catalog = snapshotCatalog;
-      let source = "snapshot";
-      if (raw !== null) {
-        try {
-          catalog = parseCatalog(raw);
-          source = "opencode";
-        } catch {
-          // Bad source catalogs are rejected, never treated as a free tariff.
-        }
-      }
-      models = source === "snapshot" ? snapshotModels : catalogModels(catalog);
-      const row = {
-        id: 1,
-        source,
-        stamp: update.stamp,
-        updatedAt: catalog.updatedAt,
-        digest: catalog.digest ?? null,
-      };
-      let changed = (["source", "stamp", "updatedAt", "digest"] as const).some(
-        (key) => update.previous?.[key] !== row[key],
-      );
-      yield* db.$client.withTransaction(
-        Effect.gen(function* () {
-          const header = (yield* db.select().from(metadata))[0]!;
-          const revision = header.revision + 1;
-          const used = yield* db.select().from(modelPrices);
-          const names = yield* db.select().from(dimensionNames);
-          for (const old of used) {
-            const next = models!.get(old.id) ?? fallback(old.id);
-            const price = priceJson(next);
-            const name = names.find(
-              (candidate) => candidate.dimension === "model" && candidate.id === old.id,
-            )!;
-            if (old.price !== price) {
-              changed = true;
-              const facts = yield* db.select().from(steps).where(eq(steps.model, name.code));
-              for (const fact of facts)
-                yield* db
-                  .update(steps)
-                  .set({
-                    estimatedCost: estimate(
-                      mapTokenFields((kind) => fact[kind]),
-                      next.price,
-                    ),
-                    revision,
-                  })
-                  .where(eq(steps.id, fact.id));
-            }
-            if (old.name !== next.name) {
-              changed = true;
-              yield* db
-                .update(dimensionNames)
-                .set({ name: next.name, revision })
-                .where(eq(dimensionNames.code, name.code));
-            }
-            yield* db
-              .update(modelPrices)
-              .set({ name: next.name, price })
-              .where(eq(modelPrices.id, old.id));
+  return Effect.fnUntraced(
+    function* (announce: () => Effect.Effect<void, Error>) {
+      const db = yield* Database;
+      const update = yield* syncPricing(reader);
+      if (!models || update.raw !== undefined) {
+        const raw = update.raw === undefined ? yield* reader.catalog : update.raw;
+        let catalog = snapshotCatalog;
+        let source = "snapshot";
+        if (raw !== null) {
+          try {
+            catalog = parseCatalog(raw);
+            source = "opencode";
+          } catch {
+            // Bad source catalogs are rejected, never treated as a free tariff.
           }
-          yield* db
-            .insert(pricingCatalog)
-            .values(row)
-            .onConflictDoUpdate({ target: pricingCatalog.id, set: row });
-          if (header.revision > 0 && changed)
-            yield* db.update(metadata).set({ revision }).where(eq(metadata.id, 1));
-        }),
-      );
-      if (update.previous && changed) yield* announce();
-    }
-    const used = new Set((yield* db.select().from(modelPrices)).map((row) => row.id));
-    const catalogModelsForPass = models;
-    return Effect.fnUntraced(function* (
-      provider: string | null,
-      model: string | null,
-      tokens: Usage,
-    ) {
-      if (provider === null || model === null) return { estimatedCost: null, name: undefined };
-      const id = `${provider}/${model}`;
-      const item = catalogModelsForPass.get(id) ?? fallback(id);
-      if (!used.has(id)) {
-        yield* db.insert(modelPrices).values({ id, name: item.name, price: priceJson(item) });
-        used.add(id);
+        }
+        models = source === "snapshot" ? snapshotModels : catalogModels(catalog);
+        const row = {
+          id: 1,
+          source,
+          stamp: update.stamp,
+          updatedAt: catalog.updatedAt,
+          digest: catalog.digest ?? null,
+        };
+        let changed = (["source", "stamp", "updatedAt", "digest"] as const).some(
+          (key) => update.previous?.[key] !== row[key],
+        );
+        yield* db.$client.withTransaction(
+          Effect.gen(function* () {
+            const header = (yield* db.select().from(metadata))[0]!;
+            const revision = header.revision + 1;
+            const used = yield* db.select().from(modelPrices);
+            const names = yield* db.select().from(dimensionNames);
+            for (const old of used) {
+              const next = models!.get(old.id) ?? fallback(old.id);
+              const price = priceJson(next);
+              const name = names.find(
+                (candidate) => candidate.dimension === "model" && candidate.id === old.id,
+              )!;
+              if (old.price !== price) {
+                changed = true;
+                const facts = yield* db.select().from(steps).where(eq(steps.model, name.code));
+                for (const fact of facts)
+                  yield* db
+                    .update(steps)
+                    .set({
+                      estimatedCost: estimate(
+                        mapTokenFields((kind) => fact[kind]),
+                        next.price,
+                      ),
+                      revision,
+                    })
+                    .where(eq(steps.id, fact.id));
+              }
+              if (old.name !== next.name) {
+                changed = true;
+                yield* db
+                  .update(dimensionNames)
+                  .set({ name: next.name, revision })
+                  .where(eq(dimensionNames.code, name.code));
+              }
+              if (old.name !== next.name || old.price !== price)
+                yield* db
+                  .update(modelPrices)
+                  .set({ name: next.name, price })
+                  .where(eq(modelPrices.id, old.id));
+            }
+            if (changed)
+              yield* db
+                .insert(pricingCatalog)
+                .values(row)
+                .onConflictDoUpdate({ target: pricingCatalog.id, set: row });
+            if (header.revision > 0 && changed)
+              yield* db.update(metadata).set({ revision }).where(eq(metadata.id, 1));
+          }),
+        );
+        if (update.previous && changed) yield* announce();
       }
-      return { estimatedCost: estimate(tokens, item.price), name: item.name };
-    });
-  });
+      const used = new Set((yield* db.select().from(modelPrices)).map((row) => row.id));
+      const catalogModelsForPass = models;
+      return Effect.fnUntraced(
+        function* (provider: string | null, model: string | null, tokens: Usage) {
+          if (provider === null || model === null) return { estimatedCost: null, name: undefined };
+          const id = `${provider}/${model}`;
+          const item = catalogModelsForPass.get(id) ?? fallback(id);
+          if (!used.has(id)) {
+            yield* db.insert(modelPrices).values({ id, name: item.name, price: priceJson(item) });
+            used.add(id);
+          }
+          return { estimatedCost: estimate(tokens, item.price), name: item.name };
+        },
+        Effect.catchCause((cause) => Effect.fail(sqlFailure(cause, "writeSteps"))),
+      );
+    },
+    Effect.catchCause((cause) => Effect.fail(sqlFailure(cause, "writeSteps"))),
+  );
 };
 export type StepPricer = Effect.Success<ReturnType<ReturnType<typeof pricingForPass>>>;

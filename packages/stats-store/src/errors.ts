@@ -41,7 +41,9 @@ export function sqlFailure(
     return new SqlFailure("UNEXPECTED", statement);
   seen.add(input);
   if (Cause.isCause(input)) return sqlFailure(Cause.squash(input), statement, seen);
-  // node:sqlite uses ERR_SQLITE_ERROR for both; the numeric code distinguishes damage.
+  // node:sqlite uses ERR_SQLITE_ERROR; the numeric code carries the real SQLite failure.
+  if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 8)
+    return new SqlFailure("SQLITE_READONLY", statement);
   if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 11)
     return new SqlFailure("SQLITE_CORRUPT", statement);
   if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 26)

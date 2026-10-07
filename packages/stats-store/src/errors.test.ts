@@ -27,9 +27,10 @@ it.each([
 });
 
 it.each([
+  [8, "SQLITE_READONLY"],
   [11, "SQLITE_CORRUPT"],
   [26, "SQLITE_NOTADB"],
-])("narrows Node SQLite damage code %i without the native error message", (errcode, code) => {
+])("narrows Node SQLite failure code %i without the native error message", (errcode, code) => {
   const failure = sqlFailure(
     { code: "ERR_SQLITE_ERROR", errcode, message: "SYNTHETIC PRIVATE" },
     "readStore",

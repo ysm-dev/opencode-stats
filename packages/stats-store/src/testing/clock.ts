@@ -6,7 +6,7 @@ import type * as Scope from "effect/Scope";
 
 export const controlledClock = Effect.gen(function* () {
   let now = 0;
-  const waits = yield* Queue.unbounded<{ delay: number; wake: () => void }>();
+  const waits = yield* Queue.unbounded<{ delay: number; at: number; wake: () => void }>();
   const clock: Clock.Clock = {
     currentTimeMillisUnsafe: () => now,
     currentTimeMillis: Effect.sync(() => now),
@@ -18,19 +18,32 @@ export const controlledClock = Effect.gen(function* () {
       Effect.callback((resume) => {
         Queue.offerUnsafe(waits, {
           delay: Duration.toMillis(duration),
+          at: now + Duration.toMillis(duration),
           wake: () => resume(Effect.void),
         });
       }),
   };
-  const tick = Effect.gen(function* () {
+  const wake = Effect.gen(function* () {
     const wait = yield* Queue.take(waits);
-    now += wait.delay;
     wait.wake();
     yield* Queue.peek(waits);
   });
+  const tick = Effect.gen(function* () {
+    const wait = yield* Queue.peek(waits);
+    now += wait.delay;
+    yield* wake;
+  });
+  const advance = (milliseconds: number) =>
+    Effect.gen(function* () {
+      const wait = yield* Queue.peek(waits);
+      now += milliseconds;
+      if (now >= wait.at) yield* wake;
+    });
   return {
     clock,
     tick,
+    advance,
+    nextDelay: Queue.peek(waits).pipe(Effect.map((wait) => wait.delay)),
     setTime: (timestamp: number) => {
       now = timestamp;
     },

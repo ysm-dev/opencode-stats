@@ -265,7 +265,19 @@ it("a genuine failed fact write retains the previous copy and reports the decide
             announce,
           ),
       }),
-    ).rejects.toMatchObject({ statement: "writeSteps", code: "SQLITE_ERROR" });
+    ).rejects.toMatchObject({
+      kind: "sqlite",
+      statement: "writeSteps",
+      code: "SQLITE_READONLY",
+      message: "Stats store build failed.",
+    });
+    const retained = await readBuilt({ source, cacheHome: folder }, () => {}, {
+      ...nodeRuntime,
+      worker: () => Effect.void,
+    });
+    expect(retained.generation).toBe(initial.generation);
+    expect(retained.revision).toBe(initial.revision);
+    expect(retained.facts).toEqual(initial.facts);
     expect((await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime)).generation).toBe(
       initial.generation,
     );

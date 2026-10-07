@@ -91,7 +91,9 @@ it.each(["not-sqlite", "corrupt-pages", "integrity", "layout"])(
         bytes[100] = 0;
         writeFileSync(file, bytes);
       } else {
-        const db = new DatabaseSync(file);
+        // Node's documented defensive option is disabled only to damage this
+        // synthetic stats store; all production connections keep their defaults.
+        const db = new DatabaseSync(file, { defensive: damage !== "integrity" });
         if (damage === "layout") db.exec("ALTER TABLE metadata DROP COLUMN history_complete");
         else {
           db.exec("PRAGMA writable_schema=ON");

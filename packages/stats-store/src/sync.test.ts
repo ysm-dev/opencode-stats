@@ -16,35 +16,37 @@ it.each([nodeRuntime, inThreadRuntime])(
     const fixture = streamingFixture();
     const { writer, source, folder } = fixture;
     try {
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const revisions: number[] = [];
-            const commits = yield* Queue.unbounded<number>();
-            const store = yield* stayInSync({ source, cacheHome: folder }, runtime, (copy) => {
-              revisions.push(copy.revision);
-              Queue.offerUnsafe(commits, copy.revision);
-            });
-            yield* Queue.take(commits);
-            const initial = yield* store.read();
-            writer.message({
-              id: "msg-live",
-              session: "ses-live",
-              seq: 0,
-              start: 1000,
-              tokens: { output: 9 },
-            });
-            yield* TestClock.adjust("499 millis");
-            expect((yield* store.read()).steps[0]!.output).toBe(1);
-            yield* TestClock.adjust("1 millis");
-            yield* Queue.take(commits);
-            const updated = yield* store.read();
-            expect(updated.steps[0]!.output).toBe(9);
-            expect(updated.revision).toBe(initial.revision + 1);
-            expect(updated.generation).toBe(initial.generation);
-            expect(revisions).toEqual([initial.revision, updated.revision]);
-          }).pipe(Effect.provide(TestClock.layer())),
-        ),
+      await runWithClock((time) =>
+        Effect.gen(function* () {
+          const revisions: number[] = [];
+          const commits = yield* Queue.unbounded<number>();
+          const store = yield* stayInSync({ source, cacheHome: folder }, runtime, (copy) => {
+            revisions.push(copy.revision);
+            Queue.offerUnsafe(commits, copy.revision);
+          });
+          yield* Queue.take(commits);
+          // A commit may still be followed by build reprioritization. The
+          // first registered poll is the deterministic completion seam.
+          expect(yield* time.nextDelay).toBe(500);
+          const initial = yield* store.read();
+          expect(initial.historyComplete).toBe(true);
+          writer.message({
+            id: "msg-live",
+            session: "ses-live",
+            seq: 0,
+            start: 1000,
+            tokens: { output: 9 },
+          });
+          yield* time.advance(499);
+          expect((yield* store.read()).steps[0]!.output).toBe(1);
+          yield* time.advance(1);
+          yield* Queue.take(commits);
+          const updated = yield* store.read();
+          expect(updated.steps[0]!.output).toBe(9);
+          expect(updated.revision).toBe(initial.revision + 1);
+          expect(updated.generation).toBe(initial.generation);
+          expect(revisions).toEqual([initial.revision, updated.revision]);
+        }),
       );
     } finally {
       fixture.dispose();
@@ -152,7 +154,29 @@ it("reports an unwritable tombstone expiry commit without discarding the existin
             () => {},
           ),
         ).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
-        expect(result).toMatchObject({ statement: "writeSteps", code: "SQLITE_ERROR" });
+        expect(result).toMatchObject({
+          kind: "sqlite",
+          statement: "writeSteps",
+          code: "SQLITE_READONLY",
+          message: "Stats store build failed.",
+        });
+        const retained = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const store = yield* stayInSync(
+              { source, cacheHome: folder },
+              {
+                ...nodeRuntime,
+                worker: () => Effect.void,
+              },
+              () => {},
+            );
+            const current = yield* store.read();
+            return yield* store.read({ generation: current.generation, revision: 1 });
+          }),
+        );
+        expect(retained.revision).toBe(2);
+        expect(retained.kind).toBe("changes");
+        expect(retained.tombstones).toContainEqual({ id: "msg-expiry-error", revision: 2 });
         const restored = yield* Effect.scoped(readCopy({ source, cacheHome: folder }, nodeRuntime));
         expect(restored.revision).toBe(3);
       }).pipe(Effect.provide(TestClock.layer())),

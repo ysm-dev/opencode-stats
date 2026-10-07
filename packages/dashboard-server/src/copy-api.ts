@@ -12,7 +12,7 @@ import {
 } from "@opencode-stats/browser-copy/api";
 
 export type CopySource = {
-  whole: () => Uint8Array | Effect.Effect<Uint8Array>;
+  whole: () => Uint8Array | undefined;
   changes: (cursor: CopyCursor) => Effect.Effect<Uint8Array, Error>;
   live: Stream.Stream<LiveAnnouncement>;
 };
@@ -20,12 +20,7 @@ export type CopySource = {
 export const copyApi = Effect.fnUntraced(function* (source: CopySource) {
   const handlers = HttpApiBuilder.group(BrowserCopyApi, "browserCopy", (h) =>
     h
-      .handle("whole", () =>
-        Effect.suspend(() => {
-          const value = source.whole();
-          return Effect.isEffect(value) ? value : Effect.succeed(value);
-        }),
-      )
+      .handle("whole", () => Effect.sync(() => source.whole() ?? Response.empty({ status: 503 })))
       .handle("changes", ({ query }) =>
         source
           .changes(query)

@@ -24,6 +24,7 @@ import { program, processProgram } from "./main.ts";
 import { nodeServer } from "./http.node.ts";
 import { nodeLock } from "./lock.node.ts";
 import { readySignal } from "./testing/program.ts";
+import { decode } from "@opencode-stats/browser-copy";
 
 it("publishes the bound winner, a loser writes nothing, and an authenticated stop cleans up before releasing its lifetime lock", async () => {
   const fixture = syntheticFixture();
@@ -311,6 +312,43 @@ it("publishes an answering server before a build finishes without serving an inv
     await Effect.runPromise(Fiber.interrupt(fiber));
     error.mockRestore();
     fixture.dispose();
+  }
+});
+
+it("a copy request returns an empty 503 during startup, then a valid complete copy after the first commit", async () => {
+  const f = syntheticFixture();
+  const port = await temporaryPort();
+  const gate = Promise.withResolvers<void>();
+  const { ready, output } = readySignal();
+  const runtime = {
+    ...nodeRuntime,
+    worker: (...args: Parameters<typeof nodeRuntime.worker>) =>
+      Effect.promise(() => gate.promise).pipe(Effect.andThen(nodeRuntime.worker(...args))),
+  };
+  const fiber = Effect.runFork(
+    program(["--db", f.source, "--port", String(port)], nodeServer, runtime, nodeLock, {
+      XDG_STATE_HOME: f.folder,
+      XDG_CACHE_HOME: f.folder,
+    }),
+  );
+  try {
+    await ready;
+    const url = `http://127.0.0.1:${port}/api/browser-copy`;
+    const waiting = await fetch(url);
+    expect(waiting.status).toBe(503);
+    expect((await waiting.arrayBuffer()).byteLength).toBe(0);
+    gate.resolve();
+    await vi.waitFor(async () => {
+      const response = await fetch(url);
+      const bytes = await response.arrayBuffer();
+      expect(response.status).toBe(200);
+      expect(decode(bytes).historyComplete).toBe(true);
+    });
+  } finally {
+    gate.resolve();
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    output.mockRestore();
+    f.dispose();
   }
 });
 

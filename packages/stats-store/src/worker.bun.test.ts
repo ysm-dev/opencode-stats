@@ -48,7 +48,7 @@ it.each([
   { statement: "readSource", actual: false, code: "SQLITE_FULL" },
   { statement: "writeSteps", actual: false, code: "SQLITE_FULL" },
   { statement: "readStore", actual: false, code: "SQLITE_FULL" },
-  { statement: "writeSteps", actual: true, code: "SQLITE_ERROR" },
+  { statement: "writeSteps", actual: true, code: "SQLITE_READONLY" },
 ] as const)(
   "normalizes worker statement $statement, with a genuine unwritable store: $actual",
   async ({ statement, actual, code }) => {
