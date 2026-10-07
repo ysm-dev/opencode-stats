@@ -143,6 +143,22 @@ const exposedChanges = Effect.fnUntraced(function* (revision: number) {
   return names.length > 0 || projects.length > 0 || deleted.length > 0;
 });
 
+const replaceSnapshots = Effect.fnUntraced(function* (
+  snapshots: ReadonlyArray<Snapshot> | undefined,
+  revision: number,
+  now: number,
+  inventory: Map<string, SourceSession>,
+  code: ReturnType<Effect.Success<ReturnType<typeof makeDimensions>>>,
+  pricer: StepPricer,
+) {
+  const changed = new Set<string>();
+  for (const snapshot of snapshots ?? []) {
+    if (yield* replaceSnapshot(snapshot, revision, now, inventory, code, pricer))
+      changed.add(snapshot.id);
+  }
+  return changed;
+});
+
 export const commitUnit = Effect.fnUntraced(function* (
   snapshots: ReadonlyArray<Snapshot> | undefined,
   removed: ReadonlyArray<string> | undefined,
@@ -158,7 +174,6 @@ export const commitUnit = Effect.fnUntraced(function* (
   const db = yield* Database;
   return yield* db.$client.withTransaction(
     Effect.gen(function* () {
-      const changed = new Set<string>();
       const header = (yield* db.select().from(metadata))[0]!;
       const revision = header.revision + 1;
       const code = registry(revision);
@@ -169,11 +184,7 @@ export const commitUnit = Effect.fnUntraced(function* (
       for (const id of vanished) inventory.delete(id);
       if (refreshDetails || vanished.size > 0)
         yield* saveDetails([...inventory.values()], projects, code, revision, now);
-      if (snapshots)
-        for (const snapshot of snapshots) {
-          if (yield* replaceSnapshot(snapshot, revision, now, inventory, code, pricer))
-            changed.add(snapshot.id);
-        }
+      const changed = yield* replaceSnapshots(snapshots, revision, now, inventory, code, pricer);
       if (removed)
         for (const id of removed) {
           yield* replaceFacts(id, [], revision, now, inventory, code, pricer);

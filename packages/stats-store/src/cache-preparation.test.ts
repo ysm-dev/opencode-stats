@@ -9,14 +9,14 @@ import { runWithClock } from "./testing/clock.ts";
 import { storePaths } from "./location.ts";
 
 const denied = vi.hoisted(() => ({ folder: "", operation: "", active: false }));
+function reject(path: string, operation: string) {
+  if (denied.active && denied.operation === operation && path.startsWith(denied.folder))
+    throw Object.assign(new Error("Failed query: SYNTHETIC PRIVATE TITLE params: SECRET"), {
+      code: operation === "marker" ? "ENOSPC" : "EACCES",
+    });
+}
 vi.mock("node:fs", async (original) => {
   const fs = await original<typeof import("node:fs")>();
-  const reject = (path: string, operation: string) => {
-    if (denied.active && denied.operation === operation && path.startsWith(denied.folder))
-      throw Object.assign(new Error("Failed query: SYNTHETIC PRIVATE TITLE params: SECRET"), {
-        code: operation === "marker" ? "ENOSPC" : "EACCES",
-      });
-  };
   return {
     ...fs,
     mkdirSync: vi.fn<typeof fs.mkdirSync>((path, options) => {

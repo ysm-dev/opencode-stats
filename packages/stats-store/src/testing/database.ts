@@ -33,12 +33,11 @@ export type SyntheticMessage = {
   readonly cost?: number;
 };
 
-export function syntheticDatabase(filename: string, release = "2.0.22") {
+function initializeSyntheticDatabase(filename: string, release: string) {
   const supported = profiles.releases.find((item) => item.release === release);
   if (!supported) throw new Error("Unsupported synthetic OpenCode release.");
   const layout = supported.schema === "2.0.0" ? earliest : release === "2.0.22" ? schema : middle;
   const db = new DatabaseSync(filename);
-  let closed = false;
   db.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL");
   for (const statement of layout.statements) db.exec(statement);
   db.exec("CREATE TABLE migration(id TEXT PRIMARY KEY, time_completed INTEGER NOT NULL)");
@@ -46,19 +45,10 @@ export function syntheticDatabase(filename: string, release = "2.0.22") {
   db.prepare(
     "INSERT INTO project(id,worktree,time_created,time_updated,sandboxes) VALUES ('synthetic-project','/made-up',0,0,'[]')",
   ).run();
-  const atomic = (session: string, write: () => void) => {
-    db.exec("BEGIN IMMEDIATE");
-    try {
-      write();
-      db.prepare(
-        "INSERT INTO event_sequence(aggregate_id,seq) VALUES (?,0) ON CONFLICT(aggregate_id) DO UPDATE SET seq=seq+1",
-      ).run(session);
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-  };
+  return db;
+}
+
+function schemaWriter(db: DatabaseSync) {
   return {
     schema(statement: string) {
       db.exec(statement);
@@ -86,6 +76,27 @@ export function syntheticDatabase(filename: string, release = "2.0.22") {
           "INSERT INTO kv(key,value,time_created,time_updated) VALUES ('models-dev:catalog',?,0,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,time_updated=excluded.time_updated",
         ).run(value, updatedAt);
     },
+  };
+}
+
+export function syntheticDatabase(filename: string, release = "2.0.22") {
+  const db = initializeSyntheticDatabase(filename, release);
+  let closed = false;
+  const atomic = (session: string, write: () => void) => {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      write();
+      db.prepare(
+        "INSERT INTO event_sequence(aggregate_id,seq) VALUES (?,0) ON CONFLICT(aggregate_id) DO UPDATE SET seq=seq+1",
+      ).run(session);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  };
+  return {
+    ...schemaWriter(db),
     session(
       id: string,
       parent: string | null = null,

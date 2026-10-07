@@ -211,6 +211,14 @@ const reconciliationPlan = Effect.fnUntraced(function* (
   };
 });
 
+function recordRereads(
+  snapshots: ReadonlyArray<Effect.Success<ReturnType<SourceReader["read"]>>>,
+  forced: Set<string>,
+  reread: Set<string>,
+) {
+  for (const snapshot of snapshots) if (forced.delete(snapshot.id)) reread.add(snapshot.id);
+}
+
 export const reconcile = Effect.fnUntraced(
   function* (
     reader: SourceReader,
@@ -274,7 +282,7 @@ export const reconcile = Effect.fnUntraced(
         pricer,
         snapshots.some((snapshot) => forced.has(snapshot.id)),
       );
-      for (const snapshot of snapshots) if (forced.delete(snapshot.id)) reread.add(snapshot.id);
+      recordRereads(snapshots, forced, reread);
       for (const id of result.changed) differing.add(id);
       if (result.committed) yield* announce();
       yield* Effect.yieldNow;

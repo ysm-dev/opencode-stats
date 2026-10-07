@@ -3,6 +3,20 @@ import { clockLabel, dateLabel } from "./time-labels.ts";
 import { localDate } from "./calendar.ts";
 import { stopReason, type SyncStop } from "@opencode-stats/browser-copy/api";
 
+function statusStamp(since: number | undefined, clock: EngineClock) {
+  if (since === undefined) return "";
+  const date = localDate(since, clock.timeZone());
+  const prefix =
+    date === localDate(clock.now(), clock.timeZone()) ? "" : `${dateLabel(date, clock.locale())}, `;
+  return `${prefix}${clockLabel(since, clock.timeZone(), clock.locale())}`;
+}
+
+function lastWriteLabel(lastWrite: number | undefined, now: number) {
+  if (lastWrite === undefined) return "Live";
+  const seconds = Math.max(0, Math.floor((now - lastWrite) / 1000));
+  return seconds === 0 ? "Last write just now" : `Last write ${seconds} s ago`;
+}
+
 export function createLiveStatus(clock: EngineClock, formatAnnouncement: (line: string) => string) {
   const time = (timestamp: number) => clockLabel(timestamp, clock.timeZone(), clock.locale());
   let lastWrite: number | undefined;
@@ -24,11 +38,7 @@ export function createLiveStatus(clock: EngineClock, formatAnnouncement: (line: 
         ...(stop ? { stop } : {}),
       };
     const since = stale ? disconnectedAt! : stop?.since;
-    const date = since === undefined ? "" : localDate(since, clock.timeZone());
-    const stamp =
-      since === undefined
-        ? ""
-        : `${date === localDate(clock.now(), clock.timeZone()) ? "" : `${dateLabel(date, clock.locale())}, `}${time(since)}`;
+    const stamp = statusStamp(since, clock);
     const statusLine = stale
       ? `Not updating since ${stamp} · the dashboard server isn't running`
       : stop
@@ -38,16 +48,7 @@ export function createLiveStatus(clock: EngineClock, formatAnnouncement: (line: 
     if (key && key !== warning) announcement = formatAnnouncement(statusLine);
     if (!key && warning) announcement = "Up to date again";
     warning = key;
-    const seconds =
-      lastWrite === undefined
-        ? undefined
-        : Math.max(0, Math.floor((clock.now() - lastWrite) / 1000));
-    const liveLabel =
-      seconds === undefined
-        ? "Live"
-        : seconds === 0
-          ? "Last write just now"
-          : `Last write ${seconds} s ago`;
+    const liveLabel = lastWriteLabel(lastWrite, clock.now());
     return {
       paused: false,
       liveLabel: key ? "Not updating" : liveLabel,

@@ -15,7 +15,7 @@ export function referenceContributions(
   const eligible = rows
     .filter((row) => row.start >= history && row.start < now)
     .map((row) => ({ row, date: referenceDate(row.start, zone) }));
-  const activity = [...new Set(eligible.map((value) => value.date))].sort();
+  const activity = [...new Set(eligible.map((value) => value.date))].toSorted();
   const days = Array.from({ length: 365 }, (_, index) => {
     const date = referenceAdd(first, index);
     const steps = eligible.filter((value) => value.date === date).map((value) => value.row);
@@ -45,7 +45,7 @@ export function referenceContributions(
   const sample = days
     .filter((day) => day.steps > 0 && metricValue(day) !== null)
     .map((day) => metricValue(day)!)
-    .sort((a, b) => a - b);
+    .toSorted((a, b) => a - b);
   let longestStreak = 0;
   let consecutive = 0;
   for (const [index, date] of activity.entries()) {

@@ -103,11 +103,12 @@ it("includes the date only for an earlier local day and uses the server starter'
     }),
   );
   f.server.status(syntheticStop("schema.newer", { mode: "plugin" }));
-  await vi.waitFor(() =>
-    expect(f.states.at(-1)).toMatchObject({
-      statusLine: expect.stringContaining("opencode plugin update opencode-stats"),
-    }),
-  );
+  await vi.waitFor(() => {
+    const state = f.states.at(-1)!;
+    expect(state.screen === "dashboard" && state.statusLine).toContain(
+      "opencode plugin update opencode-stats",
+    );
+  });
 });
 
 it.each(["paused", "hidden"])(
@@ -150,9 +151,12 @@ it("a revision-zero stopped store exposes its typed problem instead of claiming 
   );
   f.server.status(syntheticStop());
   expect(await f.engine.client.request({ kind: "all-time" })).toMatchObject({
-    screen: "problem",
-    reason: "copy-unavailable",
-    stop: { reason: "schema.newer" },
+    kind: "paint",
+    state: {
+      screen: "problem",
+      reason: "copy-unavailable",
+      stop: { reason: "schema.newer" },
+    },
   });
   f.server.commit(syntheticCopy(f.facts, { revision: 1 }));
   f.server.status(null);
@@ -167,7 +171,10 @@ it("a revision-zero stopped store exposes its typed problem instead of claiming 
 
 it("a stopped incoming generation warns over the retained page, without crossing its today-ready barrier", async () => {
   const f = fixture();
-  const initial = await f.engine.client.request({ kind: "all-time" });
+  const outcome = await f.engine.client.request({ kind: "all-time" });
+  expect(outcome.kind).toBe("paint");
+  if (outcome.kind !== "paint") throw new Error("Expected a painted page");
+  const initial = outcome.state;
   expect(initial.screen).toBe("dashboard");
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
   f.server.commit(
@@ -235,11 +242,10 @@ it("captures a partial-history warning once, independently of pause, resume, clo
       .every((state) => state.screen === "dashboard" && state.announcement === text),
   ).toBe(true);
   f.server.status(syntheticStop("source.unreadable", { code: "permission" }));
-  await vi.waitFor(() =>
-    expect(f.states.at(-1)).toMatchObject({
-      announcement: expect.stringContaining("permission denied"),
-    }),
-  );
+  await vi.waitFor(() => {
+    const state = f.states.at(-1)!;
+    expect(state.screen === "dashboard" && state.announcement).toContain("permission denied");
+  });
   f.server.status(null);
   await vi.waitFor(() =>
     expect(f.states.at(-1)).toMatchObject({ announcement: "Up to date again" }),

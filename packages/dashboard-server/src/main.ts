@@ -179,7 +179,7 @@ export const program = (
           },
           color:
             env["NO_COLOR"] === undefined &&
-            (!!process.stderr.isTTY || env["OPENCODE_STATS_COLOR"] === "1"),
+            (process.stderr.isTTY || env["OPENCODE_STATS_COLOR"] === "1"),
           now: () => new Date(),
         }),
       );

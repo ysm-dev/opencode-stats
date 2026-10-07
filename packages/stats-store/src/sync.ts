@@ -178,7 +178,7 @@ export const sync = Effect.fnUntraced(function* (
   ).pipe(
     Effect.catchCause((cause) =>
       Effect.gen(function* () {
-        if (Cause.hasInterrupts(cause)) return yield* Effect.failCause(cause);
+        if (Cause.hasInterrupts(cause)) yield* Effect.failCause(cause);
         yield* state.failed(
           sqlFailure(Cause.squash(cause), "writeSteps"),
           yield* Clock.currentTimeMillis,
