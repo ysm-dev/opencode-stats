@@ -365,8 +365,8 @@ export const UsageChart = () => {
   };
   const click = (event: MouseEvent) => {
     const started = performance.now();
-    const pointerType = "pointerType" in event ? event.pointerType : clickedBy;
-    if (pointerType === "mouse") drill(nearest(event), started);
+    // A touch compatibility click can report "mouse"; pointerdown owns the gesture's source.
+    if (clickedBy === "mouse") drill(nearest(event), started);
   };
   const key = (event: KeyboardEvent) => {
     const count = local().chart.buckets.length;
