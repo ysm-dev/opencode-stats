@@ -6,6 +6,7 @@ import { propertyParameters } from "@opencode-stats/browser-copy/testing";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { nodeRuntime } from "./runtime.node.ts";
 import { observedStore } from "./testing/store.ts";
+import { readSourceStopped } from "./testing/stopped-store.ts";
 import { runWithClock } from "./testing/clock.ts";
 import { canonicalCopy } from "./testing/canonical.ts";
 
@@ -308,9 +309,9 @@ it("removes unread session details when an interrupted build resumes after that 
     tokens: { output: -1 },
   });
   try {
-    await expect(readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime)).rejects.toThrow(
-      "Stats store build failed.",
-    );
+    const stopped = await readSourceStopped({ source, cacheHome: folder }, nodeRuntime);
+    expect(stopped.historyComplete).toBe(false);
+    expect(stopped.facts.map((row) => row.id)).toEqual(["read-step"]);
     writer.deleteSession("unread");
     const resumed = await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime);
     expect(canonicalCopy(resumed).sessions.map((row) => row.code)).toEqual(["read"]);

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { inThreadEngine } from "@opencode-stats/engine/testing";
@@ -410,7 +410,7 @@ it("follows system and cross-tab changes in the actual provider while preserving
   const { view, user, close, server, engine } = dashboard();
   try {
     await view.findByRole("heading", { name: "Overview" });
-    const number = view.getByText("987");
+    const number = within(view.getByRole("region", { name: "Tokens" })).getByText("987");
     await user.click(view.getByRole("button", { name: "Settings" }));
     dark = true;
     media.dispatchEvent(new Event("change"));

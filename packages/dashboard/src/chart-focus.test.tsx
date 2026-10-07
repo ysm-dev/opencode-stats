@@ -81,7 +81,7 @@ it.each([false, true])(
 it("pointer departures restore the focused series, and blur preserves a different hovered series", async () => {
   const f = await fixture();
   await f.user.click(f.view.getByRole("button", { name: /^Chart split/ }));
-  await f.user.click(f.view.getByRole("option", { name: "model" }));
+  await f.user.click(await f.view.findByRole("option", { name: "model" }));
   await vi.waitFor(() => expect(surface().getAttribute("aria-label")).toContain("by model"));
   const series = [...readout().querySelectorAll<HTMLButtonElement>("li button")];
   const assertHighlight = (index: number | null) => {
@@ -137,7 +137,7 @@ it.each(["pointer", "focus"] as const)(
   async (source) => {
     const f = await fixture();
     await f.user.click(f.view.getByRole("button", { name: /^Chart split/ }));
-    await f.user.click(f.view.getByRole("option", { name: "model" }));
+    await f.user.click(await f.view.findByRole("option", { name: "model" }));
     await vi.waitFor(() => expect(surface().getAttribute("aria-label")).toContain("by model"));
     const buttons = [...readout().querySelectorAll<HTMLButtonElement>("li button")];
     surface().focus();

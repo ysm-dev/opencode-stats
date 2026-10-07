@@ -162,21 +162,12 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
       });
       await page.addInitScript(() => {
         const load = document.fonts.load.bind(document.fonts);
-        const state = () => ({
-          ready: document.readyState,
-          sheets: document.styleSheets.length,
-          faces: [...document.fonts].map((face) => ({
-            family: face.family,
-            weight: face.weight,
-            status: face.status,
-          })),
-        });
         document.fonts.load = (font, text) => {
-          console.info("[DEBUG-font-barrier] call", JSON.stringify({ font, ...state() }));
           return load(font, text).then((faces) => {
+            // oxlint-disable-next-line no-console -- hosted-only probe, never inspect font registration before the native load
             console.info(
               "[DEBUG-font-barrier] resolved",
-              JSON.stringify({ matched: faces.length, ...state() }),
+              JSON.stringify({ matched: faces.length, statuses: faces.map((face) => face.status) }),
             );
             return faces;
           });

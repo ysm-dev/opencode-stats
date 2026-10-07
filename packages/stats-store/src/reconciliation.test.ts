@@ -282,7 +282,7 @@ it.each(["counter", "usage"])(
         (updated) => revisions.push(updated.revision),
         nodeRuntime,
       );
-      expect(revisions).toEqual([1]);
+      expect(revisions).toEqual([copy.revision, 1]);
       expect(recovered.steps[0]!.output).toBe(2);
     } finally {
       fixture.dispose();

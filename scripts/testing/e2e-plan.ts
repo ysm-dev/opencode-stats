@@ -66,7 +66,7 @@ for (const browser of ["chromium", "webkit"])
 
 const files = e2eFiles();
 assert.ok(files.length > 0, "No e2e files discovered");
-for (const count of [1, 2, 3, 4]) {
+for (const count of [1, 2, 3, 4, 6]) {
   const groups = partitionE2e(files, count);
   assert.deepEqual(groups.flat().toSorted(), files.toSorted(), "E2e shards must be exhaustive");
   assert.equal(new Set(groups.flat()).size, files.length, "E2e shards must be disjoint");
@@ -99,8 +99,8 @@ assert.deepEqual(
     2,
   ),
   [
-    ["preferences-webkit.test.ts", "smoke.test.ts", "preferences-chromium.test.ts"],
-    ["plugin.test.ts", "preferences.test.ts"],
+    ["preferences-webkit.test.ts", "smoke.test.ts"],
+    ["plugin.test.ts", "preferences.test.ts", "preferences-chromium.test.ts"],
   ],
 );
 assert.deepEqual(

@@ -24,6 +24,7 @@ it("the real boundary shares five changing media queries and the column's Resize
   const remove = vi.fn<(type: string) => void>();
   vi.stubGlobal("matchMedia", (query: string) => {
     const target = new EventTarget();
+    const removeListener = target.removeEventListener.bind(target);
     const sensor = Object.assign(target, {
       matches: false,
       media: query,
@@ -33,7 +34,7 @@ it("the real boundary shares five changing media queries and the column's Resize
       addEventListener: target.addEventListener.bind(target),
       removeEventListener: (type: string, callback: EventListenerOrEventListenerObject) => {
         remove(type);
-        target.removeEventListener(type, callback);
+        removeListener(type, callback);
       },
     });
     sensors.set(query, sensor);

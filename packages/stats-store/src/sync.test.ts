@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as TestClock from "effect/testing/TestClock";
 import * as Queue from "effect/Queue";
 import { expect, it } from "vitest";
-import { stayInSync } from "./store.ts";
+import { stayInSync, type StoreEvent } from "./store.ts";
 import { nodeRuntime, nodeSource, nodeDatabase } from "./runtime.node.ts";
 import { sync } from "./sync.ts";
 import { readCopy, observedStore } from "./testing/store.ts";
@@ -138,28 +138,32 @@ it("reports an unwritable tombstone expiry commit without discarding the existin
           }),
         );
         yield* TestClock.setTime(30 * 86400000 + 500);
-        const result = yield* Effect.scoped(
+        const reports: StoreEvent[] = [];
+        yield* Effect.scoped(
           stayInSync(
             { source, cacheHome: folder },
             {
               database: nodeDatabase,
-              worker: (paths, announce = () => Effect.void) =>
+              worker: (paths, announce = () => Effect.void, report) =>
                 sync(
                   paths,
                   (config) => nodeDatabase({ ...config, readonly: true }),
                   nodeSource,
                   announce,
+                  report,
                 ),
             },
             () => {},
+            (event) => reports.push(event),
           ),
-        ).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
-        expect(result).toMatchObject({
-          kind: "sqlite",
-          statement: "writeSteps",
-          code: "SQLITE_READONLY",
-          message: "Stats store build failed.",
-        });
+        );
+        expect(reports).toContainEqual(
+          expect.objectContaining({
+            kind: "sync.stopped",
+            reason: "store.unwritable",
+            code: "permission",
+          }),
+        );
         const retained = yield* Effect.scoped(
           Effect.gen(function* () {
             const store = yield* stayInSync(

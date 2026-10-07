@@ -9,6 +9,14 @@ import { runWithClock } from "./testing/clock.ts";
 import { storePaths } from "./location.ts";
 
 const denied = vi.hoisted(() => ({ folder: "", operation: "", active: false }));
+const resumed = (reports: StoreEvent[]) =>
+  Effect.promise(() =>
+    vi.waitFor(() =>
+      expect(reports).toContainEqual(
+        expect.objectContaining({ kind: "sync.resumed", reason: "store.unwritable" }),
+      ),
+    ),
+  );
 function reject(path: string, operation: string) {
   if (denied.active && denied.operation === operation && path.startsWith(denied.folder))
     throw Object.assign(new Error("Failed query: SYNTHETIC PRIVATE TITLE params: SECRET"), {
@@ -88,9 +96,7 @@ it.each(
           const restored = yield* store.read();
           expect(restored.generation === copies[0]!.generation).toBe(cached);
           expect(restored.steps[0]!.output).toBe(9);
-          expect(reports).toContainEqual(
-            expect.objectContaining({ kind: "sync.resumed", reason: "store.unwritable" }),
-          );
+          yield* resumed(reports);
           expect(JSON.stringify(reports)).not.toMatch(
             /SYNTHETIC PRIVATE|SECRET|Failed query|params:/u,
           );
@@ -149,9 +155,7 @@ it("a blocked cache path publishes an unbuilt copy and typed problem, then creat
         expect(current.historyComplete).toBe(true);
         expect(current.steps[0]!.input).toBe(3);
         expect(current.generation).not.toBe(copies[0]!.generation);
-        expect(reports).toContainEqual(
-          expect.objectContaining({ kind: "sync.resumed", reason: "store.unwritable" }),
-        );
+        yield* resumed(reports);
         expect(readFileSync(f.source).equals(source)).toBe(true);
         expect(readFileSync(`${f.source}-wal`).equals(wal)).toBe(true);
       }),
@@ -200,9 +204,7 @@ it.each(["", "-wal", "-shm", ".source", ".sync"])(
           );
           rmSync(alias);
           yield* time.tick;
-          expect(reports).toContainEqual(
-            expect.objectContaining({ kind: "sync.resumed", reason: "store.unwritable" }),
-          );
+          yield* resumed(reports);
         }),
       );
     } finally {

@@ -10,7 +10,7 @@ import { nodeDatabase, nodeSource } from "./runtime.node.ts";
 import { workerProgram } from "./worker-program.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { InThreadWorker } from "./testing/worker.ts";
-import { stayInSync } from "./store.ts";
+import { stayInSync, type StoreEvent } from "./store.ts";
 vi.mock("bun:sqlite", () => ({ Database: { setCustomSQLite: vi.fn<(file: string) => void>() } }));
 
 it("builds through the Bun Worker adapter with an in-thread worker, and removes listeners before terminating", async () => {
@@ -44,31 +44,23 @@ it("builds through the Bun Worker adapter with an in-thread worker, and removes 
   }
 });
 
-it.each([
-  { statement: "readSource", actual: false, code: "SQLITE_FULL" },
-  { statement: "writeSteps", actual: false, code: "SQLITE_FULL" },
-  { statement: "readStore", actual: false, code: "SQLITE_FULL" },
-  { statement: "writeSteps", actual: true, code: "SQLITE_READONLY" },
-] as const)(
-  "normalizes worker statement $statement, with a genuine unwritable store: $actual",
-  async ({ statement, actual, code }) => {
+it.each(["readSource", "writeSteps", "readStore"] as const)(
+  "normalizes a fatal worker transport failure for statement %s",
+  async (statement) => {
     const fixture = syntheticFixture();
-    const worker = new InThreadWorker((config) =>
-      nodeDatabase({ ...config, readonly: actual || config.readonly }),
-    );
-    if (!actual)
-      worker.postMessage = () =>
-        queueMicrotask(() => {
-          const payload = {
-            kind: "sqlite" as const,
-            code: "SQLITE_FULL",
-            statement,
-            message: "PRIVATE_TITLE",
-            cause: "PRIVATE_CAUSE",
-            stack: "PRIVATE_STACK",
-          };
-          worker.emit("message", payload);
-        });
+    const worker = new InThreadWorker();
+    worker.postMessage = () =>
+      queueMicrotask(() => {
+        const payload = {
+          kind: "sqlite" as const,
+          code: "SQLITE_FULL",
+          statement,
+          message: "PRIVATE_TITLE",
+          cause: "PRIVATE_CAUSE",
+          stack: "PRIVATE_STACK",
+        };
+        worker.emit("message", payload);
+      });
     vi.stubGlobal("Worker", function () {
       return worker;
     });
@@ -81,7 +73,7 @@ it.each([
         ),
       ).rejects.toMatchObject({
         kind: "sqlite",
-        code,
+        code: "SQLITE_FULL",
         statement,
         message: "Stats store build failed.",
       });
@@ -92,6 +84,39 @@ it.each([
     }
   },
 );
+
+it("a genuine unwritable store reports a recoverable stop through the Bun Worker adapter", async () => {
+  const fixture = syntheticFixture();
+  const options = { source: fixture.source, cacheHome: fixture.folder };
+  const reports: StoreEvent[] = [];
+  try {
+    const initial = await readBuilt(options);
+    fixture.writer.session("private");
+    fixture.writer.message({ id: "PRIVATE_TITLE", session: "private", seq: 0, start: 1 });
+    vi.stubGlobal("Worker", function () {
+      return new InThreadWorker((config) => nodeDatabase({ ...config, readonly: true }));
+    });
+    const stopped = await readBuilt(
+      options,
+      () => {},
+      { database: nodeDatabase, worker: bunWorker },
+      (event) => reports.push(event),
+    );
+    expect(stopped).toEqual(initial);
+    expect(reports).toContainEqual(
+      expect.objectContaining({
+        kind: "sync.stopped",
+        reason: "store.unwritable",
+        code: "permission",
+      }),
+    );
+    expect(JSON.stringify(reports)).not.toMatch(/PRIVATE_TITLE|Failed query|params:/u);
+    expect((await readBuilt(options)).steps).toHaveLength(1);
+  } finally {
+    vi.unstubAllGlobals();
+    fixture.dispose();
+  }
+});
 
 it.each(["false", "invalid", "error", "throw"])(
   "sanitizes %s worker failures and releases its handles",

@@ -79,7 +79,7 @@ it("SVG uses the palette without motion, fits all buckets at 360px/190px, and ex
   await accessible(f.view.container);
 });
 
-it("keyboard reads nearest bounds, announces only that bucket, drills a fixed day, clears and preserves focus", async () => {
+it("keyboard reads nearest bounds, announces only that bucket, normalizes a drill to Today, clears and preserves focus", async () => {
   const f = dashboardFixture(filterCopy());
   onTestFinished(f.close);
   await f.view.findByRole("heading", { name: "Overview" });
@@ -102,7 +102,7 @@ it("keyboard reads nearest bounds, announces only that bucket, drills a fixed da
   fireEvent.keyDown(chart(), { key: "q" });
   fireEvent.keyDown(chart(), { key: "Enter" });
   await vi.waitFor(() => expect(chart().getAttribute("aria-label")).toContain("by hour"));
-  expect(window.location.search).toBe("?range=fixed&from=2026-10-07&to=2026-10-07&kind=day");
+  expect(window.location.search).toBe("?range=today");
   expect(document.activeElement).toBe(chart());
   fireEvent.keyDown(chart(), { key: "Home" });
   expect(within(readout()).queryByRole("button", { name: "Drill in" })).toBeNull();
@@ -319,6 +319,26 @@ it("the published pickers cannot clear a metric or split when their current opti
 });
 
 it("responsive control switches retain keyboard focus in the same field without querying the worker", async () => {
+  const focus = HTMLElement.prototype.focus;
+  const focused: object[] = [];
+  const probe = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (
+    this: HTMLElement,
+    options,
+  ) {
+    focus.call(this, options);
+    if (this.closest(".chart-choices"))
+      focused.push({
+        tag: this.tagName,
+        role: this.getAttribute("role"),
+        tabIndex: this.tabIndex,
+        label: this.getAttribute("aria-labelledby"),
+        active: document.activeElement === this,
+      });
+  });
+  onTestFinished(() => {
+    process.stderr.write(`[DEBUG-chart-focus] ${JSON.stringify(focused)}\n`);
+    probe.mockRestore();
+  });
   const [media, setMedia] = createSignal({ ...initialMedia, columnWidth: 1280 });
   const f = dashboardFixture(filterCopy(), queueMicrotask, media);
   onTestFinished(f.close);

@@ -6,6 +6,7 @@ import { expect, it } from "vitest";
 import { propertyParameters } from "@opencode-stats/browser-copy/testing";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { observedStore } from "./testing/store.ts";
+import { readSourceStopped } from "./testing/stopped-store.ts";
 import { runWithClock } from "./testing/clock.ts";
 import { canonicalCopy } from "./testing/canonical.ts";
 import { nodeRuntime, nodeDatabase, nodeSource } from "./runtime.node.ts";
@@ -202,8 +203,8 @@ it("reattributes both roots' prompts before announcing project moves, even when 
     );
   const interrupted: StoreRuntime = {
     database: nodeDatabase,
-    worker: (paths, announce = () => Effect.void) =>
-      sync(paths, nodeDatabase, failingSource, announce),
+    worker: (paths, announce = () => Effect.void, report) =>
+      sync(paths, nodeDatabase, failingSource, announce, report),
   };
   try {
     const initial = await readBuilt(options, () => {}, nodeRuntime);
@@ -211,13 +212,12 @@ it("reattributes both roots' prompts before announcing project moves, even when 
     writer.move("root-a", "moved-a");
     writer.move("root-b", "moved-b");
     const announced: StoreCopy[] = [];
-    await expect(readBuilt(options, (copy) => announced.push(copy), interrupted)).rejects.toThrow(
-      "Stats store build failed.",
-    );
+    const stopped = await readSourceStopped(options, interrupted, (copy) => announced.push(copy));
     expect(reads).toEqual(["root-a", "root-b"]);
     const commits = announced.filter((copy) => copy.revision > initial.revision);
     expect(commits).toHaveLength(1);
     const moved = commits[0]!;
+    expect(stopped).toEqual(moved);
     const canonical = canonicalCopy(moved);
     expect(canonical.prompts.map((prompt) => [prompt.session, prompt.project])).toEqual([
       ["root-a", "moved-a"],

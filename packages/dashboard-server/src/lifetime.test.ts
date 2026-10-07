@@ -24,6 +24,7 @@ import { program, processProgram } from "./main.ts";
 import { nodeServer } from "./http.node.ts";
 import { nodeLock } from "./lock.node.ts";
 import { readySignal } from "./testing/program.ts";
+import { liveEvents } from "./testing/live-events.ts";
 import { decode } from "@opencode-stats/browser-copy";
 
 it("publishes the bound winner, a loser writes nothing, and an authenticated stop cleans up before releasing its lifetime lock", async () => {
@@ -119,23 +120,59 @@ it("publishes the bound winner, a loser writes nothing, and an authenticated sto
   }
 });
 
-it("refuses an existing but unreadable source before taking a lock or exposing a port", async () => {
-  const fixture = syntheticFixture();
-  chmodSync(fixture.source, 0o000);
-  try {
-    await expect(
-      Effect.runPromise(
-        program(["--db", fixture.source], nodeServer, nodeRuntime, nodeLock, {
-          XDG_STATE_HOME: fixture.folder,
-        }),
-      ),
-    ).rejects.toThrow("OpenCode database must be an existing file.");
-    expect(existsSync(join(fixture.folder, "opencode-stats"))).toBe(false);
-  } finally {
-    chmodSync(fixture.source, 0o600);
-    fixture.dispose();
-  }
-});
+it.each(["unreadable", "unsupported"])(
+  "keeps a %s source failure recoverable without raw process diagnostics",
+  async (kind) => {
+    const fixture = syntheticFixture();
+    const source = kind === "unreadable" ? fixture.source : join(fixture.folder, "unsupported.db");
+    if (kind === "unreadable") chmodSync(source, 0o000);
+    else writeFileSync(source, "");
+    const port = await temporaryPort();
+    const origin = `http://127.0.0.1:${port}`;
+    const signal = readySignal();
+    const error = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    const previous = process.exitCode;
+    const fiber = Effect.runFork(
+      processProgram(["--port", String(port), "--db", source], nodeServer, nodeRuntime, nodeLock, {
+        XDG_STATE_HOME: fixture.folder,
+        XDG_CACHE_HOME: fixture.folder,
+      }),
+    );
+    let stream: Awaited<ReturnType<typeof liveEvents>> | undefined;
+    try {
+      await signal.ready;
+      stream = await liveEvents(origin);
+      expect((await stream.read()).stop?.reason).toBe(
+        kind === "unreadable" ? "source.unreadable" : "schema.other",
+      );
+      const copy = decode(await (await fetch(`${origin}/api/browser-copy`)).arrayBuffer());
+      expect(copy.revision).toBe(0);
+      expect(copy.historyComplete).toBe(false);
+      expect(await answering(join(fixture.folder, "opencode-stats"))).toBeDefined();
+      expect(process.exitCode).toBe(previous);
+      const text = readFileSync(join(fixture.folder, "opencode-stats/server.log"), "utf8");
+      expect(text).toContain("event=sync.stopped");
+      expect(text).not.toMatch(/event=crash|session_message|Failed query/u);
+      expect(error.mock.calls.map(([line]) => String(line)).join("")).toContain("Not updating:");
+      let recovered = false;
+      if (kind === "unreadable") {
+        chmodSync(source, 0o600);
+        recovered = (await stream.read()).stop === null;
+      }
+      expect(recovered).toBe(kind === "unreadable");
+      expect(
+        decode(await (await fetch(`${origin}/api/browser-copy`)).arrayBuffer()).historyComplete,
+      ).toBe(recovered);
+    } finally {
+      await stream?.close();
+      await Effect.runPromise(Fiber.interrupt(fiber));
+      chmodSync(fixture.source, 0o600);
+      signal.output.mockRestore();
+      error.mockRestore();
+      fixture.dispose();
+    }
+  },
+);
 
 it("an interrupted sync worker is not mistaken for a crash by either process boundary", async () => {
   const fixture = syntheticFixture();
@@ -157,35 +194,6 @@ it("an interrupted sync worker is not mistaken for a crash by either process bou
       "event=crash",
     );
   } finally {
-    error.mockRestore();
-    fixture.dispose();
-  }
-});
-
-it("maps an actual source SQL failure before logging or printing process diagnostics", async () => {
-  const fixture = syntheticFixture();
-  const source = join(fixture.folder, "unsupported.db");
-  writeFileSync(source, "");
-  const error = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-  const previous = process.exitCode;
-  try {
-    await Effect.runPromise(
-      processProgram(
-        ["--port", String(await temporaryPort()), "--db", source],
-        nodeServer,
-        nodeRuntime,
-        nodeLock,
-        { XDG_STATE_HOME: fixture.folder, XDG_CACHE_HOME: fixture.folder },
-      ),
-    );
-    expect(error).toHaveBeenCalledExactlyOnceWith("Can't start: sqlite.\n");
-    expect(process.exitCode).toBe(1);
-    const text = readFileSync(join(fixture.folder, "opencode-stats/server.log"), "utf8");
-    expect(text).toContain('event=crash kind="sqlite" code="SQLITE_ERROR" statement="readSource"');
-    expect(text).not.toContain("session_message");
-    expect(text).not.toContain("Failed query");
-  } finally {
-    process.exitCode = previous;
     error.mockRestore();
     fixture.dispose();
   }

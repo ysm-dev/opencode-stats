@@ -4,6 +4,7 @@ import { nodeRuntime } from "./runtime.node.ts";
 import type { StoreCopy } from "./store.ts";
 import * as Effect from "effect/Effect";
 import { observedStore } from "./testing/store.ts";
+import { readSourceStopped } from "./testing/stopped-store.ts";
 import { runWithClock } from "./testing/clock.ts";
 
 it("commits newest build units before an interruption and resumes without rereading unchanged units", async () => {
@@ -21,10 +22,11 @@ it("commits newest build units before an interruption and resumes without reread
   });
   const committed: StoreCopy[] = [];
   try {
-    await expect(
-      readBuilt({ source, cacheHome: folder }, (copy) => committed.push(copy), nodeRuntime),
-    ).rejects.toThrow("Stats store build failed.");
+    const stopped = await readSourceStopped({ source, cacheHome: folder }, nodeRuntime, (copy) =>
+      committed.push(copy),
+    );
     expect(committed).toHaveLength(1);
+    expect(stopped).toEqual(committed[0]);
     expect(committed[0]!.steps[0]!.output).toBe(2);
     expect(committed[0]!.historyCompleteFrom).toBe(1000);
     expect(committed[0]!.historyComplete).toBe(false);

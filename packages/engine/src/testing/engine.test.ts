@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import "./profile.ts";
 import * as fc from "fast-check";
 import * as Schema from "effect/Schema";
 import { Answer } from "../protocol.ts";

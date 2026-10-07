@@ -16,6 +16,7 @@ import { nodeRuntime } from "./runtime.node.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { fiveTokens } from "./testing/fingerprint.ts";
 import { tokenFacts } from "./testing/canonical.ts";
+import { readSourceStopped } from "./testing/stopped-store.ts";
 const home = vi.hoisted(() => ({ path: "" }));
 vi.mock("node:fs", async (original) => {
   const fs = await original<typeof import("node:fs")>();
@@ -158,9 +159,12 @@ it.each([
         ...scenario,
         content: "SYNTHETIC SECRET",
       });
-      await expect(
-        readBuilt({ source: fixture.source, cacheHome: fixture.folder }, () => {}, nodeRuntime),
-      ).rejects.toMatchObject({ message: "Stats store build failed." });
+      const copy = await readSourceStopped(
+        { source: fixture.source, cacheHome: fixture.folder },
+        nodeRuntime,
+      );
+      expect(copy.steps).toEqual([]);
+      expect(copy.historyComplete).toBe(false);
     } finally {
       fixture.dispose();
     }

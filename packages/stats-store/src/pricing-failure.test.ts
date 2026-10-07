@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { expect, it } from "vitest";
-import { SqlFailure, stayInSync, type StoreCopy } from "./store.ts";
+import { type StoreCopy, type StoreEvent } from "./store.ts";
 import { nodeRuntime, nodeDatabase, nodeSource } from "./runtime.node.ts";
 import { sync } from "./sync.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
@@ -20,38 +20,32 @@ it.each(["catalog", "model"])(
       if (mode === "catalog") f.writer.catalog(cachedCatalog(priceCatalog(1, privateName), 2), 2);
       else f.writer.message(pricedMessage("new-step", privateName, 1));
       const retained: StoreCopy[] = [];
-      const failure = await Effect.runPromise(
-        Effect.scoped(
-          stayInSync(
-            options,
-            {
-              ...nodeRuntime,
-              worker: (paths, announce = () => Effect.void) =>
-                sync(
-                  paths,
-                  (config) => nodeDatabase({ ...config, readonly: true }),
-                  nodeSource,
-                  announce,
-                ),
-            },
-            (copy) => retained.push(copy),
-          ),
-        ).pipe(
-          Effect.match({
-            onFailure: (error) => error,
-            onSuccess: () => undefined,
-          }),
-        ),
+      const reports: StoreEvent[] = [];
+      const stopped = await readBuilt(
+        options,
+        (copy) => retained.push(copy),
+        {
+          ...nodeRuntime,
+          worker: (paths, announce = () => Effect.void, report) =>
+            sync(
+              paths,
+              (config) => nodeDatabase({ ...config, readonly: true }),
+              nodeSource,
+              announce,
+              report,
+            ),
+        },
+        (event) => reports.push(event),
       );
-      expect(failure).toBeInstanceOf(SqlFailure);
-      if (!(failure instanceof SqlFailure)) throw new Error("Expected the public SQL failure");
-      expect(failure).toMatchObject({
-        kind: "sqlite",
-        code: "SQLITE_READONLY",
-        statement: "writeSteps",
-        message: "Stats store build failed.",
-      });
-      const exposed = JSON.stringify(failure) + failure.message;
+      expect(reports).toContainEqual(
+        expect.objectContaining({
+          kind: "sync.stopped",
+          reason: "store.unwritable",
+          code: "permission",
+        }),
+      );
+      expect(stopped).toEqual(initial);
+      const exposed = JSON.stringify(reports);
       expect(exposed).not.toContain(privateName);
       expect(exposed).not.toContain("Failed query:");
       expect(exposed).not.toContain("params:");

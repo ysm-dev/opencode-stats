@@ -5,40 +5,35 @@ import { shard } from "./shard.ts";
 
 type Browser = "chromium" | "webkit";
 type Work = readonly [seconds: number, browsers: readonly Browser[], opencode?: true];
-// Rounded passing-file durations from hosted run 37546332444, using the
+// Rounded passing-file durations from hosted run 37570656008, using the
 // slowest required platform. Unknown files still get conservative preparation.
 const work: Readonly<Record<string, Work>> = {
-  "preferences-webkit.test.ts": [53, ["webkit"]],
-  "plugin.test.ts": [46, [], true],
-  "smoke.test.ts": [25, ["chromium"], true],
-  "preferences.test.ts": [39, ["chromium", "webkit"]],
-  // Its first full hosted sample is pending; keep the conservative file cost.
-  "ranges.test.ts": [30, ["chromium", "webkit"]],
-  "contributions.test.ts": [30, ["chromium", "webkit"]],
-  "contribution-canaries.test.ts": [30, ["chromium", "webkit"]],
-  "contribution-contrast.test.ts": [30, ["chromium", "webkit"]],
-  "filters.test.ts": [23, ["chromium", "webkit"]],
-  // Synthetic whole-paint tours retain the native per-test/job budgets. Split
-  // engines at the existing file/shard seam; refine these estimates on hosted CI.
-  "whole-paint-chromium.test.ts": [35, ["chromium"]],
-  "whole-paint-webkit.test.ts": [35, ["webkit"]],
-  // Independent uninstrumented clocks and post-rAF phase canaries: conservative
-  // costs until hosted samples exist; all original test/job deadlines remain.
-  "change-time-chromium.test.ts": [35, ["chromium"]],
-  "change-time-webkit.test.ts": [35, ["webkit"]],
-  "whole-load-chromium.test.ts": [15, ["chromium"]],
-  "whole-load-webkit.test.ts": [15, ["webkit"]],
-  "whole-paint-canaries.test.ts": [25, ["chromium", "webkit"]],
-  "chart-paint-canaries.test.ts": [30, ["chromium", "webkit"]],
+  "preferences-webkit.test.ts": [57, ["webkit"]],
+  "plugin.test.ts": [42, [], true],
+  "smoke.test.ts": [29, ["chromium"], true],
+  "preferences.test.ts": [29, ["chromium", "webkit"]],
+  "ranges.test.ts": [17, ["chromium", "webkit"]],
+  "contributions.test.ts": [27, ["chromium", "webkit"]],
+  "contribution-canaries.test.ts": [20, ["chromium", "webkit"]],
+  "contribution-contrast.test.ts": [11, ["chromium", "webkit"]],
+  "filters.test.ts": [22, ["chromium", "webkit"]],
+  "whole-paint-chromium.test.ts": [98, ["chromium"]],
+  "whole-paint-webkit.test.ts": [112, ["webkit"]],
+  "change-time-chromium.test.ts": [71, ["chromium"]],
+  "change-time-webkit.test.ts": [67, ["webkit"]],
+  "whole-load-chromium.test.ts": [7, ["chromium"]],
+  "whole-load-webkit.test.ts": [5, ["webkit"]],
+  "whole-paint-canaries.test.ts": [19, ["chromium", "webkit"]],
+  "chart-paint-canaries.test.ts": [20, ["chromium", "webkit"]],
   "tour-owner.test.ts": [1, []],
   "preference-evidence.test.ts": [8, ["chromium"]],
-  "preferences-chromium.test.ts": [17, ["chromium"]],
-  "source.test.ts": [19, ["chromium"]],
+  "preferences-chromium.test.ts": [27, ["chromium"]],
+  "source.test.ts": [27, ["chromium"]],
   "lifecycle.test.ts": [16, []],
-  "preferences-setup.test.ts": [13, []],
-  "live.test.ts": [7, ["chromium"]],
-  "recovery.test.ts": [14, ["chromium"]],
-  "versions.test.ts": [7, ["chromium"]],
+  "preferences-setup.test.ts": [10, []],
+  "live.test.ts": [10, ["chromium"]],
+  "recovery.test.ts": [13, ["chromium"]],
+  "versions.test.ts": [10, ["chromium"]],
   "native.test.ts": [1, []],
   "notices.test.ts": [1, []],
 };

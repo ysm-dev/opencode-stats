@@ -9,7 +9,7 @@ import type { ChartMark } from "@tanstack/charts";
 import type { CompletePage } from "./page-context.ts";
 
 type Datum = { bucket: number; bottom: number; top: number | null };
-export const chartMargin = { left: 40, right: 8, top: 8, bottom: 8 } as const;
+export const chartMargin = { left: 64, right: 8, top: 8, bottom: 8 } as const;
 export const chartColour = (id: string, index: number) => {
   if (id === "more") return "var(--dashboard-series-8)";
   const kinds: Record<string, string> = {

@@ -161,9 +161,9 @@ it("busy session snapshots rollback before clock-driven retry waits", async () =
           const source = connections.find(
             (connection) => connection.filename === realpathSync(fixture.source),
           )!;
-          // The schema snapshot, three busy retries, the inventory, then the session snapshot.
-          expect(source.queries.filter((query) => query === "BEGIN")).toHaveLength(6);
-          expect(source.queries.filter((query) => query === "ROLLBACK")).toHaveLength(6);
+          // Schema, three busy retries, inventory, catalog metadata/payload, and session snapshots.
+          expect(source.queries.filter((query) => query === "BEGIN")).toHaveLength(8);
+          expect(source.queries.filter((query) => query === "ROLLBACK")).toHaveLength(8);
           expect(source.asyncTransactions.every((value) => !value)).toBe(true);
         }).pipe(Effect.provide(TestClock.layer())),
       ),

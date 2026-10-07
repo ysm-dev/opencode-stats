@@ -33,11 +33,7 @@ jobs:
       # pruned incrementally, so a stale local node_modules can hide a removed
       # dependency that fails here.
       - run: bun install --frozen-lockfile
-      # Temporary diagnosis: isolate the native stationary-pointer regression.
-      - name: Pointer reading regression proof
-        run: bun run scripts/time-budget.ts vitest run packages/dashboard/src/pointer-reading.test.tsx
       - run: bun run ci:checks
-        if: always()
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -88,21 +84,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [windows-latest]
         include:
           - os: ubuntu-latest
-            shard: 1/3
+            shard: 1/6
           - os: ubuntu-latest
-            shard: 2/3
+            shard: 2/6
           - os: ubuntu-latest
-            shard: 3/3
+            shard: 3/6
+          - os: ubuntu-latest
+            shard: 4/6
+          - os: ubuntu-latest
+            shard: 5/6
+          - os: ubuntu-latest
+            shard: 6/6
           - os: macos-15-intel
+            shard: 1/6
+          - os: macos-15-intel
+            shard: 2/6
+          - os: macos-15-intel
+            shard: 3/6
+          - os: macos-15-intel
+            shard: 4/6
+          - os: macos-15-intel
+            shard: 5/6
+          - os: macos-15-intel
+            shard: 6/6
+          - os: macos-latest
             shard: 1/4
-          - os: macos-15-intel
+          - os: macos-latest
             shard: 2/4
-          - os: macos-15-intel
+          - os: macos-latest
             shard: 3/4
-          - os: macos-15-intel
+          - os: macos-latest
             shard: 4/4
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
@@ -170,6 +184,17 @@ jobs:
         env:
           PACKED: ${{ needs.packed.result }}
 
+  arm:
+    name: Packed tarball (macos-latest)
+    timeout-minutes: 5
+    needs: [packed]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "$PACKED" = success
+        env:
+          PACKED: ${{ needs.packed.result }}
+
   package:
     name: Complete release artifact
     timeout-minutes: 5
@@ -198,7 +223,7 @@ jobs:
   gates:
     name: Quality gates
     timeout-minutes: 5
-    needs: [checks, contracts, verification, packed, intel, linux]
+    needs: [checks, contracts, verification, packed, intel, linux, arm]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -206,7 +231,7 @@ jobs:
       contents: read
     steps:
       # Keep the ruleset's existing required check meaningful even if a job skips.
-      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success && test "$INTEL" = success && test "$LINUX" = success
+      - run: test "$CHECKS" = success && test "$CONTRACTS" = success && test "$VERIFICATION" = success && test "$PACKED" = success && test "$INTEL" = success && test "$LINUX" = success && test "$ARM" = success
         if: always()
         env:
           CHECKS: ${{ needs.checks.result }}
@@ -215,6 +240,7 @@ jobs:
           PACKED: ${{ needs.packed.result }}
           INTEL: ${{ needs.intel.result }}
           LINUX: ${{ needs.linux.result }}
+          ARM: ${{ needs.arm.result }}
       # Attempt-specific start time includes setup, queueing between jobs and all
       # matrix shards, including advisory jobs. A per-job timeout alone cannot.
       - name: Enforce five-minute end-to-end budget

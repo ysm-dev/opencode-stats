@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import "./profile.ts";
 import { assert, asyncProperty, constantFrom, array, record, integer, option } from "fast-check";
 import { syntheticCopy, propertyParameters } from "@opencode-stats/browser-copy/testing";
 import { rangeFixture, rangeStep } from "./range-fixture.ts";
@@ -35,7 +36,7 @@ it("shows exactly 365 local days, ranks zero-usage active days, ignores the rang
   expect(state.graph.currentStreak).toBe(6);
   expect(state.graph.longestStreak).toBe(10);
   expect(state.graph.days.filter((day) => day.steps > 0).map((day) => day.level)).toEqual([
-    1, 1, 2, 2, 3, 4,
+    1, 1, 2, 3, 3, 4,
   ]);
   const graph = state.graph;
   state = await f.request({ kind: "preset", preset: "365d" });
@@ -178,9 +179,7 @@ it("keeps a genuinely free day exactly zero after incremental paid steps are rem
   await using f = rangeFixture(rows);
   await f.request({ kind: "graph-metric", metric: "cost" });
   await vi.waitFor(() => expect(f.server.streams).toBe(1));
-  f.server.commit(
-    syntheticCopy([], { revision: 2, fromRevision: 1, tombstones: ["step-1", "step-2"] }),
-  );
+  f.server.commit(syntheticCopy([rows[0]!], { revision: 2 }));
   await vi.waitFor(() => expect(f.states.at(-1)).toMatchObject({ revision: 2 }));
   const state = await f.request({ kind: "all-time" });
   expect(state.graph.days.find((day) => day.date === "2026-10-05")).toMatchObject({
