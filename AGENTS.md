@@ -12,7 +12,13 @@ Default canonical triage labels: needs-triage, needs-info, ready-for-agent, read
 
 Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
+## Subagents
+
+**Start every subagent in a new session on the `openai/gpt-6.1-sol#high` model.** This includes continuing an earlier subagent's work.
+
 ## Quality gates
+
+**All CI must run on GitHub-hosted Actions runners, not locally.** This includes `bun run ci` and individual CI gates.
 
 **Five minutes is a hard limit.** The entire public `bun run ci` aggregate, including preparation and final gate verification, shares one external 300-second deadline. Every independently invoked CI stage and GitHub job has the same maximum. The required Quality gates job also rejects a workflow attempt over five minutes end-to-end, including setup and waiting between jobs. Preserve the watchdogs in `scripts/time-budget.ts`, shared Vitest timeouts, Bun test timeout, and workflow `timeout-minutes: 5`; `bun run budgets` checks this configuration. Optimize or isolate parallel work when the limit is hit; preserve the tighter test/hook limits. See README's **Time budgets** for verification.
 
