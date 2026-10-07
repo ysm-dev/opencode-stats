@@ -1,8 +1,9 @@
-import { For, Show, createMemo, createSignal, onMount, useContext } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, useContext } from "solid-js";
 import {
   addDates,
   dateCount,
   calendarRange,
+  chartMetricLabels,
   type CalendarUnit,
   type GraphMetric,
 } from "@opencode-stats/engine";
@@ -23,6 +24,7 @@ export const ContributionGraph = () => {
   const state = useContext(PageState)!;
   const client = useContext(PageActions)!;
   const media = useMediaSize();
+  const narrow = createMemo(() => media().columnWidth < 720);
   const graph = () => state().graph;
   const [reading, setReading] = createSignal<{ date: string; spoken: string }>();
   const geometry = createMemo(() => graphGeometry(graph().days));
@@ -46,6 +48,9 @@ export const ContributionGraph = () => {
         : `$${number(current.cost.estimated)} estimated cost`;
     return `${number(current[metric])} ${metric}`;
   };
+  const about = () => graph().metric === "cost" && read()!.cost.estimated !== null;
+  const basis = () =>
+    graph().metric === "cost" ? ` · ${percent(read()!.cost.pricedShare)} of tokens priced` : "";
   const select = (date: string, unit: CalendarUnit) => {
     const { from, to } = calendarRange(date, unit);
     void client.request({ kind: "drill", from, to, unit, source: "graph" });
@@ -73,6 +78,13 @@ export const ContributionGraph = () => {
     // Return focus before removing the readout's full-size actions.
     svg.focus();
     changes.local("graph-read", () => setReading(undefined));
+  };
+  const scrollReading = (date: string) => {
+    const column = geometry().column(date);
+    const x = (column * svg.getBoundingClientRect().width) / geometry().columns;
+    if (x < scroll.scrollLeft) scroll.scrollLeft = x;
+    else if (x + 16 > scroll.scrollLeft + scroll.clientWidth)
+      scroll.scrollLeft = x + 16 - scroll.clientWidth;
   };
   const key = (event: KeyboardEvent) => {
     const last = graph().days.at(-1)!.date;
@@ -102,13 +114,9 @@ export const ContributionGraph = () => {
       setReading({ date: bounded, spoken: "" });
       setReading({
         date: bounded,
-        spoken: `${readingLabel(bounded)} · ${graph().metric === "cost" && read()!.cost.estimated !== null ? "about " : ""}${value()}`,
+        spoken: `${readingLabel(bounded)} · ${about() ? "about " : ""}${value()}${basis()}`,
       });
-      const column = geometry().column(bounded);
-      const x = (column * svg.getBoundingClientRect().width) / geometry().columns;
-      if (x < scroll.scrollLeft) scroll.scrollLeft = x;
-      else if (x + 16 > scroll.scrollLeft + scroll.clientWidth)
-        scroll.scrollLeft = x + 16 - scroll.clientWidth;
+      scrollReading(bounded);
     });
   };
   const inRange = (date: string) =>
@@ -117,16 +125,23 @@ export const ContributionGraph = () => {
     ) &&
     date >= state().period.from &&
     date <= state().period.to;
-  onMount(() => {
-    scroll.scrollLeft = scroll.scrollWidth;
-  });
+  createEffect(
+    on(narrow, (entered) => {
+      if (!entered) return;
+      changes.local("resize", () => {
+        const current = read();
+        if (current) scrollReading(current.date);
+        else scroll.scrollLeft = scroll.scrollWidth;
+      });
+    }),
+  );
   return (
     <section
       class="contribution-graph"
       aria-labelledby="contribution-heading"
       data-state={stateMark(state())}
       data-local-state={stateMark(local())}
-      data-narrow={media().columnWidth < 720}
+      data-narrow={narrow()}
       data-coarse={media().coarse}
     >
       <h2 id="contribution-heading">Contribution graph</h2>
@@ -143,7 +158,7 @@ export const ContributionGraph = () => {
               aria-pressed={graph().metric === metric}
               onClick={() => void client.request({ kind: "graph-metric", metric })}
             >
-              {metric === "cost" ? "Cost" : metric === "steps" ? "Steps" : "Tokens"}
+              {chartMetricLabels[metric]}
             </button>
           )}
         </For>
@@ -164,74 +179,77 @@ export const ContributionGraph = () => {
             scroll = element;
           }}
         >
-          <svg
-            ref={(element) => {
-              svg = element;
-            }}
-            role="img"
-            aria-label="Contribution graph, past 365 local days"
-            aria-describedby="graph-help graph-readout"
-            tabIndex={0}
-            class="graph-surface"
-            viewBox={`0 0 ${geometry().columns * 16} 176`}
-            preserveAspectRatio="none"
+          <div
+            class="graph-plot"
             style={{ "--graph-width": `${geometry().columns * 16}px` }}
             data-state={stateMark(state())}
             data-local-state={stateMark(local())}
-            onPointerMove={pointerRead}
-            onPointerUp={pointerUp}
-            onKeyDown={key}
           >
-            <defs>
-              <pattern id="graph-unavailable" width={4} height={4} patternUnits="userSpaceOnUse">
-                <path d="M0,4 L4,0" class="graph-hatch" />
-              </pattern>
-            </defs>
-            <For each={geometry().months}>
-              {(month) => (
-                <text
-                  class="graph-label"
-                  data-month={month.date}
-                  x={month.x}
-                  y={16}
-                  text-anchor="middle"
-                  aria-hidden="true"
-                >
-                  {month.label}
-                </text>
-              )}
-            </For>
-            <For each={indices}>
-              {(index) => (
-                <rect
-                  data-date={day(index).date}
-                  data-level={day(index).level}
-                  data-selected={inRange(day(index).date)}
-                  data-reading={read()?.date === day(index).date}
-                  x={geometry().column(day(index).date) * 16 + 1.5}
-                  y={graphRow(day(index).date) * 16 + 33.5}
-                  width={13}
-                  height={13}
-                  rx={2}
-                  aria-hidden="true"
-                />
-              )}
-            </For>
-            <For each={geometry().weeks}>
-              {(week) => (
-                <text
-                  class="graph-week graph-label"
-                  data-week={week.date}
-                  x={week.x}
-                  y={164}
-                  text-anchor="middle"
-                  aria-hidden="true"
-                >
-                  {week.label}
-                </text>
-              )}
-            </For>
-          </svg>
+            <svg
+              ref={(element) => {
+                svg = element;
+              }}
+              role="img"
+              aria-label="Contribution graph, past 365 local days"
+              aria-describedby="graph-help graph-readout"
+              tabIndex={0}
+              class="graph-surface"
+              viewBox={`0 0 ${geometry().columns * 16} 176`}
+              preserveAspectRatio="none"
+              data-state={stateMark(state())}
+              data-local-state={stateMark(local())}
+              onPointerMove={pointerRead}
+              onPointerUp={pointerUp}
+              onKeyDown={key}
+            >
+              <defs>
+                <pattern id="graph-unavailable" width={4} height={4} patternUnits="userSpaceOnUse">
+                  <path d="M0,4 L4,0" class="graph-hatch" />
+                </pattern>
+              </defs>
+              <For each={indices}>
+                {(index) => (
+                  <rect
+                    data-date={day(index).date}
+                    data-level={day(index).level}
+                    data-selected={inRange(day(index).date)}
+                    data-reading={read()?.date === day(index).date}
+                    x={geometry().column(day(index).date) * 16 + 1.5}
+                    y={graphRow(day(index).date) * 16 + 33.5}
+                    width={13}
+                    height={13}
+                    rx={2}
+                    aria-hidden="true"
+                  />
+                )}
+              </For>
+            </svg>
+            {/* Opaque HTML labels remain contrast-checkable above the SVG image. */}
+            <div class="graph-labels" aria-hidden="true">
+              <For each={geometry().months}>
+                {(month) => (
+                  <span
+                    class="graph-label"
+                    data-month={month.date}
+                    style={{ left: `${(month.x / (geometry().columns * 16)) * 100}%` }}
+                  >
+                    {month.label}
+                  </span>
+                )}
+              </For>
+              <For each={geometry().weeks}>
+                {(week) => (
+                  <span
+                    class="graph-label graph-week"
+                    data-week={week.date}
+                    style={{ left: `${(week.x / (geometry().columns * 16)) * 100}%` }}
+                  >
+                    {week.label}
+                  </span>
+                )}
+              </For>
+            </div>
+          </div>
         </div>
       </div>
       <div
@@ -260,15 +278,8 @@ export const ContributionGraph = () => {
           {(current) => (
             <>
               <p>
-                {readingLabel(current().date)} ·{" "}
-                <HeadlineText
-                  text={value()}
-                  about={graph().metric === "cost" && current().cost.estimated !== null}
-                />
-                <Show when={graph().metric === "cost"}>
-                  {" "}
-                  · {percent(current().cost.pricedShare)} of tokens priced
-                </Show>
+                {readingLabel(current().date)} · <HeadlineText text={value()} about={about()} />
+                {basis()}
               </p>
               <div class="graph-actions">
                 <button type="button" onClick={() => select(current().date, "day")}>

@@ -6,13 +6,13 @@ import { tourStart } from "./testing/change-tour.ts";
 import { assertPaintCheck, installWholePaintObserver } from "./testing/whole-paint.ts";
 
 it.each([chromium, webkit])(
-  "%s rejects unmarked graph geometry, selection and readout drawings",
+  "%s rejects unmarked graph geometry, selection, labels and readout drawings",
   async (browser) => {
     await using f = await preferencesBrowser(browser, { timezoneId: "UTC", locale: "en-GB" });
     await installTourClock(f.context, tourStart);
     await f.context.addInitScript(installWholePaintObserver);
     const page = await f.context.newPage();
-    for (const drawing of ["geometry", "selection", "readout"] as const) {
+    for (const drawing of ["geometry", "selection", "labels", "readout"] as const) {
       await page.goto(`${f.server.origin}/?range=all`);
       await page.waitForFunction(() => window.wholePaint.evidence.complete > 1);
       expect(await page.evaluate(() => window.wholePaint.evidence.failures)).toEqual([]);
@@ -21,6 +21,8 @@ it.each([chromium, webkit])(
         if (kind === "geometry") cell.setAttribute("x", "-100");
         else if (kind === "selection")
           cell.setAttribute("data-selected", String(cell.getAttribute("data-selected") !== "true"));
+        else if (kind === "labels")
+          document.querySelector<HTMLElement>(".graph-label")!.style.left = "50%";
         else
           document.querySelector(".graph-readout")!.textContent = "Planted partial graph readout";
       }, drawing);

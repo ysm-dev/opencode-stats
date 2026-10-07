@@ -22,7 +22,7 @@ it.each([chromium, webkit])(
       hasTouch: true,
       timezoneId: "UTC",
       locale: "en-GB",
-      viewport: { width: 360, height: 720 },
+      viewport: { width: 1280, height: 720 },
     });
     f.server.writer.session("ses-contributions");
     for (const day of [1, 2, 3, 4, 5, 6, 7])
@@ -48,6 +48,12 @@ it.each([chromium, webkit])(
       await metric.getByRole("button", { name: "Steps", exact: true }).getAttribute("aria-pressed"),
     ).toBe("true");
     await surface.scrollIntoViewIfNeeded();
+    const scroll = page.locator(".graph-scroll");
+    expect(await scroll.evaluate((node) => node.scrollLeft)).toBe(0);
+    await page.setViewportSize({ width: 360, height: 720 });
+    await page.waitForFunction(
+      () => document.querySelector(".contribution-graph")?.getAttribute("data-narrow") === "true",
+    );
     expect(
       await page
         .locator(".graph-scroll")
@@ -77,7 +83,7 @@ it.each([chromium, webkit])(
     ).toBe(true);
     await page.getByRole("button", { name: "October", exact: true }).tap();
     await page.waitForURL(/kind=month/);
-    await metric.getByRole("button", { name: "Cost", exact: true }).tap();
+    await metric.getByRole("button", { name: "≈ Estimated cost", exact: true }).tap();
     await page.waitForURL(/graph=cost/);
     expect(await page.locator(".graph-readout").textContent()).toContain(
       "Unavailable estimated cost",
@@ -85,7 +91,9 @@ it.each([chromium, webkit])(
     await page.reload();
     await surface.waitFor();
     expect(
-      await metric.getByRole("button", { name: "Cost", exact: true }).getAttribute("aria-pressed"),
+      await metric
+        .getByRole("button", { name: "≈ Estimated cost", exact: true })
+        .getAttribute("aria-pressed"),
     ).toBe("true");
     await metric.getByRole("button", { name: "Tokens", exact: true }).tap();
     await page.waitForURL((url) => !url.searchParams.has("graph"));
@@ -116,6 +124,33 @@ it.each([chromium, webkit])(
           .evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").length),
       ).toBe(3);
     }
+    await surface.focus();
+    await surface.press("Home");
+    await page.keyboard.press("Tab");
+    const action = page.getByRole("button", { name: "This day", exact: true });
+    await page.setViewportSize({ width: 360, height: 720 });
+    await page.waitForFunction(
+      () => document.querySelector(".contribution-graph")?.getAttribute("data-narrow") === "true",
+    );
+    expect(await action.evaluate((node) => node === document.activeElement)).toBe(true);
+    expect(await page.locator(".graph-readout").textContent()).toContain("8 Oct 2025");
+    const first = await page.locator('.graph-surface rect[data-reading="true"]').boundingBox();
+    const viewport = await scroll.boundingBox();
+    expect(first!.x).toBeGreaterThanOrEqual(viewport!.x);
+    expect(first!.x + first!.width).toBeLessThanOrEqual(viewport!.x + viewport!.width);
+    await scroll.evaluate((node) => {
+      node.scrollLeft = 100;
+    });
+    const local = await surface.getAttribute("data-local-state");
+    await page.setViewportSize({ width: 320, height: 720 });
+    await page.waitForFunction(
+      (before) =>
+        document.querySelector(".graph-surface")?.getAttribute("data-local-state") !== before,
+      local,
+    );
+    expect(await scroll.evaluate((node) => node.scrollLeft)).toBe(100);
+    expect(await action.evaluate((node) => node === document.activeElement)).toBe(true);
+    expect(await page.locator(".graph-readout").textContent()).toContain("8 Oct 2025");
     // The same touch-capable machine still gets immediate mouse selections.
     const cell = page.locator('.graph-surface rect[data-date="2026-10-06"]');
     await cell.click();
