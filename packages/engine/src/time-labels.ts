@@ -2,16 +2,27 @@ import { midnight } from "./calendar.ts";
 import type { Period, TimeRange } from "./ranges.ts";
 import { presetLabels } from "./ranges.ts";
 
+const formatters = new Map<string, Intl.DateTimeFormat>();
+const formatter = (locale: string, options: Intl.DateTimeFormatOptions) => {
+  const key = JSON.stringify([locale, options]);
+  let value = formatters.get(key);
+  if (!value) {
+    value = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, value);
+  }
+  return value;
+};
+
 // English names, but the browser region determines field order and clock cycle.
 const regionalEnglish = (locale: string) => {
   const region = new Intl.Locale(locale).maximize().region!;
   return `en-${region}`;
 };
 export const clockLabel = (instant: number, timeZone: string, locale: string) =>
-  new Intl.DateTimeFormat(regionalEnglish(locale), {
+  formatter(regionalEnglish(locale), {
     timeZone,
     timeStyle: "short",
-    hourCycle: new Intl.DateTimeFormat(locale, { hour: "numeric" }).resolvedOptions().hourCycle,
+    hourCycle: formatter(locale, { hour: "numeric" }).resolvedOptions().hourCycle,
   }).format(instant);
 export const dateLabel = (date: string, locale: string, includeYear = true) => {
   // This is a date label, not an instant: even a skipped local date keeps its name.
@@ -24,8 +35,8 @@ export const dateLabel = (date: string, locale: string, includeYear = true) => {
     calendar: "gregory",
     numberingSystem: "latn",
   };
-  const english = new Intl.DateTimeFormat("en", options).formatToParts(instant);
-  return new Intl.DateTimeFormat(locale, options)
+  const english = formatter("en", options).formatToParts(instant);
+  return formatter(locale, options)
     .formatToParts(instant)
     .filter(
       (part) =>

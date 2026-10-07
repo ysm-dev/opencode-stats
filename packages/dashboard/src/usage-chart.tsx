@@ -60,15 +60,16 @@ const ChoiceForm = (props: ParentProps) => {
     const field = document.activeElement!.closest(
       ".chart-choices [aria-label], .chart-choices [aria-labelledby]",
     )!;
-    const label = field.getAttribute("aria-label") ?? field.getAttribute("aria-labelledby");
-    focused = label === "Chart metric" || label === "chart-metric-label" ? "metric" : "split";
+    focused = field.matches('[aria-label="Chart metric"], [aria-labelledby~="chart-metric-label"]')
+      ? "metric"
+      : "split";
   };
   onCleanup(() => {
     const name = focused;
     if (name === null) return;
     queueMicrotask(() => {
       const replacement = document.querySelector<HTMLElement>(
-        `.chart-choices [aria-labelledby="chart-${name}-label"], .chart-choices [aria-label="Chart ${name}"] [aria-pressed="true"]`,
+        `.chart-choices button[aria-labelledby~="chart-${name}-label"], .chart-choices [aria-label="Chart ${name}"] [aria-pressed="true"]`,
       );
       if (replacement) changes.local("resize", () => replacement.focus());
     });

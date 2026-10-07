@@ -1,5 +1,5 @@
 import type { Page } from "playwright";
-import { onTestFailed } from "vitest";
+import { onTestFailed, onTestFinished } from "vitest";
 
 type Phase = "setup" | "baseline" | "action" | "paint" | "evidence";
 type Entry = { kind: string; phase: Phase; milliseconds: number };
@@ -10,6 +10,9 @@ export function createTourEvidence(label: string) {
   const totals: Record<Phase, number> = { setup: 0, baseline: 0, action: 0, paint: 0, evidence: 0 };
   let current: { kind: string; phase: Phase; started: number } | undefined;
   let recent: Entry[] = [];
+  onTestFinished(() => {
+    process.stderr.write(`[DEBUG-tour-duration] ${JSON.stringify({ label, totals })}\n`);
+  });
   onTestFailed(() => {
     const pending = current && {
       kind: current.kind,

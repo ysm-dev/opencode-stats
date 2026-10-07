@@ -319,27 +319,6 @@ it("the published pickers cannot clear a metric or split when their current opti
 });
 
 it("responsive control switches retain keyboard focus in the same field without querying the worker", async () => {
-  // oxlint-disable-next-line typescript/unbound-method -- the temporary probe invokes native focus with the original element as its receiver
-  const focus = HTMLElement.prototype.focus;
-  const focused: object[] = [];
-  const probe = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (
-    this: HTMLElement,
-    options,
-  ) {
-    focus.call(this, options);
-    if (this.closest(".chart-choices"))
-      focused.push({
-        tag: this.tagName,
-        role: this.getAttribute("role"),
-        tabIndex: this.tabIndex,
-        label: this.getAttribute("aria-labelledby"),
-        active: document.activeElement === this,
-      });
-  });
-  onTestFinished(() => {
-    process.stderr.write(`[DEBUG-chart-focus] ${JSON.stringify(focused)}\n`);
-    probe.mockRestore();
-  });
   const [media, setMedia] = createSignal({ ...initialMedia, columnWidth: 1280 });
   const f = dashboardFixture(filterCopy(), queueMicrotask, media);
   onTestFinished(f.close);
