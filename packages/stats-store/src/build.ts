@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync, rmSync } from "node:fs";
-import { eq, lte, getTableName, getTableColumns } from "drizzle-orm";
+import { eq, lte } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/sqlite-core";
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
 import { sqlFailure } from "./errors.ts";
@@ -61,13 +62,11 @@ export const initializeStore = Effect.fnUntraced(function* (
       // Probe every required column from the generated schema before changing an
       // existing layout. Recreating a missing table would conceal lost facts.
       for (const table of Object.values(schema)) {
-        const name = getTableName(table);
+        const { name, columns } = getTableConfig(table);
         if (tables.length > 0 && !tables.some((stored) => stored.name === name))
           yield* Effect.fail(new RebuildNeeded("damaged"));
-        const columns = Object.values(getTableColumns(table)).map(
-          (column) => `\`${name}\`.\`${column.name}\``,
-        );
-        yield* db.$client.unsafe(`SELECT ${columns.join(",")} FROM \`${name}\` LIMIT 1`);
+        const selection = columns.map((column) => `\`${name}\`.\`${column.name}\``);
+        yield* db.$client.unsafe(`SELECT ${selection.join(",")} FROM \`${name}\` LIMIT 1`);
       }
       const header = (yield* db.select().from(metadata))[0];
       if (tables.length > 0 && !header) yield* Effect.fail(new RebuildNeeded("damaged"));
@@ -130,6 +129,61 @@ export const initializeStore = Effect.fnUntraced(function* (
   );
 });
 
+const reconciliationPlan = Effect.fnUntraced(function* (
+  inventory: ReadonlyArray<SourceSession>,
+  projects: ReadonlyArray<SourceProject>,
+  checkBounds: boolean,
+) {
+  const db = yield* Database;
+  const saved = yield* db.select().from(sessions);
+  const savedById = new Map(saved.map((row) => [row.id, row]));
+  const details = yield* db.select().from(sessionFacts);
+  const savedProjects = yield* db.select().from(projectFacts);
+  const detailsById = new Map(details.map((row) => [row.id, row]));
+  const byId = new Map(inventory.map((row) => [row.id, row]));
+  const projectsChanged =
+    projects.length !== savedProjects.length ||
+    projects.some(
+      (row) =>
+        !savedProjects.some(
+          (old) => old.id === row.id && old.name === row.name && old.worktree === row.worktree,
+        ),
+    );
+  const pending = new Set(
+    inventory
+      .filter((session) => {
+        const old = savedById.get(session.id);
+        const detail = sessionDetails(session, byId);
+        const before = detailsById.get(session.id);
+        return (
+          !old ||
+          detailKeys.some((key) => before![key] !== detail[key]) ||
+          old.counter !== session.counter ||
+          (checkBounds &&
+            (old.messageCount !== session.messageCount ||
+              old.highestPosition !== session.highestPosition))
+        );
+      })
+      .map((session) => session.id),
+  );
+  const removed = saved.filter((session) => !byId.has(session.id)).map((session) => session.id);
+  const header = (yield* db.select().from(metadata))[0]!;
+  const ordered = units(inventory).filter((unit) =>
+    unit.sessions.some((session) => pending.has(session.id)),
+  );
+  const vanishedDetails = details.some((row) => !byId.has(row.id));
+  return {
+    byId,
+    pending,
+    removed,
+    ordered,
+    saved: new Set(savedById.keys()),
+    initialCommit:
+      removed.length > 0 ||
+      (!ordered.length && (!header.historyComplete || projectsChanged || vanishedDetails)),
+  };
+});
+
 export const reconcile = Effect.fnUntraced(
   function* (
     reader: SourceReader,
@@ -141,50 +195,16 @@ export const reconcile = Effect.fnUntraced(
     pricer: StepPricer,
     sourceVersion: number,
   ) {
-    const db = yield* Database;
-    const saved = yield* db.select().from(sessions);
-    const savedById = new Map(saved.map((row) => [row.id, row]));
-    const details = yield* db.select().from(sessionFacts);
-    const savedProjects = yield* db.select().from(projectFacts);
-    const detailsById = new Map(details.map((row) => [row.id, row]));
-    const byId = new Map(inventory.map((row) => [row.id, row]));
+    const { byId, pending, removed, ordered, saved, initialCommit } = yield* reconciliationPlan(
+      inventory,
+      projects,
+      checkBounds,
+    );
     const registry = yield* makeDimensions();
-    const projectsChanged =
-      projects.length !== savedProjects.length ||
-      projects.some(
-        (row) =>
-          !savedProjects.some(
-            (old) => old.id === row.id && old.name === row.name && old.worktree === row.worktree,
-          ),
-      );
-    const pending = inventory.filter((session) => {
-      const old = savedById.get(session.id);
-      const detail = sessionDetails(session, byId);
-      const before = detailsById.get(session.id);
-      return (
-        !old ||
-        detailKeys.some((key) => before![key] !== detail[key]) ||
-        old.counter !== session.counter ||
-        (checkBounds &&
-          (old.messageCount !== session.messageCount ||
-            old.highestPosition !== session.highestPosition))
-      );
-    });
-    const removed = saved.filter((session) => !inventory.some((row) => row.id === session.id));
-    const header = (yield* db.select().from(metadata))[0]!;
-    const ordered = units(inventory).filter((unit) =>
-      unit.sessions.some((session) => pending.some((row) => row.id === session.id)),
-    );
-    const vanishedDetails = details.some(
-      (row) => !inventory.some((session) => session.id === row.id),
-    );
-    const initialCommit =
-      removed.length > 0 ||
-      (!ordered.length && (!header.historyComplete || projectsChanged || vanishedDetails));
     if (initialCommit) {
       yield* commitUnit(
         undefined,
-        removed.map((row) => row.id),
+        removed,
         now,
         ordered.find((unit) => Number.isFinite(unit.latest))?.latest ?? null,
         byId,
@@ -199,7 +219,7 @@ export const reconcile = Effect.fnUntraced(
     }
     for (const [index, unit] of ordered.entries()) {
       const snapshots = yield* Effect.forEach(
-        unit.sessions.filter((row) => pending.some((changed) => changed.id === row.id)),
+        unit.sessions.filter((row) => pending.has(row.id)),
         (session) => reader.read(session.id),
       );
       const next = ordered
@@ -207,7 +227,7 @@ export const reconcile = Effect.fnUntraced(
         .find(
           (remaining) =>
             Number.isFinite(remaining.latest) &&
-            remaining.sessions.some((session) => !saved.some((row) => row.id === session.id)),
+            remaining.sessions.some((session) => !saved.has(session.id)),
         );
       yield* commitUnit(
         snapshots,

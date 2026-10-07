@@ -1,10 +1,10 @@
-import { formatVersion, type BrowserCopy } from "@opencode-stats/browser-copy";
+import { formatVersion } from "@opencode-stats/browser-copy";
 import type { CopyCursor, LiveAnnouncement } from "@opencode-stats/browser-copy/api";
 import type { EngineClock } from "./clock.ts";
 import type { EngineSignal } from "./protocol.ts";
 import type { ChangeKind } from "./change.ts";
 import { followCopy, loadCopy, type EngineNetwork } from "./network.ts";
-import { createFacts } from "./tokens.ts";
+import { createHistoryCopy } from "./history-copy.ts";
 import { createLiveStatus } from "./live-status.ts";
 import { addDates, localDate, midnight } from "./calendar.ts";
 
@@ -28,9 +28,8 @@ export function createLiveEngine(
 ) {
   let readyWork = 0;
   let readyStarted: number | undefined;
-  let facts = createFacts(clock);
-  let incoming: ReturnType<typeof createFacts> | undefined;
-  let ready = false;
+  const copies = createHistoryCopy(clock);
+  const facts = copies.view;
   const status = createLiveStatus(clock);
   let session: Session | undefined;
   let visible = true;
@@ -45,18 +44,11 @@ export function createLiveEngine(
   let nextKind: ChangeKind = "live";
   const readTime = () => ({ now: clock.now(), timeZone: clock.timeZone(), locale: clock.locale() });
   let time = readTime();
-  const refreshReadiness = () => {
-    if (incoming?.current() && incoming.coversToday()) {
-      facts = incoming;
-      incoming = undefined;
-    }
-    if (facts.current()) ready ||= facts.coversToday();
-  };
   const updateTime = (force = false) => {
     const next = readTime();
     if (!force && timeKey(next) === timeKey(time)) return false;
     time = next;
-    refreshReadiness();
+    copies.refresh();
     return true;
   };
   const cleanups = new Set<Promise<void>>();
@@ -98,22 +90,21 @@ export function createLiveEngine(
       workStarted ??= started;
     };
     const signal = current.controller.signal;
-    const install = (copy: BrowserCopy) => {
-      if (
-        copy.kind === "whole" &&
-        facts.current() &&
-        copy.generation !== facts.current()!.generation
-      )
-        incoming = createFacts(clock);
-      return (incoming ?? facts).apply(copy, signal, addWork);
-    };
     if (
-      !(await install(await loadCopy(network, clock, addWork, cursor, signal))) &&
+      !(await copies.apply(
+        await loadCopy(network, clock, addWork, cursor, signal),
+        signal,
+        addWork,
+      )) &&
       !signal.aborted
     )
-      await install(await loadCopy(network, clock, addWork, undefined, signal));
+      await copies.apply(
+        await loadCopy(network, clock, addWork, undefined, signal),
+        signal,
+        addWork,
+      );
     if (!signal.aborted) {
-      refreshReadiness();
+      copies.refresh();
       readyWork += ownWork;
       readyStarted ??= workStarted;
     }
@@ -122,7 +113,7 @@ export function createLiveEngine(
     while (current.target) {
       const wanted = current.target;
       current.target = undefined;
-      const before = (incoming ?? facts).current();
+      const before = copies.received();
       const newer =
         !before || wanted.generation !== before.generation || wanted.revision > before.revision;
       if (!newer && !current.opening) continue;
@@ -131,7 +122,7 @@ export function createLiveEngine(
       current.opening = false;
       if (newer && before) status.wrote();
       status.connected();
-      if (!incoming && ready)
+      if (copies.canPaint())
         changed(
           current.kind === "live" && (!before?.historyComplete || !facts.current()!.historyComplete)
             ? "build"
@@ -263,12 +254,7 @@ export function createLiveEngine(
     else suspend();
   };
   return {
-    current: () => facts.current(),
-    ready: () => ready,
-    query: (...args: Parameters<typeof facts.query>) => facts.query(...args),
-    filterState: (...args: Parameters<typeof facts.filterState>) => facts.filterState(...args),
-    filterLabel: (...args: Parameters<typeof facts.filterLabel>) => facts.filterLabel(...args),
-    history: (...args: Parameters<typeof facts.history>) => facts.history(...args),
+    ...facts,
     time: () => time,
     refreshTime: () => {
       if (enabled()) updateTime(true);

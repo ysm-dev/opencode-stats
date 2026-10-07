@@ -231,7 +231,7 @@ export function createFacts(clock: EngineClock) {
       filteredPlacements.set(key, placed);
     }
     const count = (map: Map<number, number>) =>
-      [...map.values()].filter((start) => start >= period.start && start < period.end).length;
+      [...map.values()].filter((instant) => instant >= period.start && instant < period.end).length;
     return {
       tokens: dayTotals(snapshot.days, period, compiled),
       sessions: { total: count(placed.roots), subagents: count(placed.subagents) },

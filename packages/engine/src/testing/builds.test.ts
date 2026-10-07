@@ -1,8 +1,9 @@
 import { expect, it, vi, onTestFinished } from "vitest";
 import { mapPromptFields } from "@opencode-stats/browser-copy";
 import { syntheticCopy, inMemoryDashboardServer } from "@opencode-stats/browser-copy/testing";
-import { rangeFixture, rangeStep } from "./range-fixture.ts";
+import { rangeFixture, rangeStep, type CompleteState } from "./range-fixture.ts";
 import { inThreadEngine, manualClock, blockedSlices } from "./index.ts";
+import type { ChangeTime } from "../index.ts";
 
 const today = Date.parse("2026-10-07T00:00Z");
 const steps = [
@@ -44,20 +45,16 @@ it("a load stays blank through copies and clock ticks until the build covers tod
     statusLine: "History from 7 Oct · older history is still being read",
     announcement: "",
   });
-  const finished = Promise.withResolvers<void>();
+  const finished = Promise.withResolvers<{ state: CompleteState; kind: ChangeTime["kind"] }>();
   const stop = f.engine.client.subscribe((state, timing) => {
     if (state.screen === "dashboard" && state.revision === 4) {
-      expect(state).toMatchObject({
-        historyComplete: true,
-        statusLine: "",
-        tokens: { total: 105 },
-      });
-      expect(timing.kind).toBe("build");
-      finished.resolve();
+      finished.resolve({ state, kind: timing.kind });
     }
   });
   f.server.commit(syntheticCopy(steps, { revision: 4 }));
-  await finished.promise;
+  const { state, kind } = await finished.promise;
+  expect(state).toMatchObject({ historyComplete: true, statusLine: "", tokens: { total: 105 } });
+  expect(kind).toBe("build");
   stop();
 });
 
@@ -77,13 +74,14 @@ it.each([
       field === "start" ? new Float64Array([cutoff - 1, cutoff]) : new Float64Array([NaN, NaN]),
     ),
   });
-  expect(await f.request({ kind: "preset", preset: "30d" })).toMatchObject({
+  const state = await f.request({ kind: "preset", preset: "30d" });
+  expect(state).toMatchObject({
     historyStart: cutoff,
     tokens: { total: 2 },
     metrics: { steps: 1, prompts: 1, stepsPerPrompt: 1 },
     comparison: { tokens: "", steps: "" },
-    summary: expect.stringContaining("since"),
   });
+  expect(state.summary.includes("since")).toBe(true);
 });
 
 it("an open tab keeps the old generation and focused filters until its fresh copy covers today", async () => {
