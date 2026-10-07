@@ -90,22 +90,19 @@ it.each(["generation", "expired", "mismatched-range"])(
 it("keeps the prior complete state while slicing a batch and answers the user's request before the next slice", async () => {
   const server = inMemoryDashboardServer(syntheticCopy([]));
   let work = 0;
-  let sliceStart = 0;
   const slices: number[] = [];
   const intervening: EngineState[] = [];
   let engine: ReturnType<typeof inThreadEngine>;
   engine = inThreadEngine(server.fetch, queueMicrotask, {
     workNow: () => work++,
-    yield: async () => {
-      slices.push(work - 1 - sliceStart);
-      sliceStart = work;
+    yield: async (sliceStarted) => {
+      slices.push(work - 1 - sliceStarted);
       const response = await engine.client.request({ kind: "all-time" });
       if (response.kind === "paint") intervening.push(response.state);
     },
   });
   try {
     await engine.client.request({ kind: "all-time" });
-    sliceStart = work;
     const painted = nextRevision(engine, 2);
     const steps = Array.from({ length: 40 }, (_, index) => step(index));
     server.commit(

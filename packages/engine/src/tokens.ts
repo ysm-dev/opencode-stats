@@ -128,7 +128,7 @@ export function createFacts(clock: EngineClock) {
   const apply = async (
     copy: BrowserCopy,
     signal: AbortSignal,
-    addWork: (work: number) => void,
+    addWork: (work: number, started: number) => void,
   ): Promise<boolean> => {
     if (
       copy.kind === "changes" &&
@@ -139,9 +139,10 @@ export function createFacts(clock: EngineClock) {
       copy.kind === "whole" ? emptySnapshot() : { ...snapshot, amounts: { ...snapshot.amounts } };
     let started = clock.workNow();
     const checkpoint = async () => {
-      if (clock.workNow() - started >= 4) {
-        addWork(clock.workNow() - started);
-        await clock.yield();
+      const elapsed = clock.workNow() - started;
+      if (elapsed >= 4) {
+        addWork(elapsed, started);
+        await clock.yield(started);
         started = clock.workNow();
       }
     };
@@ -194,7 +195,7 @@ export function createFacts(clock: EngineClock) {
       };
       return true;
     } finally {
-      addWork(clock.workNow() - started);
+      addWork(clock.workNow() - started, started);
     }
   };
   const history = (now: number, timeZone: string) => {

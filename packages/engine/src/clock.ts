@@ -3,7 +3,7 @@ export type EngineClock = {
   timeZone: () => string;
   locale: () => string;
   workNow: () => number;
-  yield: () => Promise<void>;
+  yield: (sliceStarted: number) => Promise<void>;
   everySecond: (update: () => void) => () => void;
   after: (milliseconds: number, update: () => void) => () => void;
 };

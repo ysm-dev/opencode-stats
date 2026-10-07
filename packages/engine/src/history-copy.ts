@@ -15,7 +15,11 @@ export function createHistoryCopy(clock: EngineClock) {
     }
     if (active.current()) ready ||= active.coversToday();
   };
-  const apply = (copy: BrowserCopy, signal: AbortSignal, addWork: (work: number) => void) => {
+  const apply = (
+    copy: BrowserCopy,
+    signal: AbortSignal,
+    addWork: Parameters<typeof active.apply>[2],
+  ) => {
     if (
       copy.kind === "whole" &&
       active.current() &&
