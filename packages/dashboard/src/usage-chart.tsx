@@ -32,12 +32,16 @@ type ReadState = {
   chart: CompletePage["chart"];
   bucket: number | null;
   highlighted: string | null;
+  pointed: string | null;
+  focused: string | null;
   spoken: string;
 };
 const atRest = (chart: CompletePage["chart"]): ReadState => ({
   chart,
   bucket: null,
   highlighted: null,
+  pointed: null,
+  focused: null,
   spoken: chart.announcement,
 });
 const ChartAmount = (props: { metric: CompletePage["chart"]["metric"]; value: number | null }) => (
@@ -181,19 +185,28 @@ export const UsageChart = () => {
   const media = useMediaSize();
   const [stored, setStored] = createSignal(atRest(state().chart));
   let surface!: HTMLDivElement;
+  const preserveFocus = (button: HTMLButtonElement) =>
+    onCleanup(() => {
+      if (document.activeElement === button) surface.focus();
+    });
   const width = createMemo(() => Math.max(1, media().columnWidth));
   const height = createMemo(() => chartHeight(media().columnWidth));
   const size = createMemo(() => ({ width: width(), height: height() }));
-  const local = createMemo(() =>
-    stored().chart === state().chart
-      ? stored()
-      : {
-          ...atRest(state().chart),
-          highlighted: state().chart.series.some((series) => series.id === stored().highlighted)
-            ? stored().highlighted
-            : null,
-        },
-  );
+  const local = createMemo(() => {
+    const previous = stored();
+    const chart = state().chart;
+    if (previous.chart === chart) return previous;
+    const keep = (id: string | null) =>
+      chart.series.some((series) => series.id === id) ? id : null;
+    const pointed = keep(previous.pointed);
+    const focused = keep(previous.focused);
+    return {
+      ...atRest(chart),
+      pointed,
+      focused,
+      highlighted: keep(previous.highlighted) ?? pointed ?? focused,
+    };
+  });
   const drawing = createMemo(() => chartDrawing(local().chart, local().highlighted));
   const bucket = () =>
     local().bucket === null ? undefined : local().chart.buckets[local().bucket!];
@@ -210,8 +223,12 @@ export const UsageChart = () => {
           : "";
       setStored({ ...local(), bucket: index, spoken });
     });
-  const highlight = (id: string | null) =>
-    changes.local("chart-highlight", () => setStored({ ...local(), highlighted: id }));
+  const highlight = (source: "pointed" | "focused", id: string | null) =>
+    changes.local("chart-highlight", () => {
+      const next = { ...local(), [source]: id };
+      const fallback = source === "pointed" ? next.focused : next.pointed;
+      setStored({ ...next, highlighted: id ?? fallback });
+    });
   const drill = (index = local().bucket, started = performance.now()) => {
     const chart = local().chart;
     if (index !== null && chart.unit !== "hour") {
@@ -381,11 +398,16 @@ export const UsageChart = () => {
         <Show when={bucket()}>
           <div class="chart-read-actions">
             <Show when={local().chart.unit !== "hour"}>
-              <button type="button" onClick={() => drill()}>
+              <button ref={preserveFocus} type="button" onClick={() => drill()}>
                 Drill in
               </button>
             </Show>
-            <button type="button" aria-label="Clear chart reading" onClick={clear}>
+            <button
+              ref={preserveFocus}
+              type="button"
+              aria-label="Clear chart reading"
+              onClick={clear}
+            >
               ×
             </button>
           </div>
@@ -394,21 +416,17 @@ export const UsageChart = () => {
           <For each={local().chart.series.map((series) => series.id)}>
             {(id, index) => {
               const series = () => local().chart.series[index()]!;
-              let button!: HTMLButtonElement;
-              onCleanup(() => {
-                if (document.activeElement === button) surface.focus();
-              });
               return (
                 <li>
                   <button
-                    ref={button}
+                    ref={preserveFocus}
                     type="button"
                     aria-pressed={local().highlighted === id}
-                    onPointerEnter={() => highlight(id)}
-                    onPointerLeave={() => highlight(null)}
-                    onFocus={() => highlight(id)}
-                    onBlur={() => highlight(null)}
-                    onClick={() => highlight(id)}
+                    onPointerEnter={() => highlight("pointed", id)}
+                    onPointerLeave={() => highlight("pointed", null)}
+                    onFocus={() => highlight("focused", id)}
+                    onBlur={() => highlight("focused", null)}
+                    onClick={() => highlight("pointed", id)}
                   >
                     <span
                       class="chart-swatch"
