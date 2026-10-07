@@ -34,10 +34,10 @@ export const MediaSizeProvider = (
   props: ParentProps<{ value?: Accessor<MediaSize> | undefined }>,
 ) => {
   const [media, setMedia] = createSignal(initialMedia);
+  const update = (next: Partial<MediaSize>) =>
+    changes.local("resize", () => setMedia((before) => ({ ...before, ...next })));
   onMount(() => {
     if (props.value) return;
-    const update = (next: Partial<MediaSize>) =>
-      changes.local("resize", () => setMedia((before) => ({ ...before, ...next })));
     const queries = [
       ["coarse", "(any-pointer: coarse)"],
       ["hover", "(hover: hover)"],

@@ -6,6 +6,7 @@ import {
   useContext,
   onCleanup,
   type ParentProps,
+  type Accessor,
 } from "solid-js";
 import { Chart } from "@tanstack/solid-charts";
 import { Select } from "@opencode/ui/select";
@@ -27,6 +28,7 @@ import {
 } from "./chart-drawing.ts";
 import { changes, stateMark } from "./change-time.ts";
 import { HeadlineText } from "./step-headlines.tsx";
+import { paintChartAxis } from "./chart-axis.ts";
 
 type ReadState = {
   chart: CompletePage["chart"];
@@ -53,7 +55,6 @@ const ChartAmount = (props: { metric: CompletePage["chart"]["metric"]; value: nu
 
 const ChoiceForm = (props: ParentProps) => {
   let focused: "metric" | "split" | null = null;
-  let form!: HTMLDivElement;
   const focus = () => {
     const field = document.activeElement!.closest(
       ".chart-choices [aria-label], .chart-choices [aria-labelledby]",
@@ -73,12 +74,15 @@ const ChoiceForm = (props: ParentProps) => {
   });
   return (
     <div
-      ref={form}
       class="chart-choice-form"
       onFocusIn={focus}
       onFocusOut={(event) => {
         const next = event.relatedTarget;
-        if (next instanceof Element && !form.contains(next) && !next.closest(".chart-options"))
+        if (
+          next instanceof Element &&
+          !event.currentTarget.contains(next) &&
+          !next.closest(".chart-options")
+        )
           focused = null;
       }}
     >
@@ -179,6 +183,86 @@ const ChartChoices = () => {
   );
 };
 
+const ChartReadout = (props: {
+  state: Accessor<CompletePage>;
+  local: Accessor<ReadState>;
+  preserveFocus: (button: HTMLButtonElement) => void;
+  drill: () => void;
+  clear: () => void;
+  highlight: (source: "pointed" | "focused", id: string | null) => void;
+}) => {
+  const bucket = () =>
+    props.local().bucket === null ? undefined : props.local().chart.buckets[props.local().bucket!];
+  return (
+    <div
+      class="chart-readout"
+      data-state={stateMark(props.state())}
+      data-local-state={stateMark(props.local())}
+    >
+      <h3>{bucket()?.title ?? "Range totals"}</h3>
+      <p class="chart-total">
+        Total ·{" "}
+        <ChartAmount
+          metric={props.local().chart.metric}
+          value={bucket() ? bucket()!.total : props.local().chart.total}
+        />
+      </p>
+      <p>{bucket()?.basis ?? props.local().chart.basis}</p>
+      <Show when={bucket()}>
+        <div class="chart-read-actions">
+          <Show when={props.local().chart.unit !== "hour"}>
+            <button ref={props.preserveFocus} type="button" onClick={props.drill}>
+              Drill in
+            </button>
+          </Show>
+          <button
+            ref={props.preserveFocus}
+            type="button"
+            aria-label="Clear chart reading"
+            onClick={props.clear}
+          >
+            ×
+          </button>
+        </div>
+      </Show>
+      <ul>
+        <For each={props.local().chart.series.map((series) => series.id)}>
+          {(id, index) => {
+            const series = () => props.local().chart.series[index()]!;
+            return (
+              <li>
+                <button
+                  ref={props.preserveFocus}
+                  type="button"
+                  aria-pressed={props.local().highlighted === id}
+                  onPointerEnter={() => props.highlight("pointed", id)}
+                  onPointerLeave={() => props.highlight("pointed", null)}
+                  onFocus={() => props.highlight("focused", id)}
+                  onBlur={() => props.highlight("focused", null)}
+                  onClick={() => props.highlight("pointed", id)}
+                >
+                  <span
+                    class="chart-swatch"
+                    style={{ background: chartColour(id, index()) }}
+                    aria-hidden="true"
+                  />
+                  {series().name}
+                  <span>
+                    <ChartAmount
+                      metric={props.local().chart.metric}
+                      value={bucket() ? bucket()!.values[index()]! : series().total}
+                    />
+                  </span>
+                </button>
+              </li>
+            );
+          }}
+        </For>
+      </ul>
+    </div>
+  );
+};
+
 export const UsageChart = () => {
   const state = useContext(PageState)!;
   const actions = useContext(PageActions)!;
@@ -208,8 +292,6 @@ export const UsageChart = () => {
     };
   });
   const drawing = createMemo(() => chartDrawing(local().chart, local().highlighted));
-  const bucket = () =>
-    local().bucket === null ? undefined : local().chart.buckets[local().bucket!];
   const read = (index: number | null, speak = false) =>
     changes.local("chart-read", () => {
       const chart = local().chart;
@@ -331,7 +413,9 @@ export const UsageChart = () => {
         <p>Shown as one unsplit line.</p>
       </Show>
       <div
-        ref={surface}
+        ref={(element) => {
+          surface = element;
+        }}
         class="chart-hit"
         role="group"
         aria-roledescription="chart"
@@ -351,6 +435,7 @@ export const UsageChart = () => {
           gesture = undefined;
         }}
       >
+        <div class="chart-y-axis" aria-hidden="true" />
         <div aria-hidden="true">
           <Chart
             definition={drawing()}
@@ -358,7 +443,12 @@ export const UsageChart = () => {
             height={size().height}
             tabIndex={-1}
             ariaLabel={local().chart.name}
-            onRender={({ svg }) => {
+            onRender={({ svg, scene }) => {
+              paintChartAxis(
+                surface.querySelector(".chart-y-axis")!,
+                scene.scales["y"]!.ticks,
+                scene.height,
+              );
               svg.dataset["state"] = String(stateMark(state()));
               svg.dataset["localState"] = String(stateMark(local()));
               svg.dataset["sizeState"] = String(stateMark(size()));
@@ -381,72 +471,14 @@ export const UsageChart = () => {
       <p id="chart-instructions">
         Outlined bars are partial. Use ← →, Home or End to read; Enter to drill; Esc to clear.
       </p>
-      <div
-        class="chart-readout"
-        data-state={stateMark(state())}
-        data-local-state={stateMark(local())}
-      >
-        <h3>{bucket()?.title ?? "Range totals"}</h3>
-        <p class="chart-total">
-          Total ·{" "}
-          <ChartAmount
-            metric={local().chart.metric}
-            value={bucket() ? bucket()!.total : local().chart.total}
-          />
-        </p>
-        <p>{bucket()?.basis ?? local().chart.basis}</p>
-        <Show when={bucket()}>
-          <div class="chart-read-actions">
-            <Show when={local().chart.unit !== "hour"}>
-              <button ref={preserveFocus} type="button" onClick={() => drill()}>
-                Drill in
-              </button>
-            </Show>
-            <button
-              ref={preserveFocus}
-              type="button"
-              aria-label="Clear chart reading"
-              onClick={clear}
-            >
-              ×
-            </button>
-          </div>
-        </Show>
-        <ul>
-          <For each={local().chart.series.map((series) => series.id)}>
-            {(id, index) => {
-              const series = () => local().chart.series[index()]!;
-              return (
-                <li>
-                  <button
-                    ref={preserveFocus}
-                    type="button"
-                    aria-pressed={local().highlighted === id}
-                    onPointerEnter={() => highlight("pointed", id)}
-                    onPointerLeave={() => highlight("pointed", null)}
-                    onFocus={() => highlight("focused", id)}
-                    onBlur={() => highlight("focused", null)}
-                    onClick={() => highlight("pointed", id)}
-                  >
-                    <span
-                      class="chart-swatch"
-                      style={{ background: chartColour(id, index()) }}
-                      aria-hidden="true"
-                    />
-                    {series().name}
-                    <span>
-                      <ChartAmount
-                        metric={local().chart.metric}
-                        value={bucket() ? bucket()!.values[index()]! : series().total}
-                      />
-                    </span>
-                  </button>
-                </li>
-              );
-            }}
-          </For>
-        </ul>
-      </div>
+      <ChartReadout
+        state={state}
+        local={local}
+        preserveFocus={preserveFocus}
+        drill={() => drill()}
+        clear={clear}
+        highlight={highlight}
+      />
       <span
         class="sr-only chart-spoken"
         aria-live="polite"

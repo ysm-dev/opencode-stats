@@ -10,6 +10,7 @@ import { preserveFilterFocus } from "./filter-focus.ts";
 import { changes, stateMark } from "./change-time.ts";
 import { PreviousNumber, StepHeadlines } from "./step-headlines.tsx";
 import { UsageChart } from "./usage-chart.tsx";
+import { ContributionGraph } from "./contribution-graph.tsx";
 import { MediaSizeProvider, type MediaSize } from "./media-size.tsx";
 import type { Accessor } from "solid-js";
 import { stopReason } from "@opencode-stats/browser-copy/api";
@@ -138,6 +139,7 @@ const Overview = () => {
         <PreviousNumber metric="sessions" />
       </section>
       <StepHeadlines />
+      <ContributionGraph />
       <UsageChart />
     </>
   );

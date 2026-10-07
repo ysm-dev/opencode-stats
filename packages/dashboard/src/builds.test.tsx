@@ -2,6 +2,7 @@ import { cleanup, render } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { Dashboard } from "./dashboard.tsx";
+import { initialMedia } from "./media-size.tsx";
 import { inThreadEngine, manualClock } from "@opencode-stats/engine/testing";
 import { syntheticCopy, inMemoryDashboardServer } from "@opencode-stats/browser-copy/testing";
 import { dashboardEnvironment } from "./testing/environment.ts";
@@ -86,7 +87,9 @@ it("loads no shell before today is complete, then grows whole without announcing
     timeZone: () => "UTC",
     locale: () => "en-US",
   });
-  const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+  const view = render(() => (
+    <Dashboard client={engine.client} ready={Promise.resolve()} media={() => initialMedia} />
+  ));
   try {
     await vi.waitFor(() => expect(server.streams).toBe(1));
     expect(view.container.textContent).toBe("");

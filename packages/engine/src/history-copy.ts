@@ -38,6 +38,7 @@ export function createHistoryCopy(clock: EngineClock) {
       ready: () => ready,
       query: (...args: Parameters<typeof active.query>) => active.query(...args),
       chart: (...args: Parameters<typeof active.chart>) => active.chart(...args),
+      activity: (...args: Parameters<typeof active.activity>) => active.activity(...args),
       filterState: (...args: Parameters<typeof active.filterState>) => active.filterState(...args),
       filterLabel: (...args: Parameters<typeof active.filterLabel>) => active.filterLabel(...args),
       history: (...args: Parameters<typeof active.history>) => active.history(...args),

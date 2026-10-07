@@ -20,8 +20,19 @@ export async function chartTour(page: Page, touch: boolean, repeat: number) {
   await wholeChange(page, "chart-read", () =>
     touch ? chart.tap({ position: { x: 72, y: 80 } }) : chart.hover({ position: { x: 72, y: 80 } }),
   );
+  expect(await chart.getAttribute("aria-label"), "chart-tour:reading-must-not-drill").toContain(
+    "by day",
+  );
   await wholeChange(page, "chart-read", () => chart.press("Home"));
   expect(await page.locator(".chart-readout h3").textContent()).not.toBe("Range totals");
+  const reading = await page.evaluate(() => ({
+    readouts: document.querySelectorAll(".chart-readout").length,
+    series: document.querySelectorAll(".chart-readout li button").length,
+    marks: document.querySelectorAll(".chart-hit svg rect").length,
+    reading: document.querySelectorAll(".chart-cursor").length,
+    filters: document.querySelectorAll(".filter-chips button").length,
+  }));
+  expect(reading.series, `chart-tour:missing-series ${JSON.stringify(reading)}`).toBeGreaterThan(0);
   await wholeChange(page, "chart-highlight", () =>
     page.locator(".chart-readout li button").first().focus(),
   );

@@ -39,6 +39,9 @@ export const currentChangeKinds = [
   "chart-read",
   "chart-highlight",
   "chart-menu",
+  "graph-select",
+  "graph-metric",
+  "graph-read",
 ] as const;
 export const tourStart = Date.UTC(2026, 9, 7, 23, 58, 10);
 type Input = { page: Page; touch: boolean };
@@ -124,6 +127,26 @@ async function appearance(input: Input, repeat: number) {
     await wholeChange(page, "resize", () => page.setViewportSize({ ...before, width }));
     expect(await page.evaluate(() => matchMedia("(min-width: 768px)").matches)).toBe(width >= 768);
   }
+}
+
+async function contributionChanges(input: Input, repeat: number) {
+  const graph = input.page.getByRole("group", { name: "Contribution metric" });
+  await wholeChange(input.page, "graph-metric", () =>
+    activate(input, graph.getByRole("button", { name: repeat ? "Cost" : "Steps", exact: true })),
+  );
+  const surface = input.page.getByRole("img", { name: "Contribution graph, past 365 local days" });
+  await surface.focus();
+  await wholeChange(input.page, "graph-read", () => surface.press("ArrowLeft"));
+  const readout = input.page.locator(".graph-readout");
+  await wholeChange(input.page, "graph-select", () =>
+    activate(input, readout.getByRole("button", { name: "This day", exact: true })),
+  );
+  await wholeChange(input.page, "graph-select", () =>
+    activate(input, readout.getByRole("button", { name: /^Week / })),
+  );
+  await wholeChange(input.page, "graph-select", () =>
+    activate(input, readout.getByRole("button", { name: /^(September|October)$/ })),
+  );
 }
 
 const write = (server: Server, input: number) => {
@@ -229,6 +252,7 @@ export function changeTour(page: Page, server: Server, guard: Guard, touch: bool
       guard.live(false);
       await rangesAndFilters(input);
       await chartTour(page, touch, repeat);
+      await contributionChanges(input, repeat);
       await appearance(input, repeat);
       await liveChanges(input, server, guard, repeat);
       guard.live(false);
