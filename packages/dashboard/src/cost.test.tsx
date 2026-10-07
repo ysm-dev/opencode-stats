@@ -30,8 +30,8 @@ it("marks estimated Cost visibly and as 'about', presents recorded cost and pric
   );
   const region = await f.view.findByRole("region", { name: "about Cost" });
   expect(region.querySelector("h2")!.textContent).toContain("≈");
-  expect(region.querySelector(".headline-number")!.textContent).toContain("≈ about $2");
-  expect(region.querySelector(".headline-number .sr-only")!.textContent).toBe("about ");
+  expect(region.querySelector('.headline-number [aria-hidden="true"]')!.textContent).toBe("≈ $2");
+  expect(region.querySelector(".headline-number .sr-only")!.textContent).toBe("about $2");
   expect(region.textContent).toContain("$9 recorded cost · 50% of tokens priced");
   expect(region.querySelector(".previous-period")!.textContent).toContain("↑ 100%");
   const mark = region.getAttribute("data-state");

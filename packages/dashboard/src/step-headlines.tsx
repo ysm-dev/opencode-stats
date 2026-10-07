@@ -29,6 +29,17 @@ const number = (value: number | null, digits = 2) =>
   value === null ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: digits });
 const percent = (value: number | null) => (value === null ? "—" : `${number(value * 100)}%`);
 const duration = (value: number | null) => (value === null ? "—" : `${number(value / 1000, 3)} s`);
+const HeadlineText = (props: { text: string; about: boolean }) => (
+  <>
+    <span aria-hidden={props.about || undefined}>
+      {props.about ? "≈ " : ""}
+      {props.text}
+    </span>
+    <Show when={props.about}>
+      <span class="sr-only">about {props.text}</span>
+    </Show>
+  </>
+);
 const Headline = (props: {
   id: string;
   title: string;
@@ -48,18 +59,10 @@ const Headline = (props: {
       data-range={state().address}
     >
       <h2 id={props.id}>
-        <Show when={props.about}>
-          <span aria-hidden="true">≈ </span>
-          <span class="sr-only">about </span>
-        </Show>
-        {props.title}
+        <HeadlineText text={props.title} about={props.about ?? false} />
       </h2>
       <p class="headline-number">
-        <Show when={props.about}>
-          <span aria-hidden="true">≈ </span>
-          <span class="sr-only">about </span>
-        </Show>
-        {props.value}
+        <HeadlineText text={props.value} about={props.about ?? false} />
       </p>
       <Show when={props.line}>
         <p>{props.line}</p>

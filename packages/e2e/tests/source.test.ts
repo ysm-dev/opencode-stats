@@ -48,9 +48,9 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
     const browser = await chromium.launch({ headless: true });
     phase("browser ready");
     try {
-      // Five token kinds (165) plus the nested session's one output token.
+      // Five token kinds (165), one nested output token, and the priced mode's 155 tokens.
       // Missing usage, zero usage, a fork copy and a user message add nothing.
-      await checkOverview(browser, "http://127.0.0.1:5173", "166", phase);
+      await checkOverview(browser, "http://127.0.0.1:5173", "321", phase);
       expect(child.exitCode).toBeNull();
       expect(child.signalCode).toBeNull();
     } finally {
