@@ -99,6 +99,10 @@ it.each([chromium, webkit])(
     await search.fill("not-present");
     expect(await models.locator("[aria-live]").textContent()).toBe("No matches");
     await search.fill("");
+    const axis = page.locator(".chart-y-axis");
+    expect(await axis.textContent()).toContain("0");
+    expect(await axis.locator("span").count()).toBeGreaterThan(1);
+    expect(await axis.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const results = await page.evaluate(() => window.axe.run());
     expect(results.violations).toEqual([]);

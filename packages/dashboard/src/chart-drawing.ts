@@ -128,6 +128,7 @@ export function chartDrawing(
       y: {
         scale: scaleLinear().domain([0, maximum === 0 ? 1 : maximum]),
         axis: {
+          tickLabels: false,
           ticks: {
             format: (value: number) => axisValue(chart.metric, value),
           },

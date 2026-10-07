@@ -28,6 +28,7 @@ import {
 } from "./chart-drawing.ts";
 import { changes, stateMark } from "./change-time.ts";
 import { HeadlineText } from "./step-headlines.tsx";
+import { paintChartAxis } from "./chart-axis.ts";
 
 type ReadState = {
   chart: CompletePage["chart"];
@@ -434,6 +435,7 @@ export const UsageChart = () => {
           gesture = undefined;
         }}
       >
+        <div class="chart-y-axis" aria-hidden="true" />
         <div aria-hidden="true">
           <Chart
             definition={drawing()}
@@ -441,7 +443,12 @@ export const UsageChart = () => {
             height={size().height}
             tabIndex={-1}
             ariaLabel={local().chart.name}
-            onRender={({ svg }) => {
+            onRender={({ svg, scene }) => {
+              paintChartAxis(
+                surface.querySelector(".chart-y-axis")!,
+                scene.scales["y"]!.ticks,
+                scene.height,
+              );
               svg.dataset["state"] = String(stateMark(state()));
               svg.dataset["localState"] = String(stateMark(local()));
               svg.dataset["sizeState"] = String(stateMark(size()));
