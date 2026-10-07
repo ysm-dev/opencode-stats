@@ -1,0 +1,13 @@
+[
+  "CREATE TABLE `dimension_name` (\n\t`code` integer PRIMARY KEY AUTOINCREMENT,\n\t`dimension` text NOT NULL,\n\t`id` text NOT NULL,\n\t`name` text NOT NULL,\n\t`revision` integer NOT NULL\n);\n",
+  "CREATE TABLE `metadata` (\n\t`id` integer PRIMARY KEY,\n\t`version` integer NOT NULL,\n\t`generation` text NOT NULL,\n\t`revision` integer NOT NULL,\n\t`history_complete_from` integer NOT NULL,\n\t`history_complete` integer NOT NULL,\n\t`expired_revision` integer NOT NULL\n);\n",
+  "CREATE TABLE `model_price` (\n\t`id` text PRIMARY KEY,\n\t`name` text NOT NULL,\n\t`price` text\n);\n",
+  "CREATE TABLE `pricing_catalog` (\n\t`id` integer PRIMARY KEY,\n\t`source` text NOT NULL,\n\t`stamp` integer,\n\t`updated_at` integer NOT NULL,\n\t`digest` text\n);\n",
+  "CREATE TABLE `project_fact` (\n\t`id` text PRIMARY KEY,\n\t`name` text,\n\t`worktree` text NOT NULL,\n\t`revision` integer NOT NULL\n);\n",
+  "CREATE TABLE `prompt` (\n\t`id` text PRIMARY KEY,\n\t`session` text NOT NULL,\n\t`position` integer NOT NULL,\n\t`start` integer NOT NULL,\n\t`provider` integer,\n\t`model` integer,\n\t`variant` integer,\n\t`agent` integer,\n\t`project` integer NOT NULL,\n\t`session_code` integer NOT NULL,\n\t`revision` integer NOT NULL\n);\n",
+  "CREATE TABLE `session_fact` (\n\t`id` text PRIMARY KEY,\n\t`parent` text,\n\t`session` text NOT NULL,\n\t`project` text NOT NULL,\n\t`title` text NOT NULL,\n\t`fork` text,\n\t`revision` integer NOT NULL\n);\n",
+  "CREATE TABLE `session_sync` (\n\t`id` text PRIMARY KEY,\n\t`counter` integer,\n\t`message_count` integer NOT NULL,\n\t`highest_position` integer\n);\n",
+  "CREATE TABLE `step` (\n\t`id` text PRIMARY KEY,\n\t`session` text NOT NULL,\n\t`position` integer NOT NULL,\n\t`start` integer NOT NULL,\n\t`stream_end` integer,\n\t`completed` integer,\n\t`error` integer,\n\t`failed` integer NOT NULL,\n\t`interrupted` integer NOT NULL,\n\t`input` integer,\n\t`cache_read` integer,\n\t`cache_write` integer,\n\t`output` integer,\n\t`reasoning` integer,\n\t`recorded_cost` real,\n\t`estimated_cost` real,\n\t`provider` integer,\n\t`model` integer,\n\t`variant` integer NOT NULL,\n\t`agent` integer,\n\t`project` integer NOT NULL,\n\t`session_code` integer NOT NULL,\n\t`subagent` integer,\n\t`revision` integer NOT NULL\n);\n",
+  "CREATE TABLE `tombstone` (\n\t`id` text PRIMARY KEY,\n\t`revision` integer NOT NULL,\n\t`deleted_at` integer NOT NULL\n);\n",
+  "CREATE TABLE `tool_call` (\n\t`id` text PRIMARY KEY,\n\t`step_id` text NOT NULL,\n\t`session` text NOT NULL,\n\t`tool` integer NOT NULL,\n\t`outcome` integer,\n\t`run_start` integer,\n\t`completed` integer,\n\t`revision` integer NOT NULL\n);\n"
+]

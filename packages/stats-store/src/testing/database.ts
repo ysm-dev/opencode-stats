@@ -1,0 +1,280 @@
+import { DatabaseSync } from "node:sqlite";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import schema from "../source-schema/2.0.22.json" with { type: "json" };
+import earliest from "../source-schema/2.0.0.json" with { type: "json" };
+import middle from "../source-schema/2.0.15.json" with { type: "json" };
+import profiles from "../source-schema/profiles.json" with { type: "json" };
+import legacy from "../source-schema/1.4.9.json" with { type: "json" };
+import { toolContent, type SyntheticTool } from "./tools.ts";
+
+export type SyntheticMessage = {
+  readonly id: string;
+  readonly session: string;
+  readonly seq: number;
+  readonly start: number;
+  readonly type?: string;
+  readonly tokens?: {
+    input?: number;
+    output?: number;
+    reasoning?: number;
+    cache?: { read?: number; write?: number };
+  };
+  readonly content?: string;
+  readonly error?: string;
+  readonly streamEnd?: number;
+  readonly completed?: number;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly variant?: string;
+  readonly agent?: string;
+  readonly tools?: readonly SyntheticTool[];
+  readonly cost?: number;
+};
+
+function initializeSyntheticDatabase(filename: string, release: string) {
+  const supported = profiles.releases.find((item) => item.release === release);
+  if (!supported) throw new Error("Unsupported synthetic OpenCode release.");
+  const layout = supported.schema === "2.0.0" ? earliest : release === "2.0.22" ? schema : middle;
+  const db = new DatabaseSync(filename);
+  db.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL");
+  for (const statement of layout.statements) db.exec(statement);
+  db.exec("CREATE TABLE migration(id TEXT PRIMARY KEY, time_completed INTEGER NOT NULL)");
+  for (const id of layout.migrations) db.prepare("INSERT INTO migration VALUES (?,0)").run(id);
+  db.prepare(
+    "INSERT INTO project(id,worktree,time_created,time_updated,sandboxes) VALUES ('synthetic-project','/made-up',0,0,'[]')",
+  ).run();
+  return db;
+}
+
+function schemaWriter(db: DatabaseSync) {
+  return {
+    schema(statement: string) {
+      db.exec(statement);
+    },
+    migration(id: string, present = true) {
+      if (present) db.prepare("INSERT INTO migration VALUES (?,0)").run(id);
+      else db.prepare("DELETE FROM migration WHERE id=?").run(id);
+    },
+    migrate() {
+      db.exec(
+        "BEGIN IMMEDIATE; ALTER TABLE project ADD time_active integer DEFAULT 0 NOT NULL; UPDATE project SET time_active=time_updated",
+      );
+      db.prepare("INSERT INTO migration VALUES (?,0)").run("20260923013825_project_time_active");
+      db.exec("COMMIT");
+    },
+    importMarker(phase: string, cursor?: string) {
+      db.prepare(
+        "INSERT INTO kv(key,value,time_created,time_updated) VALUES ('migration.v1-v2',?,0,0) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      ).run(JSON.stringify({ phase, cursor }));
+    },
+    catalog(value: string | null, updatedAt = 1) {
+      if (value === null) db.prepare("DELETE FROM kv WHERE key='models-dev:catalog'").run();
+      else
+        db.prepare(
+          "INSERT INTO kv(key,value,time_created,time_updated) VALUES ('models-dev:catalog',?,0,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,time_updated=excluded.time_updated",
+        ).run(value, updatedAt);
+    },
+  };
+}
+
+export function syntheticDatabase(filename: string, release = "2.0.22") {
+  const db = initializeSyntheticDatabase(filename, release);
+  let closed = false;
+  const atomic = (session: string, write: () => void) => {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      write();
+      db.prepare(
+        "INSERT INTO event_sequence(aggregate_id,seq) VALUES (?,0) ON CONFLICT(aggregate_id) DO UPDATE SET seq=seq+1",
+      ).run(session);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  };
+  return {
+    ...schemaWriter(db),
+    session(
+      id: string,
+      parent: string | null = null,
+      details: { project?: string; title?: string; fork?: string } = {},
+    ) {
+      atomic(id, () => {
+        db.prepare(
+          "INSERT INTO session_v2(id,project_id,parent_id,title,fork_session_id,slug,directory,version,time_created,time_updated) VALUES (?,?,?,?,?,'synthetic','/made-up',?,0,0)",
+        ).run(
+          id,
+          details.project ?? "synthetic-project",
+          parent,
+          details.title ?? null,
+          details.fork ?? null,
+          release,
+        );
+      });
+    },
+    message(message: SyntheticMessage, advanceCounter = true) {
+      const data = JSON.stringify({
+        time: { created: message.start, streamed: message.streamEnd, completed: message.completed },
+        tokens: message.tokens,
+        content: [
+          { type: "text", text: message.content ?? "SYNTHETIC PRIVATE CONTENT" },
+          ...(message.tools ?? []).map(toolContent),
+        ],
+        cost: message.cost,
+        error:
+          message.error === undefined
+            ? undefined
+            : { type: message.error, message: "SYNTHETIC PRIVATE ERROR" },
+        model: {
+          providerID: message.provider ?? "synthetic-provider",
+          id: message.model ?? "synthetic-model",
+          variant: message.variant,
+        },
+        agent: message.agent ?? "build",
+      });
+      const write = () => {
+        db.prepare(
+          "INSERT INTO session_message VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET time_created=excluded.time_created,time_updated=excluded.time_updated,data=excluded.data",
+        ).run(
+          message.id,
+          message.session,
+          message.type ?? "assistant",
+          message.seq,
+          message.start,
+          message.start,
+          data,
+        );
+      };
+      if (advanceCounter) atomic(message.session, write);
+      else write();
+    },
+    revert(session: string, boundary: number) {
+      atomic(session, () => {
+        db.prepare("DELETE FROM session_message WHERE session_id=? AND seq>=?").run(
+          session,
+          boundary,
+        );
+      });
+    },
+    rewriteWithoutCounter(id: string, data: string) {
+      db.prepare("UPDATE session_message SET data=? WHERE id=?").run(data, id);
+    },
+    positionWithoutCounter(id: string, position: number) {
+      db.prepare("UPDATE session_message SET seq=? WHERE id=?").run(position, id);
+    },
+    reset() {
+      db.exec("BEGIN IMMEDIATE; DELETE FROM session_v2; DELETE FROM event_sequence; COMMIT");
+    },
+    removeCounter(session: string) {
+      db.prepare("DELETE FROM event_sequence WHERE aggregate_id=?").run(session);
+    },
+    sequence(session: string, value: string | number) {
+      db.prepare("UPDATE event_sequence SET seq=? WHERE aggregate_id=?").run(value, session);
+    },
+    deleteSession(session: string) {
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        db.prepare("DELETE FROM session_v2 WHERE id=?").run(session);
+        db.prepare("DELETE FROM event_sequence WHERE aggregate_id=?").run(session);
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+    },
+    fork(origin: string, id: string, suffix = 1) {
+      atomic(id, () => {
+        db.prepare(
+          "INSERT INTO session_v2(id,project_id,fork_session_id,slug,directory,version,time_created,time_updated) SELECT ?,project_id,id,slug,directory,version,time_created,time_updated FROM session_v2 WHERE id=?",
+        ).run(id, origin);
+        db.prepare(
+          "INSERT INTO session_message SELECT CASE WHEN substr(id,1,4)='msg_' AND length(id)>=30 THEN substr(id,1,30) ELSE 'msg_' || substr(id || '00000000000000000000000000',1,26) END || '_' || ?, ?, type,seq,time_created,time_updated,data FROM session_message WHERE session_id=?",
+        ).run(String(suffix), id, origin);
+      });
+    },
+    project(id: string, worktree: string, name: string | null = null) {
+      atomic(id, () => {
+        db.prepare(
+          "INSERT INTO project(id,worktree,name,time_created,time_updated,sandboxes) VALUES (?,?,?,0,0,'[]') ON CONFLICT(id) DO UPDATE SET name=excluded.name,worktree=excluded.worktree",
+        ).run(id, worktree, name);
+      });
+    },
+    move(session: string, project: string) {
+      atomic(project, () => {
+        db.prepare("UPDATE session_v2 SET project_id=? WHERE id=?").run(project, session);
+      });
+    },
+    deleteProject(id: string) {
+      atomic(id, () => {
+        db.prepare("DELETE FROM project WHERE id=?").run(id);
+      });
+    },
+    title(session: string, title: string | null) {
+      db.prepare("UPDATE session_v2 SET title=? WHERE id=?").run(title, session);
+    },
+    archive(session: string) {
+      db.prepare("UPDATE session_v2 SET time_archived=1 WHERE id=?").run(session);
+    },
+    removeTree(session: string, afterDelete: (id: string) => void = () => {}) {
+      const ids = db
+        .prepare(
+          "WITH RECURSIVE tree(id,depth) AS (SELECT id,0 FROM session_v2 WHERE id=? UNION ALL SELECT s.id,tree.depth+1 FROM session_v2 s JOIN tree ON s.parent_id=tree.id) SELECT id FROM tree ORDER BY depth DESC",
+        )
+        .all(session);
+      for (const row of ids) {
+        const id = String(row["id"]);
+        atomic(id, () => {
+          db.prepare("DELETE FROM session_v2 WHERE id=?").run(id);
+        });
+        afterDelete(id);
+      }
+    },
+    close() {
+      if (!closed) {
+        db.close();
+        closed = true;
+      }
+    },
+  };
+}
+
+export function syntheticFixture(release = "2.0.22") {
+  const folder = mkdtempSync(join(tmpdir(), "stats-store-synthetic-"));
+  const source = join(folder, "opencode.db");
+  const writer = syntheticDatabase(source, release);
+  return {
+    folder,
+    source,
+    writer,
+    dispose: () => {
+      writer.close();
+      rmSync(folder, { recursive: true });
+    },
+  };
+}
+
+export function syntheticV1Database(filename: string, incomplete = false) {
+  const db = new DatabaseSync(filename);
+  for (const statement of legacy.statements) db.exec(statement);
+  if (incomplete) db.exec("ALTER TABLE message DROP COLUMN data");
+  db.exec(
+    "CREATE TABLE __drizzle_migrations(id integer PRIMARY KEY, hash text NOT NULL, created_at numeric, name text)",
+  );
+  db.close();
+}
+
+export function streamingFixture() {
+  const fixture = syntheticFixture();
+  fixture.writer.session("ses-live");
+  fixture.writer.message({
+    id: "msg-live",
+    session: "ses-live",
+    seq: 0,
+    start: 1000,
+    tokens: { output: 1 },
+  });
+  return fixture;
+}

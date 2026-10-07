@@ -1,0 +1,24 @@
+diff --git a/effect-sqlite-node/session.d.ts b/effect-sqlite-node/session.d.ts
+--- a/effect-sqlite-node/session.d.ts
++++ b/effect-sqlite-node/session.d.ts
+@@ -13 +13 @@
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+diff --git a/effect-sqlite-bun/session.d.ts b/effect-sqlite-bun/session.d.ts
+--- a/effect-sqlite-bun/session.d.ts
++++ b/effect-sqlite-bun/session.d.ts
+@@ -13 +13 @@
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+diff --git a/sqlite-core/effect/db.d.ts b/sqlite-core/effect/db.d.ts
+--- a/sqlite-core/effect/db.d.ts
++++ b/sqlite-core/effect/db.d.ts
+@@ -25 +25 @@
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+diff --git a/sqlite-core/effect/session.d.ts b/sqlite-core/effect/session.d.ts
+--- a/sqlite-core/effect/session.d.ts
++++ b/sqlite-core/effect/session.d.ts
+@@ -13 +13 @@
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";

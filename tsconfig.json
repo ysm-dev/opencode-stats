@@ -1,7 +1,10 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "allowJs": true,
+    "checkJs": true,
+    "types": ["node"],
+    "lib": ["es2023", "DOM"]
   },
-  "include": ["scripts/**/*.ts", "*.config.ts"]
+  "include": ["scripts/**/*.ts", "scripts/**/*.tsx", "*.config.ts", "*.config.js", ".oxlintrc.ts"]
 }

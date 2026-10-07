@@ -1,0 +1,26 @@
+{
+  "name": "opencode-stats",
+  "version": "0.2.0",
+  "private": true,
+  "bin": {
+    "opencode-stats": "./src/bin.ts"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/main.ts",
+    "./server": "./src/server.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opencode-stats/launcher": "workspace:*"
+  },
+  "devDependencies": {
+    "@opencode-stats/stats-store": "workspace:*",
+    "@opencode/plugin": "2.0.22",
+    "@types/node": "26.6.3",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "./src", "types": [], "lib": ["es2023", "WebWorker"] },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/testing/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.release/**",
+    "**/.dev/**"
+  ]
+}

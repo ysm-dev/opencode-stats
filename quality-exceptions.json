@@ -1,12 +1,32 @@
-{
-  "coverage": [
-    {
-      "path": "packages/cli/src/index.ts",
-      "reason": "Entry shim: reads process.argv and exits. All logic lives in main.ts, which is fully covered.",
-      "added": "2026-09-20"
-    }
-  ],
-  "mutation": [],
-  "duplication": [],
-  "lint": []
-}
+[
+  {
+    "path": "packages/stats-store/src/sync-worker.ts",
+    "gates": ["coverage"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): sync worker global scope selects the Bun database layer and runs the tested worker program. In-thread tests exercise its boundary and Bun contracts exercise native Worker startup.",
+    "added": "2026-10-04"
+  },
+  {
+    "path": "packages/opencode-stats/src/bin.ts",
+    "gates": ["coverage"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): bin argument reader passes argv to the tested standalone program. Installed-tarball smoke tests exercise the Bun shebang and process exit code.",
+    "added": "2026-10-04"
+  },
+  {
+    "path": "packages/dashboard-server/src/process.ts",
+    "gates": ["coverage"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): process entry reads argv and selects Bun adapters. The program and HTTP behavior run on Node; real Bun contracts cover the adapter.",
+    "added": "2026-10-04"
+  },
+  {
+    "path": "packages/dashboard/src/client.tsx",
+    "gates": ["coverage"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): browser entry waits for fonts and mounts the tested dashboard into the document. User-event and axe tests exercise its real components.",
+    "added": "2026-10-04"
+  },
+  {
+    "path": "packages/engine/src/worker.ts",
+    "gates": ["coverage"],
+    "reason": "Maintainer-approved under #27 (issuecomment-5977547319): the dedicated-worker global scope is wired only here; page-client and engine behavior are tested through the in-thread page-worker channel. Real worker startup is an end-to-end seam.",
+    "added": "2026-10-04"
+  }
+]

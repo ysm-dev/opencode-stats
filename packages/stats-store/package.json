@@ -1,0 +1,30 @@
+{
+  "name": "@opencode-stats/stats-store",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/store.ts",
+    "./bun": "./src/runtime.bun.ts",
+    "./node": "./src/runtime.node.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@effect/sql-sqlite-bun": "4.0.0",
+    "@effect/sql-sqlite-node": "4.0.0",
+    "@opencode-stats/browser-copy": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.5-5935859",
+    "effect": "4.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "@types/node": "26.6.3",
+    "drizzle-kit": "1.0.0-rc.5-5935859",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

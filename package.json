@@ -6,34 +6,52 @@
   ],
   "type": "module",
   "scripts": {
-    "ci": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run knip && bun run dup && bun run exceptions && bun run verify-gates && bun run mutate",
+    "native:build": "bun run scripts/native-build.ts",
+    "native:prepare": "bun run scripts/time-budget.ts scripts/native-prepare.ts",
+    "opencode:prepare": "bun run scripts/time-budget.ts scripts/opencode-prepare.ts",
+    "ci": "bun run scripts/time-budget.ts scripts/ci.ts",
+    "ci:checks": "bun run scripts/time-budget.ts scripts/ci.ts checks",
+    "budgets": "bun run scripts/time-budget.ts scripts/check-time-budgets.ts",
     "format": "oxfmt",
-    "format:check": "oxfmt --check",
-    "lint": "oxlint --type-aware --report-unused-disable-directives",
-    "typecheck": "turbo run typecheck && tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --coverage",
-    "knip": "knip && knip --production",
-    "dup": "jscpd",
-    "mutate": "stryker run",
-    "exceptions": "bun run scripts/exceptions.ts",
-    "verify-gates": "bun run scripts/verify-gates.ts",
+    "format:check": "bun run scripts/time-budget.ts oxfmt --check",
+    "lint": "bun run scripts/time-budget.ts oxlint -c .oxlintrc.ts --type-aware --report-unused-disable-directives --deny-warnings",
+    "typecheck": "bun run scripts/time-budget.ts scripts/ci.ts typecheck",
+    "test": "bun run scripts/time-budget.ts vitest run --coverage",
+    "knip": "bun run scripts/time-budget.ts scripts/ci.ts knip",
+    "dup": "bun run scripts/time-budget.ts scripts/ci.ts dup",
+    "exceptions": "bun run scripts/time-budget.ts scripts/exceptions.ts",
+    "shape": "bun run scripts/time-budget.ts scripts/shape.ts",
+    "contracts": "bun run scripts/time-budget.ts scripts/contracts.ts",
+    "dev": "bun run native:prepare && bun run scripts/dev.ts",
+    "dev:plugin": "bun run native:prepare && bun run scripts/dev-plugin.ts",
+    "generate": "bun run scripts/generate.ts",
+    "prices:refresh": "bun run scripts/prices-refresh.ts",
+    "release": "bun run scripts/time-budget.ts scripts/release.ts",
+    "bundle:check": "bun run scripts/time-budget.ts scripts/bundle-check.ts",
+    "e2e": "bun run scripts/time-budget.ts scripts/e2e.ts",
+    "outdated": "bun run scripts/time-budget.ts scripts/ci.ts outdated",
+    "verify-gates": "bun run scripts/time-budget.ts scripts/verify-gates.ts",
     "prepare": "lefthook install"
   },
   "devDependencies": {
-    "@stryker-mutator/core": "10.0.0",
-    "@stryker-mutator/vitest-runner": "10.0.0",
+    "@types/bun": "1.4.2",
     "@types/node": "26.6.3",
-    "@vitest/coverage-v8": "5.0.2",
-    "jscpd": "5.3.3",
-    "knip": "6.38.0",
+    "@types/semver": "7.8.0",
+    "@vitest/coverage-v8": "5.0.3",
+    "drizzle-kit": "1.0.0-rc.5-5935859",
+    "jscpd": "5.4.0",
+    "knip": "6.39.0",
     "lefthook": "2.1.15",
+    "oxc-parser": "0.152.0",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
     "oxlint-plugin-complexity": "3.0.1",
     "oxlint-tsgolint": "7.0.2003",
-    "turbo": "2.11.5",
+    "semver": "7.8.5",
+    "turbo": "2.11.6",
     "typescript": "7.0.2",
-    "vitest": "5.0.2"
+    "vite": "8.3.1",
+    "vitest": "5.0.3"
   },
   "devEngines": {
     "packageManager": {
@@ -43,6 +61,6 @@
     }
   },
   "patchedDependencies": {
-    "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch"
+    "drizzle-orm@1.0.0-rc.5-5935859": "patches/drizzle-orm@1.0.0-rc.5-5935859.patch"
   }
 }

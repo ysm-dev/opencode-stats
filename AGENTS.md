@@ -12,27 +12,42 @@ Default canonical triage labels: needs-triage, needs-info, ready-for-agent, read
 
 Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
+## Subagents
+
+**Start every subagent in a new session on the `openai/gpt-6.1-sol#high` model.** This includes continuing an earlier subagent's work.
+
 ## Quality gates
 
-This repo enforces eight gates. They are not advisory. `bun run ci` runs all of them and CI blocks on it.
+**All CI must run on GitHub-hosted Actions runners, not locally.** This includes `bun run ci` and individual CI gates.
 
-| Gate                  | Threshold      | Enforced by                     |
-| --------------------- | -------------- | ------------------------------- |
-| Cyclomatic complexity | < 22           | oxlint `eslint/complexity`      |
-| Cognitive complexity  | < 22           | `oxlint-plugin-complexity`      |
-| Lines per file        | < 500          | oxlint `eslint/max-lines`       |
-| Test coverage         | 100%, per file | vitest `thresholds.perFile`     |
-| Surviving mutants     | 0              | Stryker `thresholds.break: 100` |
-| Dead code             | 0              | knip                            |
-| Duplicated code       | 0              | jscpd                           |
-| `any` types           | 0              | oxlint `no-explicit-any`        |
+**Five minutes is a hard limit.** The entire public `bun run ci` aggregate, including preparation and final gate verification, shares one external 300-second deadline. Every independently invoked CI stage and GitHub job has the same maximum. The required Quality gates job also rejects a workflow attempt over five minutes end-to-end, including setup and waiting between jobs. Preserve the watchdogs in `scripts/time-budget.ts`, shared Vitest timeouts, Bun test timeout, and workflow `timeout-minutes: 5`; `bun run budgets` checks this configuration. Optimize or isolate parallel work when the limit is hit; preserve the tighter test/hook limits. See README's **Time budgets** for verification.
+
+`bun run ci` runs every gate below, with gate verification last. CI blocks on all of them. Behavioral, unit and property tests enforce 100% per-file coverage. **Mutation testing is retired by maintainer policy; keep this repository free of mutation tests, runners and canaries.**
+
+| Gate                 | Threshold / enforcement                                                                                                              | `bun run`        |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| Formatting           | Clean                                                                                                                                | `format:check`   |
+| Time budgets         | Five-minute job/run maximum; required end-to-end CI budget; explicit test/hook timeouts                                              | `budgets`        |
+| Lint                 | Both complexity measures < 22 via `oxlint-plugin-complexity`; < 500 lines; no `any`; `unknown` only at trust boundaries; no warnings | `lint`           |
+| Types                | Clean                                                                                                                                | `typecheck`      |
+| Coverage             | 100% in all four measures, per file                                                                                                  | `test`           |
+| Dead code            | Normal and `--production --strict`                                                                                                   | `knip`           |
+| Duplication          | Zero                                                                                                                                 | `dup`            |
+| Exceptions           | Reasoned single-line suppressions and human-owned whole-file waivers                                                                 | `exceptions`     |
+| Package shape        | `exports`, `bin`, `types` point into each package's own `src/`                                                                       | `shape`          |
+| Runtime contracts    | Every Bun adapter has nonempty, passing tests on real Bun                                                                            | `contracts`      |
+| Packed tarball       | Dependency-free npm install with scripts off; installed bin and Chromium smoke                                                       | `release`, `e2e` |
+| Dependency freshness | New unheld releases fail after 7 days                                                                                                | `outdated`       |
+| Gate verification    | Planted violations rejected in `.ts` and `.tsx`                                                                                      | `verify-gates`   |
+
+Every gate reads `.ts` and `.tsx`; `dist/`, `.release/` and `.dev/` are artifacts, excluded everywhere. Tests, `testing/` code and contract tests are excluded from coverage by rule, not by waiver. Testing code stays under the other gates and is importable only from tests or testing code.
 
 ### Rules that are easy to get wrong
 
 - **`any` is banned outright.** No exceptions.
-- **`unknown` is allowed only at a trust boundary** — a function taking untrusted input (CLI arguments, parsed JSON, environment variables) and narrowing it before anything downstream sees it. It is banned in every other declared parameter, return, or field type. See `packages/duration/src/parse-duration.ts` for the intended shape.
+- **`unknown` is allowed only at a trust boundary** — a function taking untrusted input (plugin options, CLI arguments, parsed JSON, environment variables) and narrowing it before anything downstream sees it. It is banned in every other declared parameter, return, or field type. See `packages/opencode-stats/src/options.ts` for the intended shape.
 - **Coverage is per file, not global.** A global average is trivially gamed by one large well-covered file.
-- **Untestable code goes in a thin edge file**, not behind a coverage ignore comment. `packages/cli/src/index.ts` is the worked example: all logic lives in `main.ts`, and the shim that reads `process.argv` is the only excused file.
+- **Untestable code goes in a thin edge file**, not behind a coverage ignore comment. `packages/opencode-stats/src/bin.ts` is the worked example: the edge passes `process.argv` to the tested program and sets its exit code.
 
 ### When a gate blocks you
 
@@ -40,8 +55,12 @@ Do **not** delete the test, weaken the type, or inline a duplicate to get green.
 
 Exceptions live in `quality-exceptions.json`, which is owned by a human via CODEOWNERS. You may propose an entry; you cannot land one. Every entry needs a `reason`. Inline suppressions must carry `-- <reason>` and are reported by `bun run exceptions`.
 
+Each manifest entry names one file and its coverage waiver. Those edge files are limited to 30 lines, no branches and no nested functions, and need an exact CODEOWNERS line. Use only reasoned line suppressions or described `@ts-expect-error`; block/blanket disables, `@ts-ignore`, `@ts-nocheck`, coverage ignores and duplication ignores are rejected. The `any` and `no-unsafe-*` rules admit no suppressions.
+
+Dependency updates are manual. `dependency-holds.json` records allowed versions, a reason and the condition for lifting each hold. Install releases at least 3 days old; keep oxfmt updates and their reformatting in a separate change. Add ownership and planted verification whenever a ticket adds a gate file.
+
 A sudden burst of `no-unsafe-*` errors means the TypeScript program is misconfigured, **not** that you should add a disable comment.
 
 ### Package shape
 
-Packages are Just-in-Time: `exports` points at `./src/index.ts`, there is no build step, and relative imports use explicit `.ts` extensions. Do not add a `build` script or emit `dist/` — an unbuilt compiled package makes type-aware lint and knip exit 0 while enforcing nothing.
+Packages are Just-in-Time: exports point at source, and relative imports use explicit `.ts` (or `.tsx`) extensions. No package exports compiled output; only a release bundles into `.release/` (ADR 0012). Package-level build scripts or `dist/` exports make source gates silently enforce nothing.

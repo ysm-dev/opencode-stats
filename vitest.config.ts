@@ -1,15 +1,28 @@
 import { defineConfig } from "vitest/config";
 import exceptions from "./quality-exceptions.json" with { type: "json" };
+import { testTimeouts } from "./scripts/test-timeouts.ts";
 
 export default defineConfig({
   test: {
-    projects: ["packages/*"],
+    ...testTimeouts,
+    globalSetup: [...testTimeouts.globalSetup, "scripts/testing/native-setup.ts"],
+    projects: ["packages/!(e2e)"],
     coverage: {
       provider: "v8",
-      include: ["packages/*/src/**/*.ts"],
-      exclude: ["**/*.test.ts", ...exceptions.coverage.map((entry) => entry.path)],
+      include: ["packages/*/src/**/*.{ts,tsx}", "packages/opencode-stats/server.ts"],
+      exclude: [
+        "**/*.test.{ts,tsx}",
+        "**/testing/**",
+        "**/dist/**",
+        "**/.release/**",
+        "**/.dev/**",
+        ...exceptions
+          .filter((entry) => entry.gates.includes("coverage"))
+          .map((entry) => entry.path),
+      ],
       thresholds: { perFile: true, lines: 100, functions: 100, branches: 100, statements: 100 },
-      reporter: ["text"],
+      reporter: ["text", "json"],
+      reportOnFailure: true,
     },
   },
 });

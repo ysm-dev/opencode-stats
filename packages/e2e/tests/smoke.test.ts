@@ -1,0 +1,313 @@
+import { execFileSync, spawn } from "node:child_process";
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { temporaryPort } from "@opencode-stats/launcher/testing";
+import { once } from "node:events";
+import { syntheticDatabase } from "@opencode-stats/stats-store/testing";
+import { decode } from "@opencode-stats/browser-copy";
+import { chromium } from "playwright";
+import { describe, expect, it, vi } from "vitest";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { createHash } from "node:crypto";
+import sqlite from "../../../native/sqlite/manifest.json" with { type: "json" };
+import { checkEmbedded } from "./testing/embedded.ts";
+import { capture } from "./testing/process.ts";
+import { checkOverview } from "./testing/dashboard.ts";
+import { checkReload, installedStep } from "./testing/reload.ts";
+
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const shell = process.platform === "win32";
+const release = resolve(".release");
+
+describe("installed release", () => {
+  it.each([
+    { state: "live", scenario: "Overview" },
+    { state: "inactive", scenario: "Overview" },
+    { state: "live", scenario: "sync reload" },
+  ])(
+    "installs only our tarball and serves a $state WAL source under --no-install ($scenario)",
+    async ({ state, scenario }) => {
+      const tarballs = (await readdir(release)).filter((file) => file.endsWith(".tgz"));
+      expect(tarballs).toHaveLength(1);
+      const folder = await mkdtemp(join(tmpdir(), "stats-installed-"));
+      let writer: ReturnType<typeof syntheticDatabase> | undefined;
+      await writeFile(join(folder, "package.json"), JSON.stringify({ private: true }));
+      try {
+        execFileSync(
+          npm,
+          [
+            "install",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--package-lock=false",
+            join(release, String(tarballs[0])),
+          ],
+          { cwd: folder, shell },
+        );
+        const installed = join(folder, "node_modules/opencode-stats");
+        expect(
+          (await readdir(join(folder, "node_modules"))).filter((name) => !name.startsWith(".")),
+        ).toEqual(["opencode-stats"]);
+        expect(JSON.parse(await readFile(join(installed, "package.json"), "utf8"))).toMatchObject({
+          name: "opencode-stats",
+          version: "0.2.0",
+          engines: { bun: ">=1.4.2" },
+        });
+        const manifest = await readFile(join(installed, "package.json"), "utf8");
+        for (const field of [
+          "dependencies",
+          "devDependencies",
+          "peerDependencies",
+          "optionalDependencies",
+          "scripts",
+          "private",
+        ])
+          expect(manifest).not.toContain(`"${field}"`);
+        const bin = join(installed, "bin.js");
+        const native = join(installed, "native/sqlite/libsqlite3.dylib");
+        expect(createHash("sha256").update(readFileSync(native)).digest("hex")).toBe(sqlite.sha256);
+        expect(
+          JSON.parse(await readFile(join(installed, "native/sqlite/manifest.json"), "utf8")),
+        ).toEqual(sqlite);
+        const notices = await readFile(join(installed, "THIRD_PARTY_NOTICES.md"), "utf8");
+        expect(notices).toContain("## effect 4.0.0");
+        expect(notices).toContain("## drizzle-orm 1.0.0-rc.5-5935859");
+        expect(notices).toContain("Apache License");
+        expect(notices).toContain("SQLite 3.53.4");
+        expect(notices).toContain("SQLite is in the public domain");
+        expect(notices).toContain("## katex");
+        expect(notices).toContain("SIL OPEN FONT LICENSE Version 1.1");
+        expect(
+          (await readdir(join(installed, "dashboard/assets"))).filter((file) =>
+            file.endsWith(".js"),
+          ),
+        ).toHaveLength(2);
+        for (const name of ["bin", "server", "process", "sync-worker"]) {
+          const code = await readFile(join(installed, `${name}.js`), "utf8");
+          expect(code).toContain("// opencode-stats 0.2.0");
+          expect(code).toContain(`//# sourceMappingURL=${name}.js.map`);
+          expect(
+            JSON.parse(await readFile(join(installed, `${name}.js.map`), "utf8")),
+          ).toHaveProperty("sourcesContent");
+        }
+        expect(await readFile(bin, "utf8")).toMatch(/^#!\/usr\/bin\/env bun\n/u);
+        const command = process.platform === "win32" ? "bun" : bin;
+        const prefix = process.platform === "win32" ? ["--no-install", bin] : [];
+        expect(
+          execFileSync(command, [...prefix, "--version"], { cwd: folder, encoding: "utf8" }),
+        ).toBe("opencode-stats 0.2.0\n");
+        expect(
+          execFileSync(command, [...prefix, "--help"], { cwd: folder, encoding: "utf8" }),
+        ).toBe(
+          "Usage: opencode-stats [--port <n>] [--db <path>] [--no-open] [--help] [--version]\n",
+        );
+        const node = spawn(process.execPath, [bin, "--help"], { cwd: folder });
+        let message = "";
+        node.stderr.on("data", (chunk: Buffer) => {
+          message += chunk.toString();
+        });
+        expect(await once(node, "close")).toEqual([1, null]);
+        expect(message).toBe("opencode-stats needs Bun: run `bunx opencode-stats`\n");
+        const home = join(folder, "home");
+        await mkdir(home, { mode: 0o700 });
+        const missing = join(folder, "missing.db");
+        for (const [database, displayed] of [
+          [missing, missing],
+          [join(realpathSync(home), "missing.db"), "~/missing.db"],
+        ] as const) {
+          const refused = spawn(command, [...prefix, "--db", database], {
+            cwd: folder,
+            env: {
+              ...process.env,
+              HOME: home,
+              USERPROFILE: home,
+              XDG_STATE_HOME: folder,
+              XDG_CACHE_HOME: folder,
+              XDG_DATA_HOME: folder,
+              OPENCODE_CONFIG_DIR: folder,
+            },
+          });
+          const rejected = capture(refused);
+          expect(await rejected.closed).toEqual([1, null]);
+          expect(rejected.transcript.output).toBe("");
+          expect(rejected.transcript.error).toBe(
+            `Can't find the OpenCode database: ${displayed} (from \`--db\`)\nRun OpenCode once, or pass \`--db <path>\`\n`,
+          );
+          expect(existsSync(database)).toBe(false);
+        }
+        const db = syntheticDatabase(join(folder, "synthetic.db"));
+        writer = db;
+        db.session("ses-installed");
+        db.message(installedStep);
+        if (state === "inactive") {
+          db.close();
+          writer = undefined;
+        }
+        expect(existsSync(join(folder, "synthetic.db-wal"))).toBe(state === "live");
+        expect(existsSync(join(folder, "synthetic.db-shm"))).toBe(state === "live");
+        const before = readFileSync(join(folder, "synthetic.db"));
+        const walBefore = state === "live" ? readFileSync(join(folder, "synthetic.db-wal")) : null;
+        const port = await temporaryPort();
+        const origin = `http://127.0.0.1:${port}`;
+        const greeting = `opencode-stats 0.2.0 · ${origin}\nPress Ctrl+C to stop.\n`;
+        const child = spawn(
+          command,
+          [...prefix, "--no-open", "--port", String(port), "--db", join(folder, "synthetic.db")],
+          {
+            cwd: folder,
+            detached: true,
+            env: {
+              ...process.env,
+              OPENCODE_DB: join(folder, "missing-override.db"),
+              HOME: folder,
+              XDG_STATE_HOME: folder,
+              XDG_CACHE_HOME: folder,
+              XDG_DATA_HOME: folder,
+            },
+          },
+        );
+        const { transcript, closed: exit } = capture(child);
+        try {
+          await vi.waitFor(
+            () => expect(transcript.output.slice(0, greeting.length)).toBe(greeting),
+            { timeout: 10000 },
+          );
+          const response = await fetch(`${origin}/api/browser-copy`);
+          expect(response.headers.get("content-type")).toBe("application/octet-stream");
+          const copy = decode(await response.arrayBuffer());
+          expect(Array.from(copy.steps.start)).toEqual([1234567890000]);
+          expect(Array.from(copy.steps.input)).toEqual([1]);
+          expect(Array.from(copy.steps.reasoning)).toEqual([5]);
+          expect(readFileSync(join(folder, "synthetic.db")).equals(before)).toBe(true);
+          expect(
+            walBefore === null || readFileSync(join(folder, "synthetic.db-wal")).equals(walBefore),
+          ).toBe(true);
+          const browser = await chromium.launch({ headless: true });
+          try {
+            if (scenario === "Overview") await checkOverview(browser, origin, "15");
+            else await checkReload(browser, origin, copy, db);
+          } finally {
+            await browser.close();
+          }
+          if (process.platform === "win32") child.kill("SIGINT");
+          else {
+            if (!child.pid) throw new Error("Bin has no process group");
+            process.kill(-child.pid, "SIGINT");
+          }
+          expect(await exit).toEqual([0, null]);
+          const lines = transcript.output.split("\n");
+          expect(lines.slice(0, 2)).toEqual(greeting.trimEnd().split("\n"));
+          expect(lines[2]).toMatch(
+            /^\d{2}:\d{2}:\d{2}  Reading your OpenCode history, newest first…$/u,
+          );
+          expect(lines[3]).toMatch(
+            /^\d{2}:\d{2}:\d{2}  Read 1 sessions and 1 steps in \d+\.\d s\.$/u,
+          );
+          expect(lines.slice(4)).toEqual(["Stopped.", ""]);
+          expect(transcript.error).toBe("");
+          await expect(fetch(origin)).rejects.toThrow("fetch failed");
+          if (process.platform === "darwin")
+            await checkEmbedded(installed, join(folder, "synthetic.db"), folder);
+        } finally {
+          child.kill();
+          await exit;
+        }
+      } finally {
+        writer?.close();
+        await rm(folder, { recursive: true, force: true });
+      }
+    },
+  );
+  it("checks real bundles and rejects planted forbidden imports and bin dependencies", async () => {
+    expect(execFileSync("bun", ["run", "scripts/bundle-check.ts"], { encoding: "utf8" })).toBe(
+      "Bundle imports checked.\n",
+    );
+    const folder = await mkdtemp(join(tmpdir(), "stats-bundle-canary-"));
+    await mkdir(join(folder, "metafiles"));
+    const meta = join(folder, "metafiles");
+    const baseline = {
+      inputs: { "fixture.ts": { imports: [] } },
+      outputs: {
+        "bundle.js": {
+          imports: [{ path: "node:fs", external: true }],
+          inputs: { "fixture.ts": { bytesInOutput: 1 } },
+        },
+      },
+    };
+    const check = () =>
+      execFileSync("bun", ["run", "scripts/bundle-check.ts", meta], {
+        encoding: "utf8",
+        stdio: "pipe",
+      });
+    try {
+      await writeFile(join(meta, "bin.json"), JSON.stringify(baseline));
+      await writeFile(join(meta, "server.json"), JSON.stringify(baseline));
+      await writeFile(join(meta, "process.json"), JSON.stringify(baseline));
+      await writeFile(join(meta, "sync-worker.json"), JSON.stringify(baseline));
+      expect(check()).toBe("Bundle imports checked.\n");
+      const unusedBarrel = {
+        inputs: { "fixture.ts": { imports: [{ path: "./query-effect.js", external: true }] } },
+        outputs: { "bundle.js": { imports: [], inputs: { "fixture.ts": { bytesInOutput: 0 } } } },
+      };
+      await writeFile(join(meta, "sync-worker.json"), JSON.stringify(unusedBarrel));
+      expect(check()).toBe("Bundle imports checked.\n");
+      await writeFile(
+        join(meta, "sync-worker.json"),
+        JSON.stringify({
+          ...unusedBarrel,
+          outputs: {
+            "bundle.js": {
+              imports: [{ path: "./query-effect.js", external: true }],
+              inputs: { "fixture.ts": { bytesInOutput: 0 } },
+            },
+          },
+        }),
+      );
+      expect(check).toThrow("Forbidden external import: ./query-effect.js");
+      await writeFile(
+        join(meta, "sync-worker.json"),
+        JSON.stringify({
+          ...unusedBarrel,
+          outputs: { "bundle.js": { imports: [], inputs: { "fixture.ts": { bytesInOutput: 1 } } } },
+        }),
+      );
+      expect(check).toThrow("Forbidden external import: ./query-effect.js");
+      await writeFile(join(meta, "sync-worker.json"), JSON.stringify(baseline));
+      const importing = (path: string) =>
+        JSON.stringify({
+          ...baseline,
+          outputs: {
+            "bundle.js": { ...baseline.outputs["bundle.js"], imports: [{ path, external: true }] },
+          },
+        });
+      for (const path of ["unbundled-package", "bun:invented", "./leftover.js"]) {
+        await writeFile(join(meta, "process.json"), importing(path));
+        expect(check).toThrow(`Forbidden external import: ${path}`);
+      }
+      await writeFile(join(meta, "process.json"), JSON.stringify(baseline));
+      for (const entry of ["bin", "server"]) {
+        for (const path of [
+          "node_modules/effect/Effect.js",
+          "node_modules/@effect/platform/index.js",
+          "node_modules/drizzle-orm/index.js",
+          "node_modules/sqlite/index.js",
+        ]) {
+          await writeFile(
+            join(meta, `${entry}.json`),
+            JSON.stringify({ ...baseline, inputs: { [path]: { imports: [] } } }),
+          );
+          expect(check).toThrow("Host bundle contains Effect, SQLite or drizzle");
+        }
+        for (const path of ["bun:sqlite", "node:sqlite"]) {
+          await writeFile(join(meta, `${entry}.json`), importing(path));
+          expect(check).toThrow("Host bundle contains Effect, SQLite or drizzle");
+        }
+        await writeFile(join(meta, `${entry}.json`), JSON.stringify(baseline));
+      }
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+});

@@ -1,0 +1,37 @@
+[
+  {
+    "package": "drizzle-orm",
+    "allowedVersions": "1.0.0-rc.5-5935859",
+    "reason": "The Effect SQL integration requires this release candidate and its declaration patch. Lift after a stable release passes the SQL contract and not-any checks."
+  },
+  {
+    "package": "drizzle-kit",
+    "allowedVersions": "1.0.0-rc.5-5935859",
+    "reason": "Matches the held ORM and tested in-process generation; ab785fc imports CockroachArray, absent from that ORM. Lift with the ORM hold after in-process generation and SQL contracts pass."
+  },
+  {
+    "package": "@opencode/ui",
+    "allowedVersions": "2.0.21",
+    "reason": "Tracks OpenCode release numbers, not independent semver compatibility. Lift after testing the next OpenCode UI release across themes and accessibility."
+  },
+  {
+    "package": "@opentui/core",
+    "allowedVersions": "0.5.14",
+    "reason": "OpenCode 2.0.21's root catalog supplies OpenTUI 0.5.14; the TUI must use that tested host version, not bundle its own. Lift when host compatibility is tested with the next version."
+  },
+  {
+    "package": "@opentui/solid",
+    "allowedVersions": "0.5.14",
+    "reason": "OpenCode 2.0.21's root catalog supplies OpenTUI 0.5.14. Must match its core and Solid; lift together after the next host's renderer and footer contracts pass."
+  },
+  {
+    "package": "typescript",
+    "allowedVersions": "7.0.2",
+    "reason": "oxlint-tsgolint 7.0.2003 is built against TypeScript 7.0.2. Lift only when its pin moves and type-aware lint plus type checking pass together."
+  },
+  {
+    "package": "solid-js",
+    "allowedVersions": "1.9.15",
+    "reason": "TanStack Solid packages need Solid 1.9, and OpenCode 2.0.21's root catalog supplies Solid 1.9.15 to the TUI. Lift after both browser and host renderer compatibility pass on the replacement."
+  }
+]

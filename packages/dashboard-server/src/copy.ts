@@ -1,0 +1,37 @@
+import {
+  encode,
+  mapStepFields,
+  mapSessionFields,
+  mapPromptFields,
+  mapToolFields,
+} from "@opencode-stats/browser-copy";
+import type { StoreCopy } from "@opencode-stats/stats-store";
+
+export function encodeStore(copy: StoreCopy): Uint8Array {
+  return new Uint8Array(
+    encode({
+      kind: copy.kind,
+      generation: copy.generation,
+      fromRevision: copy.fromRevision,
+      revision: copy.revision,
+      historyCompleteFrom: copy.historyCompleteFrom,
+      historyComplete: copy.historyComplete,
+      ids: copy.facts.map((fact) => fact.id),
+      promptIds: copy.prompts.map((fact) => fact.id),
+      toolIds: copy.tools.map((fact) => fact.id),
+      tools: mapToolFields((field) => Float64Array.from(copy.tools, (row) => row[field] ?? NaN)),
+      prompts: mapPromptFields((field) =>
+        Float64Array.from(copy.prompts, (row) => row[field] ?? NaN),
+      ),
+      tombstones: copy.tombstones.map((fact) => fact.id),
+      names: copy.names,
+      sessions: mapSessionFields((field) =>
+        Float64Array.from(copy.sessions, (row) => row[field] ?? NaN),
+      ),
+      projects: Float64Array.from(copy.projects),
+      sessionTombstones: Float64Array.from(copy.sessionTombstones),
+      projectTombstones: Float64Array.from(copy.projectTombstones),
+      steps: mapStepFields((field) => Float64Array.from(copy.steps, (row) => row[field] ?? NaN)),
+    }),
+  );
+}

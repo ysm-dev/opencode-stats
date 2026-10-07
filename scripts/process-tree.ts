@@ -1,0 +1,198 @@
+import { spawnSync } from "node:child_process";
+import process from "node:process";
+
+class CleanupFailure extends AggregateError {
+  constructor(failures: Error[], context: string) {
+    super(failures, `${context}: ${failures.map((error) => error.message).join("; ")}`, {
+      cause: failures[0],
+    });
+  }
+}
+
+// Native errors are a trust boundary: report only fixed kinds/codes, never
+// stderr, command arguments, environment values or arbitrary error messages.
+// oxlint-disable-next-line typescript/no-restricted-types -- trust boundary: narrow native process/inventory exceptions to safe codes
+const failureKind = (error: unknown): string => {
+  if (error instanceof CleanupFailure) return error.message;
+  if (!(error instanceof Error)) return "kind=non-Error";
+  if (
+    "code" in error &&
+    typeof error.code === "string" &&
+    [
+      "EACCES",
+      "EBUSY",
+      "EINTR",
+      "EINVAL",
+      "EIO",
+      "ENOENT",
+      "ENOMEM",
+      "EPERM",
+      "ESRCH",
+      "ETIMEDOUT",
+    ].includes(error.code)
+  )
+    return `code=${error.code}`;
+  if (error.message === "Owned process cleanup exceeded its one-second deadline")
+    return "deadline=exhausted";
+  return "kind=Error";
+};
+
+const cleanupTimeout = (deadline: number): number => {
+  const remaining = Math.ceil(deadline - performance.now());
+  if (remaining <= 0) throw new Error("Owned process cleanup exceeded its one-second deadline");
+  return remaining;
+};
+
+const gone = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    return error instanceof Error && "code" in error && error.code === "ESRCH";
+  }
+};
+
+const elevatedSignal = (
+  pid: number,
+  name: NodeJS.Signals,
+  deadline: number,
+  cause: Error,
+): boolean => {
+  const started = performance.now();
+  const result = spawnSync("sudo", ["-n", "--", "/bin/kill", "-s", name, "--", String(pid)], {
+    encoding: "utf8",
+    timeout: cleanupTimeout(deadline),
+  });
+  if (result.error)
+    throw new CleanupFailure(
+      [result.error, cause].map((error) => new Error(failureKind(error), { cause: error })),
+      `signal=${name} helperMs=${Math.round(performance.now() - started)} helper failed`,
+    );
+  if (result.status === 0) return true;
+  if (gone(pid)) return false;
+  throw new CleanupFailure(
+    [new Error(failureKind(cause), { cause })],
+    `signal=${name} helperMs=${Math.round(performance.now() - started)} helperStatus=${result.status}`,
+  );
+};
+
+const signal = (
+  pid: number,
+  name: NodeJS.Signals,
+  deadline: number,
+  descendant = false,
+): boolean => {
+  try {
+    process.kill(pid, name);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ESRCH") return false;
+    if (
+      descendant &&
+      process.platform === "linux" &&
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "EPERM"
+    ) {
+      // Only a child discovered beneath a frozen, owned parent may need the
+      // same noninteractive privilege that preparation used. Never elevate the
+      // initial PID, signal a group, or silently accept a permission failure.
+      return elevatedSignal(pid, name, deadline, error);
+    }
+    throw error;
+  }
+};
+
+export const killProcessTree = (pid: number): void => {
+  if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("Expected a positive process ID");
+  if (process.platform === "win32") {
+    const result = spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+      timeout: 5000,
+    });
+    if (result.error) throw result.error;
+    return;
+  }
+  killOwnedTree(pid, performance.now() + 1000, false);
+};
+
+const terminate = (pid: number, deadline: number, descendant: boolean): void => {
+  try {
+    signal(pid, "SIGKILL", deadline - 200, descendant);
+  } catch (error) {
+    // Never strand a stopped sudo monitor if permission or inventory fails.
+    // A resumed monitor can forward shutdown; the failure still propagates.
+    const failures = [new Error(`signal=SIGKILL ${failureKind(error)}`, { cause: error })];
+    try {
+      signal(pid, "SIGCONT", deadline, descendant);
+    } catch (resumeError) {
+      failures.push(
+        new Error(`signal=SIGCONT ${failureKind(resumeError)}`, { cause: resumeError }),
+      );
+    }
+    throw new CleanupFailure(failures, `Cannot terminate or resume owned PID ${pid}`);
+  }
+};
+
+const childPids = (output: string): number[] => {
+  const children = output.trim().split(/\s+/u).filter(Boolean).map(Number);
+  if (children.some((pid) => !Number.isSafeInteger(pid) || pid <= 0))
+    throw new Error("Invalid child process ID");
+  return children.filter((pid) => pid !== process.pid);
+};
+
+const killOwnedTree = (pid: number, deadline: number, descendant: boolean): void => {
+  // Freeze each parent before discovering its children so it cannot fork past
+  // the snapshot. PPIDs include detached sessions; process groups do not.
+  // The caller cannot fork while this synchronous traversal is running.
+  const failures: Error[] = [];
+  const started = performance.now();
+  let phase = "stop";
+  let inventoryMs = 0;
+  let inventoryStatus: number | null = null;
+  let stopped = false;
+  try {
+    // A privileged helper may apply STOP and then time out: acquisition is
+    // uncertain until it returns, so owned descendants still need recovery.
+    stopped = pid === process.pid || signal(pid, "SIGSTOP", deadline - 400, descendant);
+    if (!stopped) return;
+    phase = "inventory";
+    const inventoryStarted = performance.now();
+    const result = spawnSync("pgrep", ["-P", String(pid)], {
+      encoding: "utf8",
+      // One shared deadline for the whole tree; reserve its final 400ms for
+      // KILL and CONT, including a separate 200ms resume allowance.
+      timeout: cleanupTimeout(deadline - 400),
+    });
+    inventoryMs = Math.round(performance.now() - inventoryStarted);
+    inventoryStatus = result.status;
+    if (result.error) throw result.error;
+    // pgrep exits 1 when the frozen parent has no children.
+    if (result.status !== 0 && result.status !== 1)
+      throw new Error("Cannot inventory test workers");
+    phase = "descendants";
+    for (const child of childPids(result.stdout)) {
+      try {
+        killOwnedTree(child, deadline, true);
+      } catch (error) {
+        failures.push(new Error(failureKind(error), { cause: error }));
+      }
+    }
+  } catch (error) {
+    failures.push(new Error(failureKind(error), { cause: error }));
+  } finally {
+    // Children die before their parent, preserving ancestry until cleanup is done.
+    if (stopped || descendant) {
+      try {
+        terminate(pid, deadline, descendant);
+      } catch (error) {
+        failures.push(new Error(`phase=terminate ${failureKind(error)}`, { cause: error }));
+      }
+    }
+  }
+  if (failures.length)
+    throw new CleanupFailure(
+      failures,
+      `Owned process cleanup failed PID=${pid} phase=${phase} elapsedMs=${Math.round(performance.now() - started)} remainingMs=${Math.floor(deadline - performance.now())} inventoryMs=${inventoryMs} inventoryStatus=${inventoryStatus}`,
+    );
+};
