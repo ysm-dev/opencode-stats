@@ -8,6 +8,7 @@ import {
 } from "@opencode-stats/browser-copy/testing";
 import { inThreadEngine, manualClock } from "@opencode-stats/engine/testing";
 import { Dashboard } from "./dashboard.tsx";
+import { initialMedia } from "./media-size.tsx";
 import { dashboardEnvironment } from "./testing/environment.ts";
 
 it("does not mutate the announced partial-history warning when pause, resume or regional clocks change its displayed line", async () => {
@@ -22,7 +23,9 @@ it("does not mutate the announced partial-history warning when pause, resume or 
   const clock = manualClock();
   let zone = "UTC";
   const engine = inThreadEngine(server.fetch, queueMicrotask, { ...clock, timeZone: () => zone });
-  const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+  const view = render(() => (
+    <Dashboard client={engine.client} ready={Promise.resolve()} media={() => initialMedia} />
+  ));
   let observer: MutationObserver | undefined;
   try {
     await view.findByRole("heading", { name: "Overview" });

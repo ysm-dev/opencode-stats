@@ -8,6 +8,7 @@ import {
 } from "@opencode-stats/browser-copy/testing";
 import { inThreadEngine, manualClock } from "@opencode-stats/engine/testing";
 import { Dashboard } from "./dashboard.tsx";
+import { initialMedia } from "./media-size.tsx";
 import { dashboardEnvironment } from "./testing/environment.ts";
 import { accessible } from "./testing/accessibility.ts";
 
@@ -17,7 +18,9 @@ it("the status line, warning dot, announcement and numbers carry one whole state
   const server = inMemoryDashboardServer(syntheticCopy([step]));
   const clock = manualClock();
   const engine = inThreadEngine(server.fetch, queueMicrotask, clock);
-  const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+  const view = render(() => (
+    <Dashboard client={engine.client} ready={Promise.resolve()} media={() => initialMedia} />
+  ));
   try {
     await view.findByRole("heading", { name: "Overview" });
     await vi.waitFor(() => expect(server.streams).toBe(1));

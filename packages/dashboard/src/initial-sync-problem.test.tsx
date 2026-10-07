@@ -7,6 +7,7 @@ import {
 } from "@opencode-stats/browser-copy/testing";
 import { inThreadEngine, manualClock } from "@opencode-stats/engine/testing";
 import { Dashboard } from "./dashboard.tsx";
+import { initialMedia } from "./media-size.tsx";
 import { dashboardEnvironment } from "./testing/environment.ts";
 import { accessible } from "./testing/accessibility.ts";
 
@@ -35,7 +36,9 @@ it.each([
     );
     server.status(stop);
     const engine = inThreadEngine(server.fetch, queueMicrotask, manualClock());
-    const view = render(() => <Dashboard client={engine.client} ready={Promise.resolve()} />);
+    const view = render(() => (
+      <Dashboard client={engine.client} ready={Promise.resolve()} media={() => initialMedia} />
+    ));
     try {
       await view.findByRole("heading", { name: "Can't load the dashboard" });
       expect(view.getByRole("status").textContent).toContain(text);
