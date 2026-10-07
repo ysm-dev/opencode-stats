@@ -82,13 +82,11 @@ it.each(["plain", "yellow", "no-color", "plugin"])(
       const after = decode(await (await fetch(`${origin}/api/browser-copy`)).arrayBuffer());
       expect([...after.steps.input]).toEqual([9]);
       const stderr = errors.mock.calls.map(([line]) => String(line)).join("");
-      if (mode === "plugin") expect(stderr).toBe("");
-      else {
-        expect(stderr.match(/Not updating:/gu)).toHaveLength(1);
-        expect(stderr.match(/Up to date again\./gu)).toHaveLength(1);
-        expect(stderr).toContain("run bunx opencode-stats@latest");
-        expect(stderr.includes("\u001b[33m")).toBe(mode === "yellow");
-      }
+      expect(stderr === "").toBe(mode === "plugin");
+      expect(stderr.match(/Not updating:/gu) ?? []).toHaveLength(mode === "plugin" ? 0 : 1);
+      expect(stderr.match(/Up to date again\./gu) ?? []).toHaveLength(mode === "plugin" ? 0 : 1);
+      expect(stderr.includes("run bunx opencode-stats@latest")).toBe(mode !== "plugin");
+      expect(stderr.includes("\u001b[33m")).toBe(mode === "yellow");
       const log = readFileSync(join(f.folder, "opencode-stats/server.log"), "utf8");
       for (const event of ["schema.checked", "sync.stopped", "sync.resumed"])
         expect(log).toContain(`event=${event}`);

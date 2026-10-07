@@ -130,6 +130,28 @@ export const initializeStore = Effect.fnUntraced(function* (
   );
 });
 
+const reportConsistency = Effect.fnUntraced(function* (
+  inventory: ReadonlyArray<SourceSession>,
+  saved: ReadonlyMap<string, typeof sessions.$inferSelect>,
+  report: BuildReport,
+) {
+  for (const session of inventory) {
+    const old = saved.get(session.id);
+    if (
+      old &&
+      (old.messageCount !== session.messageCount || old.highestPosition !== session.highestPosition)
+    )
+      yield* report({
+        kind: "consistency.difference",
+        session: session.id,
+        expectedCount: old.messageCount,
+        actualCount: session.messageCount,
+        expectedPosition: old.highestPosition,
+        actualPosition: session.highestPosition,
+      });
+  }
+});
+
 const reconciliationPlan = Effect.fnUntraced(function* (
   inventory: ReadonlyArray<SourceSession>,
   projects: ReadonlyArray<SourceProject>,
@@ -140,19 +162,7 @@ const reconciliationPlan = Effect.fnUntraced(function* (
   const db = yield* Database;
   const saved = yield* db.select().from(sessions);
   const savedById = new Map(saved.map((row) => [row.id, row]));
-  if (checkBounds)
-    for (const session of inventory) {
-      const old = savedById.get(session.id);
-      if (old && (old.messageCount !== session.messageCount || old.highestPosition !== session.highestPosition))
-        yield* report({
-          kind: "consistency.difference",
-          session: session.id,
-          expectedCount: old.messageCount,
-          actualCount: session.messageCount,
-          expectedPosition: old.highestPosition,
-          actualPosition: session.highestPosition,
-        });
-    }
+  if (checkBounds) yield* reportConsistency(inventory, savedById, report);
   const details = yield* db.select().from(sessionFacts);
   const savedProjects = yield* db.select().from(projectFacts);
   const detailsById = new Map(details.map((row) => [row.id, row]));

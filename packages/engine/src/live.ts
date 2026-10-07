@@ -138,7 +138,10 @@ export function createLiveEngine(
       if (newer || current.opening)
         await apply(current, wanted.generation === before?.generation ? before : undefined);
       if (session !== current) return;
-      if ("stop" in wanted) status.syncStop(wanted.stop ?? null);
+      // Recovery belongs to the paint that can expose the recovered copy, not
+      // to an incoming generation whose history still fails today's barrier.
+      if ("stop" in wanted && (wanted.stop || copies.canPaint()))
+        status.syncStop(wanted.stop ?? null);
       current.opening = false;
       if (newer && before) status.wrote();
       status.connected();

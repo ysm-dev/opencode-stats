@@ -39,6 +39,9 @@ it.each([
   [13, "SQLITE_FULL"],
   [14, "SQLITE_CANTOPEN"],
   [261, "SQLITE_BUSY"],
+  [267, "SQLITE_CORRUPT"],
+  [282, "SQLITE_NOTADB"],
+  [266, "SQLITE_IOERR"],
   [1, "SQLITE_ERROR"],
 ])("narrows Node SQLite damage code %i without the native error message", (errcode, code) => {
   const failure = sqlFailure(

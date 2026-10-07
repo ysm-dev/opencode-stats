@@ -187,6 +187,14 @@ it("a stopped incoming generation warns over the retained page, without crossing
       liveLabel: "Not updating",
     }),
   );
+  f.server.status(null);
+  await f.clock.advance(60);
+  expect(f.states.at(-1)).toMatchObject({
+    generation: initial.screen === "dashboard" ? initial.generation : "",
+    tokens: { total: 10 },
+    liveLabel: "Not updating",
+    stop: { reason: "schema.newer" },
+  });
   f.server.commit(
     syntheticCopy([{ ...f.facts[0]!, input: 20 }], { generation: "replacement", revision: 2 }),
   );

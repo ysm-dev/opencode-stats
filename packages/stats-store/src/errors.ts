@@ -57,16 +57,14 @@ export function sqlFailure(
       [5, "SQLITE_BUSY"],
       [6, "SQLITE_LOCKED"],
       [8, "SQLITE_READONLY"],
+      [10, "SQLITE_IOERR"],
+      [11, "SQLITE_CORRUPT"],
       [13, "SQLITE_FULL"],
       [14, "SQLITE_CANTOPEN"],
+      [26, "SQLITE_NOTADB"],
     ]).get(nativeCode & 255);
     if (mapped) return new SqlFailure(mapped, statement);
   }
-  // node:sqlite uses ERR_SQLITE_ERROR for both; the numeric code distinguishes damage.
-  if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 11)
-    return new SqlFailure("SQLITE_CORRUPT", statement);
-  if (Object.getOwnPropertyDescriptor(input, "errcode")?.value === 26)
-    return new SqlFailure("SQLITE_NOTADB", statement);
   for (const code of codes)
     if (
       Object.getOwnPropertyDescriptor(input, "code")?.value === code ||

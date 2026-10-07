@@ -68,15 +68,15 @@ it.each(
             (copy) => copies.push(copy),
             (event) => reports.push(event),
           );
-          if (before) {
-            expect(copies[0]!.facts).toEqual(before.facts);
-            expect((yield* store.read()).generation).toBe(before.generation);
-          } else
-            expect(copies[0]).toMatchObject({ revision: 0, historyComplete: false, facts: [] });
+          expect(copies[0]).toMatchObject(
+            before ?? { revision: 0, historyComplete: false, facts: [] },
+          );
           f.writer.message({ ...message, tokens: { output: 9 } });
           yield* time.tick;
-          if (before) expect((yield* store.read()).steps[0]!.output).toBe(7);
-          else expect(copies).toHaveLength(1);
+          const held = before ? yield* store.read() : copies[0]!;
+          expect(held.generation).toBe(copies[0]!.generation);
+          expect(held.steps[0]?.output).toBe(before ? 7 : undefined);
+          expect(copies).toHaveLength(1);
           expect(reports.filter((event) => event.kind === "sync.stopped")).toEqual([
             expect.objectContaining({
               reason: "store.unwritable",
@@ -86,8 +86,7 @@ it.each(
           denied.active = false;
           yield* time.tick;
           const restored = yield* store.read();
-          if (before) expect(restored.generation).toBe(before.generation);
-          else expect(restored.generation).not.toBe(copies[0]!.generation);
+          expect(restored.generation === copies[0]!.generation).toBe(cached);
           expect(restored.steps[0]!.output).toBe(9);
           expect(reports).toContainEqual(
             expect.objectContaining({ kind: "sync.resumed", reason: "store.unwritable" }),
