@@ -7,10 +7,38 @@ import * as HttpApiSchema from "effect/http-api/HttpApiSchema";
 const revision = Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0));
 export const Cursor = Schema.Struct({ generation: Schema.NonEmptyString, revision });
 export type CopyCursor = typeof Cursor.Type;
-export const LiveAnnouncement = Schema.Union([
-  Schema.Struct({ ...Cursor.fields, release: Schema.NonEmptyString, format: Schema.Int }),
-  Cursor,
-]);
+export const SyncStop = Schema.Struct({
+  since: revision,
+  reason: Schema.Literals([
+    "schema.newer",
+    "schema.v1",
+    "schema.other",
+    "source.missing",
+    "source.unreadable",
+    "source.locked",
+    "store.unwritable",
+  ]),
+  params: Schema.Struct({
+    release: Schema.String,
+    mode: Schema.Literals(["plugin", "terminal"]),
+    database: Schema.String,
+    source: Schema.String,
+    cache: Schema.String,
+    code: Schema.Literals(["permission", "damaged", "full", "unavailable", "locked"]),
+    lockedSince: revision,
+  }),
+});
+export type SyncStop = typeof SyncStop.Type;
+export const LiveAnnouncement = Schema.Struct({
+  ...Cursor.fields,
+  release: Schema.optionalKey(Schema.NonEmptyString),
+  format: Schema.optionalKey(Schema.Int),
+  stop: Schema.optionalKey(Schema.NullOr(SyncStop)),
+}).check(
+  Schema.makeFilter((event) => (event.release === undefined) === (event.format === undefined), {
+    message: "Incomplete live-stream version",
+  }),
+);
 export type LiveAnnouncement = typeof LiveAnnouncement.Type;
 
 const copyGroup = HttpApiGroup.make("browserCopy").add(
@@ -31,3 +59,4 @@ const copyGroup = HttpApiGroup.make("browserCopy").add(
 
 export const BrowserCopyApi = HttpApi.make(copyGroup.identifier).add(copyGroup);
 export { createLiveFeed } from "./live.ts";
+export { stopReason } from "./stop-reason.ts";

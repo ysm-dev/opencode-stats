@@ -47,8 +47,9 @@ it("opens with protocol versions and retains only the latest revision for a slow
         revision: 1,
         release: "test-release",
         format: formatVersion,
+        stop: null,
       },
-      { generation: original.generation, revision: 100 },
+      { generation: original.generation, revision: 100, stop: null },
     ]);
   } finally {
     release.resolve();

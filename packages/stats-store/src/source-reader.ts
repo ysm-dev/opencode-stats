@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 import * as Schedule from "effect/Schedule";
 import { sqlFailure } from "./errors.ts";
 import { SourceTool, toolsSql } from "./source-tools.ts";
+import { schemaReader } from "./source-schema.ts";
 
 const instant = Schema.Number.check(Schema.isInt());
 const nullable = Schema.NullOr(instant);
@@ -60,9 +61,10 @@ export type NativeReader = {
   exec(sql: string): void;
 };
 const inventorySql = `SELECT s.id, s.parent_id AS parent, s.project_id AS project, s.title, s.fork_session_id AS fork, e.seq AS counter,
-  count(m.id) AS messageCount, max(m.seq) AS highestPosition, max(m.time_created) AS latest
-  FROM session_v2 s LEFT JOIN event_sequence e ON e.aggregate_id=s.id
-  LEFT JOIN session_message m ON m.session_id=s.id GROUP BY s.id`;
+  (SELECT count(*) FROM session_message INDEXED BY session_message_session_seq_idx WHERE session_id=s.id) AS messageCount,
+  (SELECT max(seq) FROM session_message INDEXED BY session_message_session_seq_idx WHERE session_id=s.id) AS highestPosition,
+  (SELECT max(time_created) FROM session_message INDEXED BY session_message_session_time_created_id_idx WHERE session_id=s.id) AS latest
+  FROM session_v2 s LEFT JOIN event_sequence e ON e.aggregate_id=s.id`;
 // Scalar paths verified against OpenCode 2.0.22, d259ae716379a67bcc35943ba75590f1fc7a1b26,
 // packages/schema/src/session-message.ts: model reference, error type and stream-end time.
 // Exclude copy-shaped IDs before evaluating their JSON, even after a bad rewrite.
@@ -102,7 +104,9 @@ function readTransaction<A>(db: NativeReader, read: () => A): A {
 }
 export function sourceReader(db: NativeReader) {
   db.exec("PRAGMA busy_timeout=20");
+  const schema = schemaReader(db);
   return {
+    schema: attempt(() => readTransaction(db, schema)),
     catalogStamp: attempt(() => {
       const row = db.all("SELECT time_updated FROM kv WHERE key='models-dev:catalog'")[0];
       return row ? Schema.decodeUnknownSync(instant)(row["time_updated"]) : null;
@@ -128,7 +132,7 @@ export function sourceReader(db: NativeReader) {
       attempt(() => {
         // Native synchronous calls: the snapshot ends before decoding, retries, store writes or IPC.
         const { rows, headers, prompts, tools } = readTransaction(db, () => ({
-          headers: db.all(inventorySql.replace("GROUP BY s.id", "WHERE s.id=? GROUP BY s.id"), id),
+          headers: db.all(`${inventorySql} WHERE s.id=?`, id),
           rows: db.all(factsSql, id),
           prompts: db.all(promptsSql, id),
           tools: db.all(toolsSql(factsSql), id),

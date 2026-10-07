@@ -14,11 +14,13 @@ export const replaceTools = Effect.fnUntraced(function* (
 ) {
   const db = yield* Database;
   const previous = yield* db.select().from(tools).where(eq(tools.session, session));
+  let changed = false;
   const keys = ["stepId", "tool", "outcome", "runStart", "completed"] as const;
   for (const call of calls) {
     const row = { ...call, tool: (yield* code("tool", call.tool))! };
     const old = previous.find((value) => value.id === row.id);
     if (old && keys.every((key) => old[key] === row[key])) continue;
+    changed = true;
     yield* db
       .insert(tools)
       .values({ ...row, revision })
@@ -30,10 +32,12 @@ export const replaceTools = Effect.fnUntraced(function* (
   }
   for (const old of previous) {
     if (calls.some((call) => call.id === old.id)) continue;
+    changed = true;
     yield* db.delete(tools).where(eq(tools.id, old.id));
     yield* db
       .insert(tombstones)
       .values({ id: old.id, revision, deletedAt: now })
       .onConflictDoUpdate({ target: tombstones.id, set: { revision, deletedAt: now } });
   }
+  return changed;
 });

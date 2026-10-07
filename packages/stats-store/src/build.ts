@@ -12,6 +12,7 @@ import { owningSession, sessionDetails, detailKeys, makeDimensions } from "./dim
 import statements from "./statements.json" with { type: "json" };
 import { commitUnit } from "./write-facts.ts";
 import type { StepPricer } from "./pricing.ts";
+import type { BuildReport } from "./build-events.ts";
 
 const { metadata, sessions, sessionFacts, projectFacts, tombstones } = schema;
 
@@ -129,14 +130,39 @@ export const initializeStore = Effect.fnUntraced(function* (
   );
 });
 
+const reportConsistency = Effect.fnUntraced(function* (
+  inventory: ReadonlyArray<SourceSession>,
+  saved: ReadonlyMap<string, typeof sessions.$inferSelect>,
+  report: BuildReport,
+) {
+  for (const session of inventory) {
+    const old = saved.get(session.id);
+    if (
+      old &&
+      (old.messageCount !== session.messageCount || old.highestPosition !== session.highestPosition)
+    )
+      yield* report({
+        kind: "consistency.difference",
+        session: session.id,
+        expectedCount: old.messageCount,
+        actualCount: session.messageCount,
+        expectedPosition: old.highestPosition,
+        actualPosition: session.highestPosition,
+      });
+  }
+});
+
 const reconciliationPlan = Effect.fnUntraced(function* (
   inventory: ReadonlyArray<SourceSession>,
   projects: ReadonlyArray<SourceProject>,
   checkBounds: boolean,
+  forced: Set<string>,
+  report: BuildReport,
 ) {
   const db = yield* Database;
   const saved = yield* db.select().from(sessions);
   const savedById = new Map(saved.map((row) => [row.id, row]));
+  if (checkBounds) yield* reportConsistency(inventory, savedById, report);
   const details = yield* db.select().from(sessionFacts);
   const savedProjects = yield* db.select().from(projectFacts);
   const detailsById = new Map(details.map((row) => [row.id, row]));
@@ -157,6 +183,7 @@ const reconciliationPlan = Effect.fnUntraced(function* (
         const before = detailsById.get(session.id);
         return (
           !old ||
+          forced.has(session.id) ||
           detailKeys.some((key) => before![key] !== detail[key]) ||
           old.counter !== session.counter ||
           (checkBounds &&
@@ -194,11 +221,17 @@ export const reconcile = Effect.fnUntraced(
     checkBounds: boolean,
     pricer: StepPricer,
     sourceVersion: number,
+    forced: Set<string> = new Set(),
+    reread: Set<string> = new Set(),
+    differing: Set<string> = new Set(),
+    report: BuildReport = () => Effect.void,
   ) {
     const { byId, pending, removed, ordered, saved, initialCommit } = yield* reconciliationPlan(
       inventory,
       projects,
       checkBounds,
+      forced,
+      report,
     );
     const registry = yield* makeDimensions();
     if (initialCommit) {
@@ -229,7 +262,7 @@ export const reconcile = Effect.fnUntraced(
             Number.isFinite(remaining.latest) &&
             remaining.sessions.some((session) => !saved.has(session.id)),
         );
-      yield* commitUnit(
+      const result = yield* commitUnit(
         snapshots,
         undefined,
         now,
@@ -239,8 +272,11 @@ export const reconcile = Effect.fnUntraced(
         registry,
         !initialCommit && index === 0,
         pricer,
+        snapshots.some((snapshot) => forced.has(snapshot.id)),
       );
-      yield* announce();
+      for (const snapshot of snapshots) if (forced.delete(snapshot.id)) reread.add(snapshot.id);
+      for (const id of result.changed) differing.add(id);
+      if (result.committed) yield* announce();
       yield* Effect.yieldNow;
       if ((yield* reader.version) !== sourceVersion) return true;
     }

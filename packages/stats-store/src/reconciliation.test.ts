@@ -7,8 +7,8 @@ import { sync } from "./sync.ts";
 import { storePaths } from "./location.ts";
 import { readBuilt, syntheticFixture } from "./testing/index.ts";
 import { runWithClock } from "./testing/clock.ts";
-import * as TestClock from "effect/testing/TestClock";
-import { stayInSync } from "./store.ts";
+import type { StoreEvent } from "./store.ts";
+import type { StoreRuntime } from "./database.ts";
 
 it("builds a session and its nested subagents as one unit, and keeps orphan history", async () => {
   const fixture = syntheticFixture();
@@ -79,9 +79,14 @@ it("retains writes racing a build and tolerates a pending session vanishing befo
 
 it("normalizes a source open failure after path resolution without creating a replacement", async () => {
   const fixture = syntheticFixture();
-  const runtime = {
+  const events: StoreEvent[] = [];
+  const runtime: StoreRuntime = {
     ...nodeRuntime,
-    worker: (paths: Parameters<typeof nodeRuntime.worker>[0]) =>
+    worker: (
+      paths: Parameters<typeof nodeRuntime.worker>[0],
+      announce = () => Effect.void,
+      report = () => Effect.void,
+    ) =>
       sync(
         paths,
         nodeDatabase,
@@ -89,13 +94,21 @@ it("normalizes a source open failure after path resolution without creating a re
           renameSync(fixture.source, `${fixture.source}.away`);
           return nodeSource(filename);
         },
-        () => Effect.void,
+        announce,
+        report,
       ),
   };
   try {
-    await expect(
-      readBuilt({ source: fixture.source, cacheHome: fixture.folder }, () => {}, runtime),
-    ).rejects.toMatchObject({ code: "SQLITE_ERROR", statement: "readSource" });
+    const copy = await readBuilt(
+      { source: fixture.source, cacheHome: fixture.folder },
+      () => {},
+      runtime,
+      (event) => events.push(event),
+    );
+    expect(copy.steps).toEqual([]);
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: "sync.stopped", reason: "source.unreadable" }),
+    );
     expect(existsSync(fixture.source)).toBe(false);
   } finally {
     renameSync(`${fixture.source}.away`, fixture.source);
@@ -105,6 +118,7 @@ it("normalizes a source open failure after path resolution without creating a re
 
 it("reconciles count and highest-position changes even when a source writer missed its session counter", async () => {
   const fixture = syntheticFixture();
+  const reports: StoreEvent[] = [];
   const { writer, source, folder } = fixture;
   writer.session("ses-counter");
   writer.message({
@@ -118,7 +132,12 @@ it("reconciles count and highest-position changes even when a source writer miss
     await runWithClock((time) =>
       Effect.gen(function* () {
         time.setTime(100000);
-        const store = yield* observedStore({ source, cacheHome: folder }, nodeRuntime);
+        const store = yield* observedStore(
+          { source, cacheHome: folder },
+          nodeRuntime,
+          () => {},
+          (event) => reports.push(event),
+        );
         writer.message(
           {
             id: "msg-unsignalled",
@@ -149,6 +168,24 @@ it("reconciles count and highest-position changes even when a source writer miss
           [0, 2],
           [3, 3],
         ]);
+        expect(reports.filter((event) => event.kind === "consistency.difference")).toEqual([
+          {
+            kind: "consistency.difference",
+            session: "ses-counter",
+            expectedCount: 1,
+            actualCount: 2,
+            expectedPosition: 1,
+            actualPosition: 1,
+          },
+          {
+            kind: "consistency.difference",
+            session: "ses-counter",
+            expectedCount: 2,
+            actualCount: 2,
+            expectedPosition: 1,
+            actualPosition: 3,
+          },
+        ]);
       }),
     );
   } finally {
@@ -158,16 +195,24 @@ it("reconciles count and highest-position changes even when a source writer miss
 
 it("a source disappearing before the worker opens is a safe readSource failure", async () => {
   const fixture = syntheticFixture();
+  const events: StoreEvent[] = [];
   try {
-    await expect(
-      readBuilt({ source: fixture.source, cacheHome: fixture.folder }, () => {}, {
+    const copy = await readBuilt(
+      { source: fixture.source, cacheHome: fixture.folder },
+      () => {},
+      {
         ...nodeRuntime,
-        worker: (paths, announce = () => Effect.void) => {
+        worker: (paths, announce = () => Effect.void, report) => {
           renameSync(fixture.source, `${fixture.source}.away`);
-          return nodeRuntime.worker(paths, announce);
+          return nodeRuntime.worker(paths, announce, report);
         },
-      }),
-    ).rejects.toMatchObject({ statement: "readSource", code: "UNEXPECTED" });
+      },
+      (event) => events.push(event),
+    );
+    expect(copy.steps).toEqual([]);
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: "sync.stopped", reason: "source.missing" }),
+    );
   } finally {
     renameSync(`${fixture.source}.away`, fixture.source);
     fixture.dispose();
@@ -197,7 +242,7 @@ it("the Node worker adapter also builds when its caller needs no commit callback
 });
 
 it.each(["counter", "usage"])(
-  "rejects unsafe %s scalars immediately, never backing off a non-busy failure",
+  "stops for unsafe %s scalars immediately, never backing off a non-busy failure",
   async (scalar) => {
     const fixture = syntheticFixture();
     const { writer, source, folder } = fixture;
@@ -210,14 +255,19 @@ it.each(["counter", "usage"])(
       tokens: { output: scalar === "usage" ? -1 : 1 },
     });
     if (scalar === "counter") writer.sequence("ses-invalid", "SYNTHETIC PRIVATE COUNTER");
+    const events: StoreEvent[] = [];
     try {
-      await expect(
-        Effect.runPromise(
-          Effect.scoped(stayInSync({ source, cacheHome: folder }, nodeRuntime, () => {})).pipe(
-            Effect.provide(TestClock.layer()),
-          ),
-        ),
-      ).rejects.toMatchObject({ message: "Stats store build failed.", statement: "readSource" });
+      const copy = await readBuilt(
+        { source, cacheHome: folder },
+        () => {},
+        nodeRuntime,
+        (event) => events.push(event),
+      );
+      expect(copy.steps).toEqual([]);
+      expect(events).toContainEqual(
+        expect.objectContaining({ kind: "sync.stopped", reason: "source.unreadable" }),
+      );
+      expect(JSON.stringify(events)).not.toContain("SYNTHETIC PRIVATE");
       writer.sequence("ses-invalid", 0);
       writer.message({
         id: "msg-invalid",
@@ -247,6 +297,7 @@ it("a genuine failed fact write retains the previous copy and reports the decide
   writer.message({ id: "msg-write-error", session: "ses-write-error", seq: 0, start: 1 });
   try {
     const initial = await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime);
+    const events: StoreEvent[] = [];
     writer.message({
       id: "msg-write-error",
       session: "ses-write-error",
@@ -254,30 +305,26 @@ it("a genuine failed fact write retains the previous copy and reports the decide
       start: 1,
       tokens: { output: 9 },
     });
-    await expect(
-      readBuilt({ source, cacheHome: folder }, () => {}, {
+    const held = await readBuilt(
+      { source, cacheHome: folder },
+      () => {},
+      {
         ...nodeRuntime,
-        worker: (paths, announce = () => Effect.void) =>
+        worker: (paths, announce = () => Effect.void, report) =>
           sync(
             paths,
             (config) => nodeDatabase({ ...config, readonly: true }),
             nodeSource,
             announce,
+            report,
           ),
-      }),
-    ).rejects.toMatchObject({
-      kind: "sqlite",
-      statement: "writeSteps",
-      code: "SQLITE_READONLY",
-      message: "Stats store build failed.",
-    });
-    const retained = await readBuilt({ source, cacheHome: folder }, () => {}, {
-      ...nodeRuntime,
-      worker: () => Effect.void,
-    });
-    expect(retained.generation).toBe(initial.generation);
-    expect(retained.revision).toBe(initial.revision);
-    expect(retained.facts).toEqual(initial.facts);
+      },
+      (event) => events.push(event),
+    );
+    expect(held.steps).toEqual(initial.steps);
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: "sync.stopped", reason: "store.unwritable" }),
+    );
     expect((await readBuilt({ source, cacheHome: folder }, () => {}, nodeRuntime)).generation).toBe(
       initial.generation,
     );

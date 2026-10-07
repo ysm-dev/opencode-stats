@@ -6,7 +6,7 @@ import * as Clock from "effect/Clock";
 import type { SyncWorker } from "./database.ts";
 import type { WorkerPort } from "./worker-program.ts";
 import { sqlFailure } from "./errors.ts";
-import { BuildEvent } from "./build-events.ts";
+import { StoreEvent } from "./build-events.ts";
 
 export type WorkerHandle = WorkerPort & {
   terminate(): void | Promise<void>;
@@ -17,7 +17,7 @@ const response = Schema.decodeUnknownSync(
   Schema.Union([
     Schema.Boolean,
     Schema.Literal("stopped"),
-    BuildEvent,
+    StoreEvent,
     Schema.Struct({
       kind: Schema.Literal("sqlite"),
       code: Schema.String,

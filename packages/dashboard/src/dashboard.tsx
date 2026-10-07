@@ -13,6 +13,7 @@ import { UsageChart } from "./usage-chart.tsx";
 import { ContributionGraph } from "./contribution-graph.tsx";
 import { MediaSizeProvider, type MediaSize } from "./media-size.tsx";
 import type { Accessor } from "solid-js";
+import { stopReason } from "@opencode-stats/browser-copy/api";
 import {
   Link,
   Outlet,
@@ -155,6 +156,7 @@ const LiveStatus = () => {
       data-generation={state().generation}
       data-revision={state().revision}
       data-updating={!state().paused && state().liveLabel !== "Not updating"}
+      data-sync-reason={state().stop?.reason ?? ""}
       aria-label={
         state().paused
           ? "Paused · Resume live updates"
@@ -183,6 +185,7 @@ const UpdateStatus = () => {
           class="update-status"
           data-state={stateMark(state())}
           data-warning={state().liveLabel === "Not updating"}
+          data-sync-reason={state().stop?.reason ?? ""}
         >
           {state().statusLine}
           <Show when={state().paused}>
@@ -245,6 +248,31 @@ declare module "@tanstack/solid-router" {
   }
 }
 
+const problemClock = (timestamp: number) =>
+  new Date(timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+const Problem = (props: { state: EngineState }) => {
+  const stop = () => (props.state.screen === "problem" ? props.state.stop : undefined);
+  return (
+    <main
+      tabIndex={-1}
+      data-problem-state={stateMark(props.state)}
+      data-sync-reason={stop()?.reason ?? ""}
+    >
+      <h1>Can't load the dashboard</h1>
+      <Show when={stop()} fallback={<p>Reload to try again.</p>}>
+        {(value) => (
+          <>
+            <p role="status" aria-live="polite">
+              {stopReason(value(), problemClock)}
+            </p>
+            <p>It will update automatically when this is fixed.</p>
+          </>
+        )}
+      </Show>
+    </main>
+  );
+};
+
 const CompleteDashboard = (props: {
   state: EngineState;
   router: ReturnType<typeof makeRouter>;
@@ -255,12 +283,7 @@ const CompleteDashboard = (props: {
       <PreferenceProvider>
         <Show
           when={props.state.screen === "dashboard" && props.state}
-          fallback={
-            <main tabIndex={-1} data-problem-state={stateMark(props.state)}>
-              <h1>Can't load the dashboard</h1>
-              <p>Reload to try again.</p>
-            </main>
-          }
+          fallback={<Problem state={props.state} />}
         >
           {(state) => (
             <PageState.Provider value={state}>

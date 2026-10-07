@@ -22,8 +22,12 @@ export const foreground = (
       executable: options.executable ?? process.execPath,
       script: options.script ?? serverScript,
       port,
-      env: options.env ?? process.env,
+      env: {
+        ...(options.env ?? process.env),
+        OPENCODE_STATS_COLOR: process.stderr.isTTY ? "1" : "0",
+      },
       db: options.database.path,
+      databaseSource: options.database.source,
     });
     const lines = createInterface({ input: child.stdout });
     const errors = createInterface({ input: child.stderr });

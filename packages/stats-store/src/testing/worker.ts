@@ -7,6 +7,8 @@ import type { DatabaseAdapter } from "../database.ts";
 import * as Clock from "effect/Clock";
 import { nodeSource } from "../runtime.node.ts";
 import type { SourceAdapter } from "../source-reader.ts";
+import { sync } from "../sync.ts";
+import type { StoreRuntime } from "../database.ts";
 
 export class InThreadWorker {
   readonly listeners = new Map<string, Set<(event: MessageEvent) => void>>();
@@ -67,3 +69,24 @@ export const inThreadRuntime = {
   database: nodeDatabase,
   worker: workerClient((clock) => new InThreadWorker(nodeDatabase, nodeSource, clock)),
 };
+
+export const sourceFaultRuntime = (fault: () => Error | undefined): StoreRuntime => ({
+  database: nodeDatabase,
+  worker: (paths, announce = () => Effect.void, report) =>
+    sync(
+      paths,
+      nodeDatabase,
+      (filename) =>
+        nodeSource(filename).pipe(
+          Effect.map((reader) => ({
+            ...reader,
+            version: Effect.suspend(() => {
+              const error = fault();
+              return error ? Effect.fail(error) : reader.version;
+            }),
+          })),
+        ),
+      announce,
+      report,
+    ),
+});

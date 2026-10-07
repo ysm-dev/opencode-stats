@@ -87,3 +87,54 @@ it.each([
     }
   },
 );
+
+it.each(["migration", "import"])(
+  "reports an in-place %s reread without rebuilding or exposing titles",
+  async (reason) => {
+    const f = syntheticFixture("2.0.0");
+    const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    let fiber: Fiber.Fiber<void, Error> | undefined;
+    try {
+      f.writer.session("root", null, { title: "SYNTHETIC PRIVATE TITLE" });
+      f.writer.session("unchanged");
+      const message = { id: "one", session: "root", seq: 0, start: 1 };
+      f.writer.message({ ...message, tokens: { output: 1 } });
+      f.writer.importMarker("sessions", "root");
+      const before = await readBuilt(
+        { source: f.source, cacheHome: f.folder },
+        () => {},
+        nodeRuntime,
+      );
+      f.writer.message({ ...message, tokens: { output: 2 } }, false);
+      if (reason === "migration") f.writer.migrate();
+      else f.writer.importMarker("completed");
+      const port = await temporaryPort();
+      fiber = Effect.runFork(
+        program(["--db", f.source, "--port", String(port)], nodeServer, nodeRuntime, nodeLock, {
+          XDG_STATE_HOME: f.folder,
+          XDG_CACHE_HOME: f.folder,
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(readFileSync(join(f.folder, "opencode-stats/server.log"), "utf8")).toContain(
+          "event=reread.end",
+        ),
+      );
+      const printed = output.mock.calls.map(([line]) => String(line)).join("");
+      expect(printed).toContain(
+        reason === "migration"
+          ? "OpenCode's database was migrated: re-reading every session…"
+          : "OpenCode finished importing v1 history: re-reading every session…",
+      );
+      expect(printed).toMatch(/Re-read 2 sessions in \d+\.\d s; 1 had changed\./u);
+      expect(printed).not.toContain("Reading your OpenCode history");
+      const log = readFileSync(join(f.folder, "opencode-stats/server.log"), "utf8");
+      expect(log).not.toContain("SYNTHETIC PRIVATE TITLE");
+      expect(before.generation).not.toBe("");
+    } finally {
+      if (fiber) await Effect.runPromise(Fiber.interrupt(fiber));
+      output.mockRestore();
+      f.dispose();
+    }
+  },
+);

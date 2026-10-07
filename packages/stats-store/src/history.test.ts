@@ -28,8 +28,13 @@ const baseSeed = Number(
 );
 const fixtures = new Map<number, { fixture: ReturnType<typeof syntheticFixture>; run: number }>();
 beforeAll(() => {
-  for (const seed of new Set(historyPartitions(baseSeed).map((part) => part.seed)))
-    fixtures.set(seed, { fixture: syntheticFixture(), run: 0 });
+  for (const [index, seed] of [
+    ...new Set(historyPartitions(baseSeed).map((part) => part.seed)),
+  ].entries())
+    fixtures.set(seed, {
+      fixture: syntheticFixture(["2.0.0", "2.0.14", "2.0.15", "2.0.22"][index]!),
+      run: 0,
+    });
 });
 afterAll(() => {
   for (const { fixture } of fixtures.values()) fixture.dispose();

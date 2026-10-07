@@ -217,6 +217,17 @@ async function liveChanges(input: Input, server: Server, guard: Guard, repeat: n
     "whole-paint:hidden-changed",
   ).toBe(true);
   await wholeChange(page, "visible", () => tourVisibility(page, false));
+  await wholeChange(page, "live", async () => {
+    server.writer.migration("20261007120000_whole_paint_future");
+  });
+  expect(await page.locator('.update-status[data-sync-reason="schema.newer"]').count()).toBe(1);
+  expect(
+    await page.getByRole("button", { name: /Not updating · Pause live updates/ }).count(),
+  ).toBe(1);
+  await wholeChange(page, "live", async () => {
+    server.writer.migration("20261007120000_whole_paint_future", false);
+  });
+  expect(await page.locator(".update-status").count()).toBe(0);
 }
 
 export function changeTour(page: Page, server: Server, guard: Guard, touch: boolean) {

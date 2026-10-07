@@ -136,7 +136,7 @@ describe("dashboard server program", () => {
             XDG_STATE_HOME: fixture.folder,
           }),
         ),
-      ).rejects.toThrow("OpenCode database must be an existing readable file.");
+      ).rejects.toThrow("OpenCode database must be an existing file.");
       expect(adapter).not.toHaveBeenCalled();
     } finally {
       fixture.dispose();

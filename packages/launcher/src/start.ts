@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { dirname } from "node:path";
-import { databasePath } from "./database.ts";
+import { selectDatabase } from "./database.ts";
 import { emptyConfig } from "./paths.ts";
 
 export type StartOptions = {
@@ -10,11 +10,12 @@ export type StartOptions = {
   env: NodeJS.ProcessEnv;
   db?: string | undefined;
   detached?: boolean;
+  databaseSource?: string;
 };
 export function start(options: StartOptions & { detached: true }): ChildProcess;
 export function start(options: StartOptions): ChildProcessWithoutNullStreams;
 export function start(options: StartOptions): ChildProcess {
-  const db = databasePath(options);
+  const database = selectDatabase(options);
   const env: NodeJS.ProcessEnv = { BUN_BE_BUN: "1" };
   for (const key of [
     "HOME",
@@ -29,6 +30,7 @@ export function start(options: StartOptions): ChildProcess {
     "XDG_DATA_HOME",
     "OPENCODE_DB",
     "NO_COLOR",
+    "OPENCODE_STATS_COLOR",
   ])
     env[key] = options.env[key];
   return spawn(
@@ -40,8 +42,10 @@ export function start(options: StartOptions): ChildProcess {
       options.script,
       "--port",
       String(options.port),
+      "--db-source",
+      options.databaseSource ?? database.source,
       "--db",
-      db,
+      database.path,
       ...(options.detached ? ["--starter", "plugin"] : []),
     ],
     {
