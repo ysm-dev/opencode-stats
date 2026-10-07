@@ -16,7 +16,6 @@ export function stopReason(stop: SyncStop, time: (timestamp: number) => string) 
       return `OpenCode's database has been locked since ${time(params.lockedSince)}`;
     case "source.unreadable":
       return `can't read OpenCode's database: ${params.code === "permission" ? "permission denied" : params.code === "damaged" ? "it's damaged" : "it's unavailable"}`;
-    case "store.unwritable":
-      return `can't save statistics in ${params.cache}: ${params.code === "full" ? "the disk is full" : params.code === "permission" ? "permission denied" : "it's unavailable"}`;
   }
+  return `can't save statistics in ${params.cache}: ${params.code === "full" ? "the disk is full" : params.code === "permission" ? "permission denied" : "it's unavailable"}`;
 }

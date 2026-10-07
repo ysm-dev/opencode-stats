@@ -290,7 +290,7 @@ it.each(["", "-wal", "-shm"])(
       linkSync(served, stale);
       vi.mocked(rmSync).mockClear();
       await readBuilt({ source: f.source, cacheHome: f.folder }, () => {}, nodeRuntime);
-      if (suffix !== "-shm") expect(readFileSync(served).equals(before)).toBe(true);
+      expect(suffix === "-shm" || readFileSync(served).equals(before)).toBe(true);
       expect(existsSync(stale)).toBe(true);
       expect(vi.mocked(rmSync).mock.calls.map(([file]) => String(file))).not.toContain(stale);
     } finally {

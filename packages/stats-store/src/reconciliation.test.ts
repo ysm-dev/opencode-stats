@@ -279,7 +279,7 @@ it.each(["counter", "usage"])(
       const revisions: number[] = [];
       const recovered = await readBuilt(
         { source, cacheHome: folder },
-        (copy) => revisions.push(copy.revision),
+        (updated) => revisions.push(updated.revision),
         nodeRuntime,
       );
       expect(revisions).toEqual([1]);

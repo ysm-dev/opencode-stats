@@ -30,7 +30,7 @@ export const graphAddress = (address: string, metric: GraphMetric) =>
   metric === "tokens" ? address : `${address}&graph=${metric}`;
 type Activity = ReturnType<typeof activityDays>;
 function streaks(activity: Activity, today: string) {
-  const dates = [...activity.keys()].sort();
+  const dates = [...activity.keys()].toSorted();
   let longestStreak = 0;
   let run = 0;
   let previous = "";
@@ -74,7 +74,7 @@ function colourDays(days: readonly RawDay[], metric: GraphMetric) {
     .filter((day) => day.steps > 0)
     .map(amount)
     .filter((value): value is number => value !== null)
-    .sort((a, b) => a - b);
+    .toSorted((a, b) => a - b);
   const thresholds = [0.25, 0.5, 0.75].map((rank) => nearestRank(sorted, rank) ?? 0);
   return days.map((day) => {
     const value = amount(day);

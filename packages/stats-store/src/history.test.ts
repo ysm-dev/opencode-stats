@@ -32,7 +32,7 @@ beforeAll(() => {
     ...new Set(historyPartitions(baseSeed).map((part) => part.seed)),
   ].entries())
     fixtures.set(seed, {
-      fixture: syntheticFixture(["2.0.0", "2.0.14", "2.0.15", "2.0.22"][index]!),
+      fixture: syntheticFixture(["2.0.0", "2.0.14", "2.0.15", "2.0.22"][index]),
       run: 0,
     });
 });

@@ -44,6 +44,24 @@ export class SchemaFailure extends Error {
   }
 }
 type Stopped = Extract<StoreEvent, { kind: "sync.stopped" | "sync.resumed" }>;
+function unlockedFailure(failure: SqlFailure): Pick<Stopped, "reason" | "code"> {
+  return {
+    reason:
+      failure.statement !== "readSource"
+        ? "store.unwritable"
+        : failure.code === "ENOENT"
+          ? "source.missing"
+          : "source.unreadable",
+    code: ["EACCES", "EPERM", "SQLITE_READONLY", "SQLITE_PERM"].includes(failure.code)
+      ? "permission"
+      : ["SQLITE_CORRUPT", "SQLITE_NOTADB"].includes(failure.code)
+        ? "damaged"
+        : failure.code === "SQLITE_FULL" || failure.code === "ENOSPC"
+          ? "full"
+          : "unavailable",
+  };
+}
+
 export function syncState(report: BuildReport, started: number) {
   let current: Stopped | undefined;
   let lastCurrent = started;
@@ -65,19 +83,7 @@ export function syncState(report: BuildReport, started: number) {
           code = "locked";
         } else {
           lockedSince = undefined;
-          reason =
-            failure.statement !== "readSource"
-              ? "store.unwritable"
-              : failure.code === "ENOENT"
-                ? "source.missing"
-                : "source.unreadable";
-          code = ["EACCES", "EPERM", "SQLITE_READONLY", "SQLITE_PERM"].includes(failure.code)
-            ? "permission"
-            : ["SQLITE_CORRUPT", "SQLITE_NOTADB"].includes(failure.code)
-              ? "damaged"
-              : failure.code === "SQLITE_FULL" || failure.code === "ENOSPC"
-                ? "full"
-                : "unavailable";
+          ({ reason, code } = unlockedFailure(failure));
         }
       }
       if (current?.reason === reason && current.code === code) return;

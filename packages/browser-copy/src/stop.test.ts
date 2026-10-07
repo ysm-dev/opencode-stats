@@ -57,7 +57,7 @@ it("never drops malformed stop parameters by falling back to a plain cursor", ()
       ...cursor,
       stop: { ...syntheticStop(), since: -1 },
     }),
-  ).toThrow();
+  ).toThrow(/since/u);
   expect(() => Schema.decodeUnknownSync(LiveAnnouncement)({ ...cursor, release: "new" })).toThrow(
     "Incomplete live-stream version",
   );
@@ -70,5 +70,5 @@ it.each([
   { ...syntheticStop(), params: { ...syntheticStop().params, code: "SQLITE_FULL" } },
   { ...syntheticStop(), params: { ...syntheticStop().params, mode: "unsupported" } },
 ])("rejects invalid stop-state input at the SSE boundary", (input) => {
-  expect(() => Schema.decodeUnknownSync(SyncStop)(input)).toThrow();
+  expect(() => Schema.decodeUnknownSync(SyncStop)(input)).toThrow(/reason|since|code|mode/u);
 });
