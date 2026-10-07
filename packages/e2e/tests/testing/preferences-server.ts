@@ -7,6 +7,7 @@ import { temporaryPort } from "@opencode-stats/launcher/testing";
 import { syntheticDatabase } from "@opencode-stats/stats-store/testing";
 import { expect, vi } from "vitest";
 import { capture } from "./process.ts";
+import { createTourEvidence } from "./tour-evidence.ts";
 import { killProcessTree } from "../../../../scripts/process-tree.ts";
 import type { BrowserType, BrowserContextOptions } from "playwright";
 
@@ -16,9 +17,12 @@ export const preferencesBrowser = async (
   beforeStart?: (writer: ReturnType<typeof syntheticDatabase>) => void,
 ) => {
   await using resources = new AsyncDisposableStack();
+  const trace = createTourEvidence(`preferences-browser/${engine.name()}`);
   const server = resources.use(await preferencesServer(beforeStart));
-  const browser = resources.use(await engine.launch({ headless: true }));
-  const context = resources.use(await browser.newContext(options));
+  const browser = resources.use(
+    await trace("launch", "setup", () => engine.launch({ headless: true })),
+  );
+  const context = resources.use(await trace("context", "setup", () => browser.newContext(options)));
   context.setDefaultTimeout(3000);
   return Object.assign(resources.move(), { server, context });
 };
@@ -26,6 +30,7 @@ export const preferencesBrowser = async (
 export const preferencesServer = async (
   beforeStart?: (writer: ReturnType<typeof syntheticDatabase>) => void,
 ) => {
+  const trace = createTourEvidence("preferences-server");
   const directory = await mkdtemp(join(tmpdir(), "stats-preferences-"));
   let disposeProcess: (() => Promise<void>) | undefined;
   let disposeWriter: (() => void) | undefined;
@@ -40,16 +45,18 @@ export const preferencesServer = async (
   try {
     await writeFile(join(directory, "package.json"), '{"private":true}');
     const tarball = (await readdir(resolve(".release"))).find((name) => name.endsWith(".tgz"))!;
-    await promisify(execFile)(
-      process.platform === "win32" ? "npm.cmd" : "npm",
-      [
-        "install",
-        resolve(".release", tarball),
-        ...["ignore-scripts", "no-audit", "no-fund", "package-lock=false"].map(
-          (flag) => `--${flag}`,
-        ),
-      ],
-      { cwd: directory, shell: process.platform === "win32" },
+    await trace("install", "setup", () =>
+      promisify(execFile)(
+        process.platform === "win32" ? "npm.cmd" : "npm",
+        [
+          "install",
+          resolve(".release", tarball),
+          ...["ignore-scripts", "no-audit", "no-fund", "package-lock=false"].map(
+            (flag) => `--${flag}`,
+          ),
+        ],
+        { cwd: directory, shell: process.platform === "win32" },
+      ),
     );
     const database = join(directory, "synthetic.db");
     const writer = syntheticDatabase(database);
@@ -111,7 +118,7 @@ export const preferencesServer = async (
         },
       );
     };
-    await start();
+    await trace("start", "setup", start);
     const html = await readFile(
       join(directory, "node_modules/opencode-stats/dashboard/index.html"),
       "utf8",

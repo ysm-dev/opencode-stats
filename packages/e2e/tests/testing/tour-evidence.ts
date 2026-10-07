@@ -11,7 +11,7 @@ export function createTourEvidence(label: string) {
   let current: { kind: string; phase: Phase; started: number } | undefined;
   let recent: Entry[] = [];
   onTestFinished(() => {
-    process.stderr.write(`[DEBUG-tour-duration] ${JSON.stringify({ label, totals })}\n`);
+    process.stderr.write(`[DEBUG-tour-duration] ${JSON.stringify({ label, totals, recent })}\n`);
   });
   onTestFailed(() => {
     const pending = current && {

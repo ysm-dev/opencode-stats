@@ -36,6 +36,11 @@ jobs:
       - run: bun run ci:checks
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Show formatting corrections after a source failure
+        if: failure()
+        run: |
+          bun run scripts/time-budget.ts oxfmt
+          git diff --exit-code
       - uses: actions/upload-artifact@v7.0.1
         if: failure()
         with:

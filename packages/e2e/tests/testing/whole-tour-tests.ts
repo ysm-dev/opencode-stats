@@ -160,9 +160,11 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
       await f.context.addInitScript(() => {
         const load = document.fonts.load.bind(document.fonts);
         document.fonts.load = (...args) => {
+          const pending = load(...args);
           const links = document.querySelectorAll<HTMLLinkElement>("link[rel=stylesheet]");
+          // oxlint-disable-next-line eslint/no-console -- Temporary browser-only font trace is captured before teardown and printed only on a failed synthetic test.
           console.debug(
-            "[DEBUG-font-barrier] before",
+            "[DEBUG-font-barrier] requested",
             JSON.stringify({
               args,
               status: document.fonts.status,
@@ -170,7 +172,8 @@ export const testWholePaintLoads = (browser: BrowserType, label: string) =>
               styles: [...links].map((link) => [link.href, !!link.sheet]),
             }),
           );
-          return load(...args).then((faces) => {
+          return pending.then((faces) => {
+            // oxlint-disable-next-line eslint/no-console -- Temporary browser-only font trace is captured before teardown and printed only on a failed synthetic test.
             console.debug(
               "[DEBUG-font-barrier] resolved",
               JSON.stringify({
