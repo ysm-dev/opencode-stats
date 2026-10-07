@@ -1,4 +1,12 @@
-import { For, Show, createMemo, createSignal, useContext, onCleanup } from "solid-js";
+import {
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  useContext,
+  onCleanup,
+  type ParentProps,
+} from "solid-js";
 import { Chart } from "@tanstack/solid-charts";
 import { Select } from "@opencode/ui/select";
 import { SegmentedControl, SegmentedControlItem } from "@opencode/ui/segmented-control";
@@ -10,7 +18,13 @@ import {
 } from "@opencode-stats/engine";
 import { PageState, PageActions, type CompletePage } from "./page-context.ts";
 import { useMediaSize } from "./media-size.tsx";
-import { chartDrawing, chartHeight, chartValue, chartColour } from "./chart-drawing.ts";
+import {
+  chartDrawing,
+  chartHeight,
+  chartValue,
+  chartColour,
+  chartMargin,
+} from "./chart-drawing.ts";
 import { changes, stateMark } from "./change-time.ts";
 
 type ReadState = {
@@ -26,13 +40,50 @@ const atRest = (chart: CompletePage["chart"]): ReadState => ({
   spoken: chart.announcement,
 });
 
+const ChoiceForm = (props: ParentProps) => {
+  let focused: "metric" | "split" | null = null;
+  let form!: HTMLDivElement;
+  const focus = () => {
+    const field = document.activeElement!.closest(
+      ".chart-choices [aria-label], .chart-choices [aria-labelledby]",
+    )!;
+    const label = field.getAttribute("aria-label") ?? field.getAttribute("aria-labelledby");
+    focused = label === "Chart metric" || label === "chart-metric-label" ? "metric" : "split";
+  };
+  onCleanup(() => {
+    const name = focused;
+    if (name === null) return;
+    queueMicrotask(() => {
+      const replacement = document.querySelector<HTMLElement>(
+        `.chart-choices [aria-labelledby="chart-${name}-label"], .chart-choices [aria-label="Chart ${name}"] [aria-pressed="true"]`,
+      );
+      if (replacement) changes.local("resize", () => replacement.focus());
+    });
+  });
+  return (
+    <div
+      ref={form}
+      class="chart-choice-form"
+      onFocusIn={focus}
+      onFocusOut={(event) => {
+        const next = event.relatedTarget;
+        if (next instanceof Element && !form.contains(next) && !next.closest(".chart-options"))
+          focused = null;
+      }}
+    >
+      {props.children}
+    </div>
+  );
+};
+
 const ChartChoices = () => {
   const state = useContext(PageState)!;
   const actions = useContext(PageActions)!;
   const media = useMediaSize();
   const splits = () =>
     chartSplits.filter((split) => split !== "token-kind" || state().chart.metric === "tokens");
-  const optionsClass = () => `settings-options${media().coarse ? " chart-options-coarse" : ""}`;
+  const optionsClass = () =>
+    `settings-options chart-options${media().coarse ? " chart-options-coarse" : ""}`;
   const [menus, setMenus] = createSignal({ metric: false, split: false });
   const menu = (kind: "metric" | "split", open: boolean) =>
     changes.local("chart-menu", () => setMenus((before) => ({ ...before, [kind]: open })));
@@ -52,7 +103,7 @@ const ChartChoices = () => {
       <Show
         when={media().columnWidth < 1120}
         fallback={
-          <>
+          <ChoiceForm>
             <SegmentedControl
               value={state().chart.metric}
               aria-label="Chart metric"
@@ -79,37 +130,39 @@ const ChartChoices = () => {
                 )}
               </For>
             </SegmentedControl>
-          </>
+          </ChoiceForm>
         }
       >
-        <span class="sr-only" id="chart-metric-label">
-          Chart metric
-        </span>
-        <Select
-          options={[...chartMetrics]}
-          current={state().chart.metric}
-          label={(metric) => chartMetricLabels[metric]}
-          aria-labelledby="chart-metric-label"
-          fitViewport
-          onSelect={selectMetric}
-          open={menus().metric}
-          onOpenChange={(open) => menu("metric", open)}
-          contentClass={optionsClass()}
-        />
-        <span class="sr-only" id="chart-split-label">
-          Chart split
-        </span>
-        <Select
-          options={splits()}
-          current={state().chart.split}
-          label={(split) => chartSplitLabels[split]}
-          aria-labelledby="chart-split-label"
-          fitViewport
-          onSelect={selectSplit}
-          open={menus().split}
-          onOpenChange={(open) => menu("split", open)}
-          contentClass={optionsClass()}
-        />
+        <ChoiceForm>
+          <span class="sr-only" id="chart-metric-label">
+            Chart metric
+          </span>
+          <Select
+            options={[...chartMetrics]}
+            current={state().chart.metric}
+            label={(metric) => chartMetricLabels[metric]}
+            aria-labelledby="chart-metric-label"
+            fitViewport
+            onSelect={selectMetric}
+            open={menus().metric}
+            onOpenChange={(open) => menu("metric", open)}
+            contentClass={optionsClass()}
+          />
+          <span class="sr-only" id="chart-split-label">
+            Chart split
+          </span>
+          <Select
+            options={splits()}
+            current={state().chart.split}
+            label={(split) => chartSplitLabels[split]}
+            aria-labelledby="chart-split-label"
+            fitViewport
+            onSelect={selectSplit}
+            open={menus().split}
+            onOpenChange={(open) => menu("split", open)}
+            contentClass={optionsClass()}
+          />
+        </ChoiceForm>
       </Show>
     </div>
   );
@@ -152,10 +205,9 @@ export const UsageChart = () => {
     });
   const highlight = (id: string | null) =>
     changes.local("chart-highlight", () => setStored({ ...local(), highlighted: id }));
-  const drill = (index = local().bucket) => {
+  const drill = (index = local().bucket, started = performance.now()) => {
     const chart = local().chart;
     if (index !== null && chart.unit !== "hour") {
-      const started = performance.now();
       surface.focus();
       const selected = chart.buckets[index]!;
       void actions.request(
@@ -172,7 +224,8 @@ export const UsageChart = () => {
       Math.min(
         local().chart.buckets.length - 1,
         Math.floor(
-          ((event.clientX - bounds.left - 40) / Math.max(1, bounds.width - 48)) *
+          ((event.clientX - bounds.left - chartMargin.left) /
+            Math.max(1, bounds.width - chartMargin.left - chartMargin.right)) *
             local().chart.buckets.length,
         ),
       ),
@@ -187,7 +240,7 @@ export const UsageChart = () => {
   };
   const move = (event: PointerEvent) => {
     if (event.pointerType === "mouse") {
-      read(nearest(event));
+      changes.local("chart-read", () => read(nearest(event)));
       return;
     }
     if (!gesture || gesture.vertical) return;
@@ -197,15 +250,17 @@ export const UsageChart = () => {
       gesture.vertical = true;
       return;
     }
-    if (x > 8) read(nearest(event));
+    if (x > 8) changes.local("chart-read", () => read(nearest(event)));
   };
   const up = (event: PointerEvent) => {
-    if (event.pointerType !== "mouse" && gesture && !gesture.vertical) read(nearest(event));
+    if (event.pointerType !== "mouse" && gesture && !gesture.vertical)
+      changes.local("chart-read", () => read(nearest(event)));
     gesture = undefined;
   };
   const click = (event: MouseEvent) => {
+    const started = performance.now();
     const pointerType = "pointerType" in event ? event.pointerType : clickedBy;
-    if (pointerType === "mouse") drill(nearest(event));
+    if (pointerType === "mouse") drill(nearest(event), started);
   };
   const key = (event: KeyboardEvent) => {
     const count = local().chart.buckets.length;
@@ -237,6 +292,7 @@ export const UsageChart = () => {
   return (
     <section
       class="usage-chart"
+      style={{ "--chart-axis-width": `${chartMargin.left}px` }}
       aria-labelledby="usage-over-time"
       data-media-state={stateMark(media())}
       data-coarse={media().coarse}
@@ -289,7 +345,7 @@ export const UsageChart = () => {
           <span
             class="chart-cursor"
             style={{
-              left: `${40 + ((local().bucket! + 0.5) / local().chart.buckets.length) * (size().width - 48)}px`,
+              left: `${chartMargin.left + ((local().bucket! + 0.5) / local().chart.buckets.length) * (size().width - chartMargin.left - chartMargin.right)}px`,
             }}
           />
         </Show>

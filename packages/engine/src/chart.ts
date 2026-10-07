@@ -83,13 +83,16 @@ function seriesRows(
   names: readonly DimensionName[],
 ) {
   const grouped = new Map<string, { id: string; name: string; rows: Rows }>();
+  const byCode = new Map<number, DimensionName>(
+    names.filter((name) => name.dimension === dimension).map((name) => [name.code, name]),
+  );
   const append = <T extends Fact | PromptFact | ToolFact>(
     facts: readonly T[],
     add: (rows: Rows, fact: T) => void,
   ) => {
     for (const fact of facts) {
       const code = fact[dimension];
-      const name = names.find((item) => item.dimension === dimension && item.code === code);
+      const name = byCode.get(code);
       const id = name ? `${dimension}:${name.id}` : "unrecorded";
       const group = grouped.get(id) ?? { id, name: name?.name ?? "Unrecorded", rows: emptyRows() };
       add(group.rows, fact);

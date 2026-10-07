@@ -9,6 +9,7 @@ import type { ChartMark } from "@tanstack/charts";
 import type { CompletePage } from "./page-context.ts";
 
 type Datum = { bucket: number; bottom: number; top: number | null };
+export const chartMargin = { left: 40, right: 8, top: 8, bottom: 8 } as const;
 export const chartColour = (id: string, index: number) => {
   if (id === "more") return "var(--dashboard-series-8)";
   const kinds: Record<string, string> = {
@@ -22,6 +23,14 @@ export const chartColour = (id: string, index: number) => {
   return `var(--dashboard-${kind ? `kind-${kind}` : `series-${index + 1}`})`;
 };
 export const chartHeight = (width: number) => (width < 720 ? 190 : 260);
+const axisValue = (metric: CompletePage["chart"]["metric"], value: number) => {
+  const compact = value.toLocaleString("en", { notation: "compact", maximumFractionDigits: 2 });
+  if (metric === "cost" || metric === "recorded-cost")
+    return `${metric === "cost" ? "≈ " : ""}$${compact}`;
+  return ["tokens", "steps", "prompts", "tools", "sessions"].includes(metric)
+    ? compact
+    : chartValue(metric, value);
+};
 export function chartDrawing(
   chart: CompletePage["chart"],
   highlighted: string | null,
@@ -120,10 +129,7 @@ export function chartDrawing(
         scale: scaleLinear().domain([0, maximum === 0 ? 1 : maximum]),
         axis: {
           ticks: {
-            format: (value: number) =>
-              ["tokens", "steps", "prompts", "tools", "sessions"].includes(chart.metric)
-                ? value.toLocaleString("en", { notation: "compact" })
-                : chartValue(chart.metric, value),
+            format: (value: number) => axisValue(chart.metric, value),
           },
         },
         grid: true,
@@ -136,7 +142,7 @@ export function chartDrawing(
       grid: "var(--dashboard-edge-base)",
       palette: chart.series.map((series, index) => chartColour(series.id, index)),
     },
-    margin: { left: 40, right: 8, top: 8, bottom: 8 },
+    margin: chartMargin,
     pointer: false,
     keyboard: false,
     tooltip: false,

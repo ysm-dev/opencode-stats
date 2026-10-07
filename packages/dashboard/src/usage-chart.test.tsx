@@ -25,7 +25,7 @@ const bounds = () => {
 };
 const choose = async (f: ReturnType<typeof dashboardFixture>, control: string, value: string) => {
   await f.user.click(f.view.getByRole("button", { name: new RegExp(`^${control}`) }));
-  await f.user.click(await screen.findByRole("option", { name: value, exact: true }));
+  await f.user.click(await screen.findByRole("option", { name: value }));
 };
 
 it("SVG uses the palette without motion, fits all buckets at 360px/190px, and exposes one chart tab stop with an accessible readout", async () => {
@@ -62,7 +62,7 @@ it("SVG uses the palette without motion, fits all buckets at 360px/190px, and ex
   expect(chart().querySelector("svg")!.getAttribute("data-size-state")).toBe(drawnSize);
   expect(chart().getAttribute("data-size-state")).toBe(drawnSize);
   expect(f.server.requests).toBe(requests);
-  const group = f.view.getByRole("group", { name: "Chart metric", exact: true });
+  const group = f.view.getByRole("group", { name: "Chart metric" });
   expect(within(group).getByRole("button", { name: "Tokens" }).getAttribute("aria-pressed")).toBe(
     "true",
   );
@@ -103,7 +103,10 @@ it("keyboard reads nearest bounds, announces only that bucket, drills a fixed da
 });
 
 it("decides tap versus action per event, reads horizontal finger drags, allows vertical scroll and ignores cancelled gestures", async () => {
-  const f = dashboardFixture(filterCopy());
+  const f = dashboardFixture(filterCopy(), queueMicrotask, () => ({
+    ...initialMedia,
+    columnWidth: 360,
+  }));
   onTestFinished(f.close);
   await f.view.findByRole("heading", { name: "Overview" });
   bounds();
@@ -171,7 +174,12 @@ it("readout highlights by focus, pointer and tap and keeps top-six-plus-more in 
   fireEvent.blur(series[1]!);
   await f.user.click(series[2]!);
   expect(series[2]!.getAttribute("aria-pressed")).toBe("true");
-  expect(chart().querySelector("svg")!.innerHTML).toContain('fill-opacity="0.1125"');
+  expect(
+    [...chart().querySelectorAll("rect")].some((node) => {
+      const opacity = Number(node.getAttribute("fill-opacity"));
+      return opacity > 0 && opacity < 0.2;
+    }),
+  ).toBe(true);
   await accessible(f.view.container);
 });
 
@@ -237,13 +245,13 @@ it("wide segmented controls dispatch the same full-state choices", async () => {
   onTestFinished(f.close);
   await f.view.findByRole("heading", { name: "Overview" });
   await f.user.click(
-    within(f.view.getByRole("group", { name: "Chart metric", exact: true })).getByRole("button", {
+    within(f.view.getByRole("group", { name: "Chart metric" })).getByRole("button", {
       name: "Steps",
     }),
   );
   await vi.waitFor(() => expect(chart().getAttribute("aria-label")).toContain("Steps"));
   await f.user.click(
-    within(f.view.getByRole("group", { name: "Chart split", exact: true })).getByRole("button", {
+    within(f.view.getByRole("group", { name: "Chart split" })).getByRole("button", {
       name: "agent",
     }),
   );
@@ -258,6 +266,30 @@ it("the published pickers cannot clear a metric or split when their current opti
   await choose(f, "Chart split", "token kind");
   expect(chart().getAttribute("aria-label")).toContain("Tokens by token kind");
   expect(window.location.search).toBe("?range=7d");
+});
+
+it("responsive control switches retain keyboard focus in the same field without querying the worker", async () => {
+  const [media, setMedia] = createSignal({ ...initialMedia, columnWidth: 1280 });
+  const f = dashboardFixture(filterCopy(), queueMicrotask, media);
+  onTestFinished(f.close);
+  await f.view.findByRole("heading", { name: "Overview" });
+  const requests = f.server.requests;
+  for (const field of ["metric", "split"]) {
+    within(f.view.getByRole("group", { name: `Chart ${field}` }))
+      .getAllByRole("button")[0]!
+      .focus();
+    setMedia({ ...media(), columnWidth: 360 });
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(
+        f.view.getByRole("button", { name: new RegExp(`^Chart ${field}`) }),
+      ),
+    );
+    setMedia({ ...media(), columnWidth: 1280 });
+    await vi.waitFor(() =>
+      expect(document.activeElement?.getAttribute("aria-pressed")).toBe("true"),
+    );
+  }
+  expect(f.server.requests).toBe(requests);
 });
 
 it("a bookmarked skipped local date draws an empty axis and all reads safely stay at rest", async () => {

@@ -298,6 +298,18 @@ h2 {
   gap: 4px;
   margin-block: 8px;
 }
+.chart-choices .chart-segments {
+  width: fit-content;
+  height: auto;
+  background: var(--dashboard-base);
+  box-shadow: none;
+}
+.chart-choice-form {
+  display: contents;
+}
+.chart-choices [data-slot="segmented-control-v2-item"] {
+  flex: none;
+}
 .chart-choices button,
 .chart-choices [data-component="select-v2"],
 .chart-readout button {
@@ -345,7 +357,7 @@ h2 {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin-left: 40px;
+  margin-left: var(--chart-axis-width);
   color: var(--dashboard-muted-base);
 }
 .chart-readout h3 {

@@ -1,13 +1,13 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import fc from "fast-check";
 import { rangeFixture, rangeStep, type CompleteState } from "./testing/range-fixture.ts";
-import { filterSteps, filterMetadata } from "./testing/filter-fixture.ts";
+import { filterSteps, filterMetadata, filterCopy } from "./testing/filter-fixture.ts";
 import { metricSteps } from "./testing/metrics-fixture.ts";
 import { toolCopy } from "./testing/tool-fixture.ts";
 import { chartMetrics, chartSplits } from "./index.ts";
 import { referenceTokens } from "./testing/chart-reference.ts";
 import { referenceMidnight, referenceAdd, referenceHours } from "./testing/time-reference.ts";
-import { propertyParameters } from "@opencode-stats/browser-copy/testing";
+import { propertyParameters, syntheticCopy } from "@opencode-stats/browser-copy/testing";
 const drillAction = (state: CompleteState, index: number) => {
   const unit = state.chart.unit;
   if (unit === "hour") throw new Error("Hours do not drill");
@@ -56,6 +56,43 @@ it("All time follows unfiltered history, clips edge buckets, and retains empty a
   const today = await empty.request({ kind: "all-time" });
   expect(today.chart.unit).toBe("hour");
   expect(today.chart.buckets).toHaveLength(24);
+});
+
+it("charts share the build's active history seam without dropping the preset's empty axis or counting a partial historic day", async () => {
+  await using f = rangeFixture(filterSteps, undefined, undefined, undefined, {
+    ...filterMetadata,
+    historyComplete: false,
+    historyCompleteFrom: Date.parse("2026-10-01T12:00Z"),
+  });
+  let state = await f.request({ kind: "preset", preset: "7d" });
+  expect(state.historyStart).toBe(Date.parse("2026-10-02T00:00Z"));
+  expect(state.chart.buckets).toHaveLength(7);
+  expect(state.chart.buckets[0]!.axisStart).toBe(Date.parse("2026-10-01T00:00Z"));
+  expect(state.chart.buckets[0]!.total).toBe(0);
+  expect(state.chart.total).toBe(state.tokens.total);
+  expect(state.chart.total).toBe(2800);
+  state = await f.request({ kind: "chart-metric", metric: "steps" });
+  expect(state.chart.total).toBe(state.metrics.steps);
+  expect(state.chart.total).toBe(7);
+  f.server.commit({ ...filterCopy(), revision: 2 });
+  await vi.waitFor(() => {
+    const last = f.states.at(-1);
+    expect(last?.screen === "dashboard" && last.historyComplete).toBe(true);
+  });
+  state = await f.request({ kind: "chart-metric", metric: "tokens" });
+  expect(state.historyComplete).toBe(true);
+  expect(state.chart.total).toBe(3080);
+  expect(state.chart.total).toBe(state.tokens.total);
+  f.server.commit(syntheticCopy([], { generation: "01234567-89ab-cdef-0123-456789abcdee" }));
+  await vi.waitFor(() => {
+    const last = f.states.at(-1);
+    expect(last?.screen === "dashboard" && last.generation).toBe(
+      "01234567-89ab-cdef-0123-456789abcdee",
+    );
+  });
+  state = await f.request({ kind: "chart-metric", metric: "steps" });
+  expect(state.chart.total).toBe(0);
+  expect(state.chart.total).toBe(state.metrics.steps);
 });
 
 it("ranks range series once and folds beyond six in every bucket without losing totals", async () => {

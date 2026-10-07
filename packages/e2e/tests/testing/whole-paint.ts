@@ -54,6 +54,7 @@ export function installWholePaintObserver(observing = true) {
         region.getAttribute("data-local-state") ??
         region.closest(".filter-checklist")?.getAttribute("data-local-state") ??
         "";
+      const svg = region.matches("svg") ? region : region.querySelector("svg");
       retainDrawing(
         region,
         `${region.getAttribute("data-state")}/${local}/${region.getAttribute("data-media-state") ?? region.getAttribute("data-size-state") ?? ""}`,
@@ -63,9 +64,10 @@ export function installWholePaintObserver(observing = true) {
             input.value,
             input.checked,
           ]),
-          buttons: [...region.querySelectorAll<HTMLButtonElement>("button")].map(
-            (button) => button.disabled,
-          ),
+          buttons: [...region.querySelectorAll<HTMLButtonElement>("button")].map((button) => [
+            button.disabled,
+            button.getAttribute("aria-pressed"),
+          ]),
           bars: [...region.querySelectorAll<HTMLElement>(".filter-bar")].map(
             (bar) => bar.style.width,
           ),
@@ -75,7 +77,12 @@ export function installWholePaintObserver(observing = true) {
           ]),
           range: region.getAttribute("data-range"),
           updating: region.getAttribute("data-updating"),
-          svg: region.matches("svg") ? region.innerHTML : region.querySelector("svg")?.innerHTML,
+          svg: svg && {
+            viewBox: svg.getAttribute("viewBox"),
+            width: svg.getAttribute("width"),
+            height: svg.getAttribute("height"),
+            markup: svg.innerHTML,
+          },
           chartCursor: region.querySelector<HTMLElement>(".chart-cursor")?.style.left,
         }),
       );
@@ -129,6 +136,18 @@ export function installWholePaintObserver(observing = true) {
       ]),
       locals: [...document.querySelectorAll("[data-local-state]")].map((node) =>
         node.getAttribute("data-local-state"),
+      ),
+      charts: [...document.querySelectorAll(".chart-hit svg")].map((svg) => [
+        svg.getAttribute("viewBox"),
+        svg.innerHTML,
+      ]),
+      chartSelections: [
+        ...document.querySelectorAll(
+          ".chart-choices [aria-pressed], .chart-readout [aria-pressed]",
+        ),
+      ].map((node) => node.getAttribute("aria-pressed")),
+      chartCursors: [...document.querySelectorAll<HTMLElement>(".chart-cursor")].map(
+        (node) => node.style.left,
       ),
       inputs: [...document.querySelectorAll<HTMLInputElement>(".filters input")].map((input) => [
         input.value,
