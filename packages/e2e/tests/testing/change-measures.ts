@@ -54,7 +54,7 @@ export function assertSummedMeasures(measures: Measures) {
 export async function readCleanChangeMeasures(page: Page) {
   const observed = await page.evaluate(
     () =>
-      window.wholePaint?.observing === true ||
+      window.wholePaint?.observing ||
       (window.wholePaint?.evidence.samples ?? 0) !== 0 ||
       performance.getEntriesByName("opencode-stats:whole-paint-probe").length !== 0,
   );
