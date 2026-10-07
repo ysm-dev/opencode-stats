@@ -161,6 +161,60 @@ it.each([
   },
 );
 
+it("removes all facts and details when a pending session vanishes just before its read snapshot", async () => {
+  const f = syntheticFixture();
+  let armed = false;
+  let removed = false;
+  const runtime = snapshotRuntime((slice, id) => {
+    if (!armed || removed || slice !== "session" || id !== "doomed") return;
+    removed = true;
+    f.writer.deleteSession("doomed");
+  });
+  try {
+    f.writer.session("doomed");
+    f.writer.session("survivor");
+    f.writer.message({ id: "prompt", session: "doomed", seq: 0, start: 1, type: "user" });
+    const step = { id: "doomed-step", session: "doomed", seq: 1, start: 2 };
+    f.writer.message({
+      ...step,
+      tools: [{ id: "call", name: "read", status: "completed", ran: 2, completed: 3 }],
+    });
+    f.writer.message({ id: "kept", session: "survivor", seq: 0, start: 0 });
+    await runWithClock((time) =>
+      Effect.gen(function* () {
+        const options = { source: f.source, cacheHome: f.folder };
+        const store = yield* stayInSync(options, runtime, () => {});
+        const before = yield* store.read();
+        f.writer.message(step);
+        armed = true;
+        yield* time.tick;
+        expect(removed).toBe(true);
+        const after = yield* store.read();
+        expect(after.generation).toBe(before.generation);
+        expect(after.facts.map((fact) => fact.id)).toEqual(["kept"]);
+        expect(after.prompts).toEqual([]);
+        expect(after.tools).toEqual([]);
+        expect(after.sessions).toHaveLength(1);
+        const delta = yield* store.read(before);
+        expect(delta.tombstones.map((row) => row.id).toSorted()).toEqual([
+          "doomed-step",
+          "prompt",
+          "tool:doomed-step:call",
+        ]);
+        expect(delta.sessionTombstones).toHaveLength(1);
+        const fresh = yield* stayInSync(
+          { ...options, cacheHome: `${f.folder}/fresh` },
+          nodeRuntime,
+          () => {},
+        );
+        expect(canonicalCopy(after)).toEqual(canonicalCopy(yield* fresh.read()));
+      }),
+    );
+  } finally {
+    f.dispose();
+  }
+});
+
 function observedSource(before: (sql: string, params: readonly string[]) => void): SourceAdapter {
   return Effect.fnUntraced(function* (filename: string) {
     const db = yield* Effect.acquireRelease(

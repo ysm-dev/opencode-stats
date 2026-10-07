@@ -1,4 +1,5 @@
-import { renameSync, existsSync } from "node:fs";
+import { renameSync, existsSync, mkdirSync, rmSync, readdirSync } from "node:fs";
+import { dirname } from "node:path";
 import * as Effect from "effect/Effect";
 import { expect, it } from "vitest";
 import { stayInSync, sqlFailure, type StoreEvent } from "./store.ts";
@@ -8,6 +9,7 @@ import type { StoreRuntime } from "./database.ts";
 import { syntheticFixture, readBuilt } from "./testing/index.ts";
 import { runWithClock } from "./testing/clock.ts";
 import { sourceFaultRuntime } from "./testing/worker.ts";
+import { storePaths } from "./location.ts";
 
 it.each([
   {
@@ -261,6 +263,48 @@ it("an initial writable-store open failure retains readable cached facts and ret
         expect(reports).toContainEqual(
           expect.objectContaining({ kind: "sync.resumed", reason: "store.unwritable" }),
         );
+      }),
+    );
+  } finally {
+    f.dispose();
+  }
+});
+
+it("a failed atomic sync receipt leaves no temporary file and retries without rebuilding facts", async () => {
+  const f = syntheticFixture();
+  const reports: StoreEvent[] = [];
+  const options = { source: f.source, cacheHome: f.folder };
+  try {
+    f.writer.session("cached");
+    f.writer.message({ id: "cached", session: "cached", seq: 0, start: 1, tokens: { output: 7 } });
+    const before = await readBuilt(options);
+    const paths = storePaths(options);
+    rmSync(`${paths.store}.sync`);
+    mkdirSync(`${paths.store}.sync`);
+    await runWithClock((time) =>
+      Effect.gen(function* () {
+        const store = yield* stayInSync(
+          options,
+          nodeRuntime,
+          () => {},
+          (event) => reports.push(event),
+        );
+        yield* time.tick;
+        expect((yield* store.read()).steps).toEqual(before.steps);
+        expect(reports.filter((event) => event.kind === "sync.stopped")).toEqual([
+          expect.objectContaining({ reason: "store.unwritable", code: "unavailable" }),
+        ]);
+        expect(readdirSync(dirname(paths.store)).filter((file) => file.endsWith(".tmp"))).toEqual(
+          [],
+        );
+        rmSync(`${paths.store}.sync`, { recursive: true });
+        yield* time.tick;
+        const after = yield* store.read();
+        expect(after.generation).toBe(before.generation);
+        expect(after.steps).toEqual(before.steps);
+        expect(reports.filter((event) => event.kind === "sync.resumed")).toEqual([
+          expect.objectContaining({ reason: "store.unwritable" }),
+        ]);
       }),
     );
   } finally {

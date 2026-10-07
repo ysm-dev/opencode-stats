@@ -255,7 +255,7 @@ declare module "@tanstack/solid-router" {
 const problemClock = (timestamp: number) =>
   new Date(timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 const Problem = (props: { state: EngineState }) => {
-  const stop = () => (props.state.screen === "problem" ? props.state.stop : undefined);
+  const stop = () => props.state.stop;
   return (
     <main
       tabIndex={-1}
