@@ -96,16 +96,8 @@ async function assertHeldFontBlank(page: Page) {
     }
     return snapshots;
   });
-  process.stdout.write(`held-font-boundary counts ${JSON.stringify(observations)}\n`);
-  const evidence = `whole-paint:held-font:${JSON.stringify(observations)}`;
-  expect(
-    observations.every((sample) => !sample.drawn),
-    evidence,
-  ).toBe(true);
-  expect(
-    observations.every((sample) => !sample.font),
-    evidence,
-  ).toBe(true);
+  const expected = { drawn: false, font: false };
+  expect(observations, "whole-paint:held-font").toMatchObject([expected, expected, expected]);
   expect(await page.locator("#root").textContent(), "whole-paint:early-load-paint").toBe("");
 }
 
@@ -199,6 +191,7 @@ export const testWholePaintTour = (browser: BrowserType, label: string) =>
   it.each([360, 1280])(
     `${label} whole-paint packed tour at %i: every current change twice, whole frames, local requests and no motion`,
     async (width) => {
+      expect.hasAssertions();
       await using f = await openChangeTour(browser, width, true);
       const { page } = f;
       const guard = watchChangeRequests(f.context);

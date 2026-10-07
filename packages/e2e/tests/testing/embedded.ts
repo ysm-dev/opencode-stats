@@ -45,15 +45,22 @@ export async function checkEmbedded(
     await vi.waitFor(() => expect(transcript.output).toBe("opencode-stats-ready\n"), {
       timeout: 10000,
     });
-    const response = await fetch(`http://127.0.0.1:${port}/api/browser-copy`);
-    expect(response.status).toBe(200);
-    const copy = decode(await response.arrayBuffer());
-    expect(Array.from(copy.steps.start)).toEqual([1234567890000]);
-    expect(Array.from(copy.steps.input)).toEqual([1]);
-    expect(Array.from(copy.steps.cacheRead)).toEqual([2]);
-    expect(Array.from(copy.steps.cacheWrite)).toEqual([3]);
-    expect(Array.from(copy.steps.output)).toEqual([4]);
-    expect(Array.from(copy.steps.reasoning)).toEqual([5]);
+    // A reused store can be served before startup reconciliation sees the
+    // preceding scenario's restored source row. Verify its complete catch-up.
+    await vi.waitFor(
+      async () => {
+        const response = await fetch(`http://127.0.0.1:${port}/api/browser-copy`);
+        expect(response.status).toBe(200);
+        const copy = decode(await response.arrayBuffer());
+        expect(Array.from(copy.steps.start)).toEqual([1234567890000]);
+        expect(Array.from(copy.steps.input)).toEqual([1]);
+        expect(Array.from(copy.steps.cacheRead)).toEqual([2]);
+        expect(Array.from(copy.steps.cacheWrite)).toEqual([3]);
+        expect(Array.from(copy.steps.output)).toEqual([4]);
+        expect(Array.from(copy.steps.reasoning)).toEqual([5]);
+      },
+      { timeout: 2000 },
+    );
     expect(readFileSync(source).equals(before)).toBe(true);
     expect(transcript.error).toBe("");
   } finally {
