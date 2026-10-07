@@ -1,5 +1,4 @@
 import { expect, it, vi } from "vitest";
-import { profileEngine } from "./profile.ts";
 import * as fc from "fast-check";
 import { propertyParameters, syntheticCopy } from "@opencode-stats/browser-copy/testing";
 import { presets } from "../index.ts";
@@ -252,7 +251,6 @@ it("adds full local days by occurring dimension combination and repairs rewrites
   );
 });
 
-profileEngine();
 it.each(presets)("matches the %s range reference across generated IANA zones", async (preset) => {
   await fc.assert(
     fc.asyncProperty(

@@ -59,7 +59,8 @@ const ChoiceForm = (props: ParentProps) => {
   const focus = () => {
     const field = document.activeElement!.closest(
       ".chart-choices [aria-label], .chart-choices [aria-labelledby]",
-    )!;
+    );
+    if (!field) return;
     focused = field.matches('[aria-label="Chart metric"], [aria-labelledby~="chart-metric-label"]')
       ? "metric"
       : "split";

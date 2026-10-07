@@ -26,11 +26,6 @@ it("bun run dev serves the same worker-driven Overview from source on synthetic 
     },
   });
   const { closed } = capture(child);
-  onTestFailed(() => {
-    process.stderr.write(
-      `[DEBUG-intel-lifetime] sourcePID=${child.pid} exited=${child.exitCode !== null} signalled=${child.signalCode !== null}\n`,
-    );
-  });
   const recordStartup = (chunk: Buffer) => {
     startupTrace = (
       startupTrace + `${new Date().toISOString()} ${stripVTControlCharacters(chunk.toString())}`

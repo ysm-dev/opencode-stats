@@ -139,4 +139,9 @@ export const propertyParameters = {
   ),
   numRuns: 100,
 };
+export const propertyPartitions = [0, 25, 50, 75].map((start) => ({
+  ...propertyParameters,
+  path: String(start),
+  numRuns: 25,
+}));
 process.stdout.write(`fast-check seed: ${propertyParameters.seed}\n`);

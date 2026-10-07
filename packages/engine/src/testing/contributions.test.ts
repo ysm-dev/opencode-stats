@@ -1,7 +1,6 @@
 import { expect, it, vi } from "vitest";
-import { profileEngine } from "./profile.ts";
 import { assert, asyncProperty, constantFrom, array, record, integer, option } from "fast-check";
-import { syntheticCopy, propertyParameters } from "@opencode-stats/browser-copy/testing";
+import { syntheticCopy, propertyPartitions } from "@opencode-stats/browser-copy/testing";
 import { rangeFixture, rangeStep } from "./range-fixture.ts";
 import { referenceContributions } from "./contribution-reference.ts";
 import { referenceAdd, referenceMidnight } from "./time-reference.ts";
@@ -311,53 +310,59 @@ it("preserves independently owned chart choices across graph metric, range, filt
   expect(restored.graph.metric).toBe("steps");
 });
 
-profileEngine();
-it("matches an independent contribution reference over sparse local calendars, prices and filters", async () => {
-  await assert(
-    asyncProperty(
-      constantFrom("UTC", "America/New_York", "Australia/Lord_Howe", "Asia/Kathmandu"),
-      array(
-        record({
-          ago: integer({ min: 0, max: 420 }),
-          input: integer({ min: 0, max: 100 }),
-          price: option(integer({ min: 0, max: 10 }), { nil: null }),
-          agent: integer({ min: 0, max: 1 }),
-        }),
-        { maxLength: 20 },
-      ),
-      async (zone, generated) => {
-        const now = Date.parse("2026-11-03T20:00Z");
-        const rows = generated.map((row) => ({
-          ...steps("2026-10-01", row.input, row.price),
-          agent: row.agent,
-          start: referenceMidnight(referenceAdd("2026-11-03", -row.ago), zone) + 3600000,
-        }));
-        await using f = rangeFixture(rows, new Date(now).toISOString(), zone, undefined, {
-          names: [
-            { dimension: "agent", code: 0, id: "agent-zero", name: "Agent zero" },
-            { dimension: "agent", code: 1, id: "agent-one", name: "Agent one" },
-          ],
-        });
-        for (const metric of ["tokens", "steps", "cost"] as const) {
-          const state = await f.request({ kind: "graph-metric", metric });
-          const reference = referenceContributions(rows, now, zone, state.historyStart, metric);
-          expect(state.graph).toEqual(reference);
-          expect(state.activeDays).toBe(
-            reference.days.filter((day) => day.steps > 0 && day.date >= state.period.from).length,
+it.each(propertyPartitions)(
+  "matches an independent contribution reference over sparse calendars, prices and filters from case $path",
+  async (parameters) => {
+    await assert(
+      asyncProperty(
+        constantFrom("UTC", "America/New_York", "Australia/Lord_Howe", "Asia/Kathmandu"),
+        array(
+          record({
+            ago: integer({ min: 0, max: 420 }),
+            input: integer({ min: 0, max: 100 }),
+            price: option(integer({ min: 0, max: 10 }), { nil: null }),
+            agent: integer({ min: 0, max: 1 }),
+          }),
+          { maxLength: 20 },
+        ),
+        async (zone, generated) => {
+          const now = Date.parse("2026-11-03T20:00Z");
+          const rows = generated.map((row) => ({
+            ...steps("2026-10-01", row.input, row.price),
+            agent: row.agent,
+            start: referenceMidnight(referenceAdd("2026-11-03", -row.ago), zone) + 3600000,
+          }));
+          await using f = rangeFixture(rows, new Date(now).toISOString(), zone, undefined, {
+            names: [
+              { dimension: "agent", code: 0, id: "agent-zero", name: "Agent zero" },
+              { dimension: "agent", code: 1, id: "agent-one", name: "Agent one" },
+            ],
+          });
+          for (const metric of ["tokens", "steps", "cost"] as const) {
+            const state = await f.request({ kind: "graph-metric", metric });
+            const reference = referenceContributions(rows, now, zone, state.historyStart, metric);
+            expect(state.graph).toEqual(reference);
+            expect(state.activeDays).toBe(
+              reference.days.filter((day) => day.steps > 0 && day.date >= state.period.from).length,
+            );
+          }
+          const filtered = await f.request({
+            kind: "filter",
+            dimension: "agent",
+            id: "agent-zero",
+          });
+          expect(filtered.graph).toEqual(
+            referenceContributions(
+              rows.filter((row) => row.agent === 0),
+              now,
+              zone,
+              filtered.historyStart,
+              "cost",
+            ),
           );
-        }
-        const filtered = await f.request({ kind: "filter", dimension: "agent", id: "agent-zero" });
-        expect(filtered.graph).toEqual(
-          referenceContributions(
-            rows.filter((row) => row.agent === 0),
-            now,
-            zone,
-            filtered.historyStart,
-            "cost",
-          ),
-        );
-      },
-    ),
-    propertyParameters,
-  );
-});
+        },
+      ),
+      parameters,
+    );
+  },
+);

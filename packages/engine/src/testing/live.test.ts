@@ -4,7 +4,7 @@ import * as fc from "fast-check";
 import type { Step } from "@opencode-stats/browser-copy";
 import {
   inMemoryDashboardServer,
-  propertyParameters,
+  propertyPartitions,
   syntheticCopy,
 } from "@opencode-stats/browser-copy/testing";
 import type { EngineState } from "../index.ts";
@@ -259,28 +259,31 @@ it("does not let an unsolicited live paint replace an unanswered user request", 
   }
 });
 
-it("matches the independent reference after every revision of generated edit/delete histories", async () => {
-  await fc.assert(
-    fc.asyncProperty(histories, async (history) => {
-      const server = inMemoryDashboardServer(syntheticCopy([]));
-      const engine = inThreadEngine(server.fetch);
-      const facts = new Map<string, Step>();
-      let revision = 1;
-      try {
-        await engine.client.request({ kind: "all-time" });
-        for (const operation of history) {
-          const id = `step-${operation.id}`;
-          if (operation.remove) facts.delete(id);
-          else facts.set(id, step(operation.input));
-          const painted = nextRevision(engine, ++revision);
-          server.commit(syntheticCopy([...facts.values()], { revision, ids: [...facts.keys()] }));
-          expect((await painted).tokens).toEqual(referenceTokens([...facts.values()]));
+it.each(propertyPartitions)(
+  "matches the independent reference after every generated edit/delete revision from case $path",
+  async (parameters) => {
+    await fc.assert(
+      fc.asyncProperty(histories, async (history) => {
+        const server = inMemoryDashboardServer(syntheticCopy([]));
+        const engine = inThreadEngine(server.fetch);
+        const facts = new Map<string, Step>();
+        let revision = 1;
+        try {
+          await engine.client.request({ kind: "all-time" });
+          for (const operation of history) {
+            const id = `step-${operation.id}`;
+            if (operation.remove) facts.delete(id);
+            else facts.set(id, step(operation.input));
+            const painted = nextRevision(engine, ++revision);
+            server.commit(syntheticCopy([...facts.values()], { revision, ids: [...facts.keys()] }));
+            expect((await painted).tokens).toEqual(referenceTokens([...facts.values()]));
+          }
+        } finally {
+          await engine.dispose();
+          await server.dispose();
         }
-      } finally {
-        await engine.dispose();
-        await server.dispose();
-      }
-    }),
-    propertyParameters,
-  );
-});
+      }),
+      parameters,
+    );
+  },
+);

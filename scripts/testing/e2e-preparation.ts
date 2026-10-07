@@ -94,36 +94,17 @@ try {
     stages.toSorted(),
   );
   fs.rmSync(record);
-  if (process.platform !== "win32")
-    fs.writeFileSync(
-      join(folder, "ps"),
-      '#!/bin/sh\necho PRIVATE-lifetime-sentinel\necho PRIVATE-lifetime-sentinel >&2\nexec /bin/ps "$@"\n',
-      { mode: 0o755 },
-    );
   const failedTests = await runTimed(["bun", "run", "e2e"], 5000, {
     capture: true,
     cwd: folder,
-    env: {
-      ...process.env,
-      FAIL_TESTS: "1",
-      PATH: `${folder}${process.platform === "win32" ? ";" : ":"}${process.env["PATH"]}`,
-    },
+    env: { ...process.env, FAIL_TESTS: "1" },
   });
   assert.notEqual(failedTests.status, 0);
-  assert.match(failedTests.output, /E2e command failed/u);
-  if (process.platform !== "win32") {
-    assert.match(failedTests.output, /\[DEBUG-intel-lifetime\] inventory-start/u);
-    assert.match(
-      failedTests.output,
-      /\[DEBUG-intel-lifetime\] inventory-end elapsedMs=\d+ status=0/u,
-    );
-    assert.match(
-      failedTests.output,
-      /\[DEBUG-intel-lifetime\] pid=\d+ ppid=\d+ pgid=\d+ state=[A-Za-z+<]+/u,
-    );
-  }
-  assert.doesNotMatch(failedTests.output, /PRIVATE-lifetime-sentinel/u);
-  assert.doesNotMatch(overlap.output, /DEBUG-intel-lifetime/u);
+  assert.match(failedTests.output, /E2e command failed: bun run vitest run --config/u);
+  assert.deepEqual(
+    fs.readFileSync(record, "utf8").trim().split("\n").toSorted(),
+    stages.toSorted(),
+  );
   fs.rmSync(record);
   for (const [failure, blocked] of [
     ["OpenCode", "browser"],

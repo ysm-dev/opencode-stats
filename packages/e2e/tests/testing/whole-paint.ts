@@ -68,7 +68,7 @@ export function installWholePaintObserver(observing = true) {
   const graphDrawing = (root: ParentNode) =>
     [
       ...root.querySelectorAll(".graph-plot, .graph-surface, .graph-surface rect, .graph-label"),
-    ].map((node) => [...node.attributes].map((attribute) => [attribute.name, attribute.value]));
+    ].map((node) => node.outerHTML);
   const observeRegions = (regions: Element[]) => {
     for (const region of regions) {
       // This container contains several independent checklist search states.
@@ -229,6 +229,9 @@ export function installWholePaintObserver(observing = true) {
     return dashboardComplete || problemComplete;
   };
   const durations = ["transitionDuration", "animationDuration"] as const;
+  // Computed styles are live, including pseudo-elements that acquire content
+  // later. Keep reading every element each frame without reallocating wrappers.
+  const styles = new WeakMap<Element, CSSStyleDeclaration[]>();
   const moving = (style: CSSStyleDeclaration) =>
     durations.some((property) =>
       style[property].split(",").some((duration) => Number.parseFloat(duration) > 0),
@@ -291,12 +294,14 @@ export function installWholePaintObserver(observing = true) {
     const readiness = performance.now();
     evidence.work.readiness += readiness - drawings;
     for (const element of document.querySelectorAll("*")) {
-      if (
-        [undefined, "::before", "::after"].some((pseudo) =>
-          moving(getComputedStyle(element, pseudo)),
-        )
-      )
-        flag("animation");
+      let computed = styles.get(element);
+      if (!computed) {
+        computed = [undefined, "::before", "::after"].map((pseudo) =>
+          getComputedStyle(element, pseudo),
+        );
+        styles.set(element, computed);
+      }
+      if (computed.some(moving)) flag("animation");
     }
     const animations = performance.now();
     evidence.work.animations += animations - readiness;

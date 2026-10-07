@@ -334,10 +334,16 @@ it("responsive control switches retain keyboard focus in the same field without 
         f.view.getByRole("button", { name: new RegExp(`^Chart ${field}`) }),
       ),
     );
+    await f.user.click(document.activeElement!);
+    await f.user.keyboard("{ArrowDown}");
+    expect(document.activeElement?.getAttribute("role")).toBe("option");
     setMedia({ ...media(), columnWidth: 1280 });
     await vi.waitFor(() =>
       expect(document.activeElement?.getAttribute("aria-pressed")).toBe("true"),
     );
+    expect(
+      f.view.getByRole("group", { name: `Chart ${field}` }).contains(document.activeElement),
+    ).toBe(true);
   }
   expect(f.server.requests).toBe(requests);
 });

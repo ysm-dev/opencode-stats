@@ -192,6 +192,34 @@ async function rejectEarlyLoad(context: BrowserContext, origin: string) {
   }
 }
 
+async function rejectMotionStyles(page: Page) {
+  for (const target of ["inline", "::before", "::after"] as const) {
+    // The observer has already seen the element with no motion/pseudo content.
+    // A stylesheet rule must update the retained live style, not just a new one.
+    await page.waitForFunction(() => window.wholePaint.evidence.complete > 1);
+    const animations = await page.evaluate((pseudo) => {
+      if (pseudo === "inline")
+        document
+          .querySelector<HTMLElement>("main h1")!
+          .style.setProperty("transition", "color 10s", "important");
+      else {
+        const style = document.createElement("style");
+        document.head.append(style);
+        style.sheet!.insertRule(
+          `main h1${pseudo} { content: "planted"; ${pseudo === "::before" ? "transition" : "animation"}-duration: 10s !important; }`,
+        );
+      }
+      // No running animation can mask a stale computed-style check.
+      return document.getAnimations().length;
+    }, target);
+    expect(animations).toBe(0);
+    await page.waitForFunction(() => window.wholePaint.evidence.failures.includes("animation"));
+    const motion = await page.evaluate(() => window.wholePaint.evidence.failures);
+    expect(() => assertPaintCheck("animation", motion)).toThrow("whole-paint:animation");
+    await reloadComplete(page);
+  }
+}
+
 it.each([chromium, webkit])(
   "%s rejects each planted whole-paint violation by its named check",
   async (browser) => {
@@ -247,15 +275,7 @@ it.each([chromium, webkit])(
     });
     await expectMixedFrame(page);
     await reloadComplete(page);
-    await page.evaluate(() => {
-      document
-        .querySelector<HTMLElement>("main h1")!
-        .style.setProperty("transition", "color 10s", "important");
-    });
-    await page.waitForFunction(() => window.wholePaint.evidence.failures.includes("animation"));
-    const motion = await page.evaluate(() => window.wholePaint.evidence.failures);
-    expect(() => assertPaintCheck("animation", motion)).toThrow("whole-paint:animation");
-    await reloadComplete(page);
+    await rejectMotionStyles(page);
     await rejectFilterRequest(page, f.context);
     await rejectEarlyLoad(f.context, f.server.origin);
   },

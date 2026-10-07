@@ -125,7 +125,7 @@ it("ticks and unticks with the headlines and all other checklist amounts, preser
   expect(f.server.requests).toBe(requests);
 });
 
-it("removes chips with next, previous and heading focus, announces only user changes, and leaves live announcements independent", async () => {
+it("removes chips with next, previous and heading focus and announces each user change", async () => {
   const f = filtersDashboard();
   await f.view.findByRole("checkbox", { name: "Model 6" });
   for (const name of ["Model 6", "Model 5", "Model 4"])
@@ -141,6 +141,14 @@ it("removes chips with next, previous and heading focus, announces only user cha
     expect(document.activeElement).toBe(f.view.getByRole("heading", { name: "Active filters" })),
   );
   expect(f.number()).toBe("3,080");
+  expect(f.announcement()).toBe("Filter removed: model Model 5");
+});
+
+it("keeps cleared-filter announcements independent of live data and clock changes and remains accessible", async () => {
+  const f = filtersDashboard();
+  await f.user.click(await f.view.findByRole("checkbox", { name: "Model 5" }));
+  await f.user.click(await f.view.findByRole("button", { name: "Remove Model filter · Model 5" }));
+  await vi.waitFor(() => expect(f.announcement()).toBe("Filter removed: model Model 5"));
   const announced = f.announcement();
   const changes: string[] = [];
   const observer = new MutationObserver(() => changes.push(f.announcement()));

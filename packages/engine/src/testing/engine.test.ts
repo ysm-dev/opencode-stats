@@ -1,5 +1,4 @@
 import { expect, it, vi } from "vitest";
-import { profileEngine } from "./profile.ts";
 import * as fc from "fast-check";
 import * as Schema from "effect/Schema";
 import { Answer } from "../protocol.ts";
@@ -7,12 +6,11 @@ import { readPostClock } from "../post-clock.ts";
 import type { Step } from "@opencode-stats/browser-copy";
 import {
   inMemoryDashboardServer,
-  propertyParameters,
+  propertyPartitions,
   syntheticCopy,
   syntheticSteps,
 } from "@opencode-stats/browser-copy/testing";
 import { inThreadEngine, referenceTokens } from "./index.ts";
-profileEngine();
 const initial = {
   generation: "01234567-89ab-cdef-0123-456789abcdef",
   revision: 1,
@@ -77,28 +75,31 @@ it("paints complete all-time Tokens through the real page-worker channel and Htt
   }
 });
 
-it("equals the independent reference for synthetic history through the channel", async () => {
-  await fc.assert(
-    fc.asyncProperty(
-      syntheticSteps.map((steps) =>
-        steps.map((step) => ({ ...step, start: step.start % 2000000000000 })),
+it.each(propertyPartitions)(
+  "equals the independent history reference through the channel from case $path",
+  async (parameters) => {
+    await fc.assert(
+      fc.asyncProperty(
+        syntheticSteps.map((steps) =>
+          steps.map((step) => ({ ...step, start: step.start % 2000000000000 })),
+        ),
+        async (steps) => {
+          expect(await allTimeState(steps)).toMatchObject({
+            kind: "paint",
+            state: {
+              ...initial,
+              screen: "dashboard",
+              address: "/?range=all",
+              rangeLabel: "All time",
+              tokens: referenceTokens(steps),
+            },
+          });
+        },
       ),
-      async (steps) => {
-        expect(await allTimeState(steps)).toMatchObject({
-          kind: "paint",
-          state: {
-            ...initial,
-            screen: "dashboard",
-            address: "/?range=all",
-            rangeLabel: "All time",
-            tokens: referenceTokens(steps),
-          },
-        });
-      },
-    ),
-    propertyParameters,
-  );
-});
+      parameters,
+    );
+  },
+);
 
 it("does not lose low-order counts when all-time Tokens exceed a safe integer", async () => {
   const steps = [9007199254740991, 2, 1].map((input) => ({
