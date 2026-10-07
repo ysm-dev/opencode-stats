@@ -3,13 +3,13 @@ import { expect } from "vitest";
 
 export const accessible = async (container: HTMLElement = document.body) => {
   const started = performance.now();
-  console.info("[DEBUG-axe-duration] start", container.querySelectorAll("*").length);
+  process.stderr.write(`[DEBUG-axe-duration] start ${container.querySelectorAll("*").length}\n`);
   const result = await axe.run(container, {
     rules: { "color-contrast": { enabled: false } },
     // Run every rule, but avoid serializing selectors for hundreds of passing marks.
     resultTypes: ["violations", "incomplete"],
   });
-  console.info("[DEBUG-axe-duration] end", performance.now() - started);
+  process.stderr.write(`[DEBUG-axe-duration] end ${performance.now() - started}\n`);
   expect(result.violations).toEqual([]);
   expect(result.incomplete).toEqual([]);
 };

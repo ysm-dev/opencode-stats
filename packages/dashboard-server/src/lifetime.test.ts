@@ -20,6 +20,7 @@ import { temporaryPort } from "@opencode-stats/launcher/testing";
 import { readRecord, answering, discover } from "@opencode-stats/launcher";
 import { syntheticFixture } from "@opencode-stats/stats-store/testing";
 import { nodeRuntime } from "@opencode-stats/stats-store/node";
+import { sqlFailure } from "@opencode-stats/stats-store";
 import { program, processProgram } from "./main.ts";
 import { nodeServer } from "./http.node.ts";
 import { nodeLock } from "./lock.node.ts";
@@ -227,39 +228,42 @@ it("the process boundary prints only our decided messages and never raw startup 
   }
 });
 
-it("a non-SQL worker crash reaches the safe main-thread formatter rather than a library stack", async () => {
-  const fixture = syntheticFixture();
-  const runtime = {
-    ...nodeRuntime,
-    worker: () =>
-      Effect.fail(
-        Object.assign(new Error("PRIVATE_WORKER_TITLE"), {
-          code: "EACCES",
-          cause: new Error("PRIVATE_WORKER_CAUSE"),
-          stack: "PRIVATE_WORKER_STACK",
-        }),
-      ),
-  };
-  try {
-    await expect(
-      Effect.runPromise(
-        program(
-          ["--port", String(await temporaryPort()), "--db", fixture.source],
-          nodeServer,
-          runtime,
-          nodeLock,
-          { XDG_STATE_HOME: fixture.folder },
+it.each(["io", "sqlite"])(
+  "a fatal %s worker transport failure reaches the safe main-thread formatter",
+  async (kind) => {
+    const fixture = syntheticFixture();
+    const failure = Object.assign(new Error("PRIVATE_WORKER_TITLE"), {
+      code: "EACCES",
+      cause: new Error("PRIVATE_WORKER_CAUSE"),
+      stack: "PRIVATE_WORKER_STACK",
+    });
+    const runtime = {
+      ...nodeRuntime,
+      worker: () => Effect.fail(kind === "sqlite" ? sqlFailure(failure, "readStore") : failure),
+    };
+    try {
+      await expect(
+        Effect.runPromise(
+          program(
+            ["--port", String(await temporaryPort()), "--db", fixture.source],
+            nodeServer,
+            runtime,
+            nodeLock,
+            { XDG_STATE_HOME: fixture.folder },
+          ),
         ),
-      ),
-    ).rejects.toThrow("Can't start: io.");
-    const text = readFileSync(join(fixture.folder, "opencode-stats/server.log"), "utf8");
-    expect(text).toContain('event=crash kind="io" code="EACCES" statement="startup"');
-    expect(text).not.toContain("PRIVATE_WORKER");
-    expect(text).not.toContain("event=conflict");
-  } finally {
-    fixture.dispose();
-  }
-});
+      ).rejects.toThrow(`Can't start: ${kind}.`);
+      const text = readFileSync(join(fixture.folder, "opencode-stats/server.log"), "utf8");
+      expect(text).toContain(
+        `event=crash kind="${kind}" code="EACCES" statement="${kind === "sqlite" ? "readStore" : "startup"}"`,
+      );
+      expect(text).not.toContain("PRIVATE_WORKER");
+      expect(text).not.toContain("event=conflict");
+    } finally {
+      fixture.dispose();
+    }
+  },
+);
 
 it("a non-address bind error logs its kind but is not a port conflict", async () => {
   const fixture = syntheticFixture();

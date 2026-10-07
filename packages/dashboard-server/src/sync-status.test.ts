@@ -74,9 +74,15 @@ it("a first-run newer schema recovers its initial copy, feed and revision-zero c
   }
 });
 
-it.each(["plain", "yellow", "no-color", "plugin"])(
-  "keeps HTTP and SSE alive while sync stops (%s), then clears the reason with the recovered facts",
-  async (mode) => {
+it.each([
+  { mode: "plain", source: "(OpenCode's data folder)", origin: "default", publicSource: "" },
+  { mode: "yellow", source: "(`OPENCODE_DB`)", origin: "environment" },
+  { mode: "no-color", source: "(from `--db`)", origin: "flag" },
+  { mode: "plugin", source: "(the plugin's `db` option)", origin: "plugin" },
+  { mode: "plugin", source: "(`OPENCODE_DB` in OpenCode's service config)", origin: "service" },
+])(
+  "keeps HTTP and SSE alive while sync stops ($mode, $origin), then clears the reason with the recovered facts",
+  async ({ mode, source, origin: provenance, publicSource }) => {
     const f = syntheticFixture();
     f.writer.session("root", null, { title: "SYNTHETIC PRIVATE TITLE" });
     const message = { id: "one", session: "root", seq: 0, start: 1 };
@@ -95,7 +101,7 @@ it.each(["plain", "yellow", "no-color", "plugin"])(
           "--starter",
           mode === "plugin" ? "plugin" : "terminal",
           "--db-source",
-          "(`OPENCODE_DB` in OpenCode's service config)",
+          source,
         ],
         nodeServer,
         nodeRuntime,
@@ -120,7 +126,7 @@ it.each(["plain", "yellow", "no-color", "plugin"])(
         reason: "schema.newer",
         params: {
           mode: mode === "plugin" ? "plugin" : "terminal",
-          source: "(`OPENCODE_DB` in OpenCode's service config)",
+          source: publicSource ?? source,
         },
       });
       f.writer.message({ ...message, tokens: { input: 9 } });
@@ -149,6 +155,7 @@ it.each(["plain", "yellow", "no-color", "plugin"])(
       expect(stderr.includes("run bunx opencode-stats@latest")).toBe(mode !== "plugin");
       expect(stderr.includes("\u001b[33m")).toBe(mode === "yellow");
       const log = readFileSync(join(f.folder, "opencode-stats/server.log"), "utf8");
+      expect(log).toContain(`source="${provenance}"`);
       for (const event of ["schema.checked", "sync.stopped", "sync.resumed"])
         expect(log).toContain(`event=${event}`);
       for (const privateText of ["SYNTHETIC PRIVATE", "SELECT ", "params:", "time.created"])

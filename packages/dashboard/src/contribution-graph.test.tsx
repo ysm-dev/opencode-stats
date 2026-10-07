@@ -97,6 +97,10 @@ it("draws Monday-first 365-day geometry, outlines only the range, and presents t
   expect(within(readout).getByRole("button", { name: "Week 40" })).toBeTruthy();
   expect(window.location.search).toBe("?range=today");
   await accessible();
+  await f.user.click(within(readout).getByRole("button", { name: "This day" }));
+  await vi.waitFor(() =>
+    expect(window.location.search).toContain("from=2026-10-01&to=2026-10-01&kind=day"),
+  );
   await f.engine.client.request({ kind: "all-time" });
   await vi.waitFor(() => expect(svg.querySelectorAll('[data-selected="true"]')).toHaveLength(7));
   await f.engine.client.request({ kind: "preset", preset: "365d" });
