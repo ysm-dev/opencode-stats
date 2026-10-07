@@ -1,12 +1,12 @@
 import { expect, it, vi } from "vitest";
-import fc from "fast-check";
-import { rangeFixture, rangeStep, type CompleteState } from "./testing/range-fixture.ts";
-import { filterSteps, filterMetadata, filterCopy } from "./testing/filter-fixture.ts";
-import { metricSteps } from "./testing/metrics-fixture.ts";
-import { toolCopy } from "./testing/tool-fixture.ts";
-import { chartMetrics, chartSplits } from "./index.ts";
-import { referenceTokens } from "./testing/chart-reference.ts";
-import { referenceMidnight, referenceAdd, referenceHours } from "./testing/time-reference.ts";
+import { assert, asyncProperty, array, record, integer, boolean } from "fast-check";
+import { rangeFixture, rangeStep, type CompleteState } from "./range-fixture.ts";
+import { filterSteps, filterMetadata, filterCopy } from "./filter-fixture.ts";
+import { metricSteps } from "./metrics-fixture.ts";
+import { toolCopy } from "./tool-fixture.ts";
+import { chartMetrics, chartSplits } from "../index.ts";
+import { referenceTokens } from "./chart-reference.ts";
+import { referenceMidnight, referenceAdd, referenceHours } from "./time-reference.ts";
 import { propertyParameters, syntheticCopy } from "@opencode-stats/browser-copy/testing";
 const drillAction = (state: CompleteState, index: number) => {
   const unit = state.chart.unit;
@@ -30,13 +30,16 @@ it.each([
   expect(state.chart.total).toBe(state.tokens.total);
   expect(state.chart.buckets.at(-1)!.partial).toBe(true);
   expect(state.chart.buckets.at(-1)!.axisEnd).toBeGreaterThan(state.period.end);
-  if (unit === "hour") {
-    expect(
-      state.chart.buckets
-        .slice(15)
-        .every((bucket) => bucket.total === 0 && bucket.start === bucket.end),
-    ).toBe(true);
-  }
+});
+
+it("today's hours after now stay empty and clipped to now", async () => {
+  await using f = rangeFixture();
+  const state = await f.request({ kind: "preset", preset: "today" });
+  expect(
+    state.chart.buckets
+      .slice(15)
+      .every((bucket) => bucket.total === 0 && bucket.start === bucket.end),
+  ).toBe(true);
 });
 
 it("All time follows unfiltered history, clips edge buckets, and retains empty axes", async () => {
@@ -122,44 +125,76 @@ it("ranks range series once and folds beyond six in every bucket without losing 
   ]);
 });
 
-it("every metric reuses headline arithmetic, and only additive metrics split", async () => {
+const metricFixture = () => {
   const steps = metricSteps.map((step, index) => ({
     ...step,
     estimatedCost: index % 2 ? index / 10 : null,
     recordedCost: index / 100,
   }));
-  await using f = rangeFixture(steps, undefined, undefined, undefined, toolCopy());
+  return rangeFixture(steps, undefined, undefined, undefined, toolCopy());
+};
+const headlineValue = (state: CompleteState, metric: CompleteState["chart"]["metric"]) =>
+  ({
+    tokens: state.tokens.total,
+    cost: state.metrics.cost.estimated,
+    "recorded-cost": state.metrics.cost.recorded,
+    steps: state.metrics.steps,
+    prompts: state.metrics.prompts,
+    tools: state.tools.calls,
+    sessions: state.sessions.total,
+    cache: state.metrics.cacheHitRate,
+    response: state.metrics.response.p50,
+  })[metric];
+
+it("every metric reuses headline arithmetic across every split", async () => {
+  await using f = metricFixture();
   await f.request({ kind: "preset", preset: "7d" });
   for (const metric of chartMetrics) {
     const state = await f.request({ kind: "chart-metric", metric });
-    const expected = {
-      tokens: state.tokens.total,
-      cost: state.metrics.cost.estimated,
-      "recorded-cost": state.metrics.cost.recorded,
-      steps: state.metrics.steps,
-      prompts: state.metrics.prompts,
-      tools: state.tools.calls,
-      sessions: state.sessions.total,
-      cache: state.metrics.cacheHitRate,
-      response: state.metrics.response.p50,
-    }[metric];
+    const expected = headlineValue(state, metric);
     expect(state.chart.total).toBe(expected);
     for (const split of chartSplits) {
       const drawn = await f.request({ kind: "chart-split", split });
       expect(drawn.chart.total).toBe(expected);
-      if (["sessions", "cache", "response"].includes(metric)) {
-        expect(drawn.chart.additive).toBe(false);
-        expect(drawn.chart.series).toHaveLength(1);
-      } else {
-        expect(drawn.chart.additive).toBe(true);
-        expect(
-          drawn.chart.buckets.reduce((sum, bucket) => sum + (bucket.total ?? 0), 0),
-        ).toBeCloseTo(expected ?? 0);
-      }
     }
-    if (metric === "cost") expect(state.chart.basis).toContain("of tokens priced");
-    if (metric === "response") expect(state.chart.basis).toContain("of steps timed");
   }
+});
+
+it.each(["sessions", "cache", "response"] as const)("%s never splits", async (metric) => {
+  await using f = metricFixture();
+  await f.request({ kind: "preset", preset: "7d" });
+  await f.request({ kind: "chart-metric", metric });
+  for (const split of chartSplits) {
+    const state = await f.request({ kind: "chart-split", split });
+    expect(state.chart.additive).toBe(false);
+    expect(state.chart.series).toHaveLength(1);
+  }
+});
+
+it.each(["tokens", "cost", "recorded-cost", "steps", "prompts", "tools"] as const)(
+  "%s splits without losing bucket totals",
+  async (metric) => {
+    await using f = metricFixture();
+    await f.request({ kind: "preset", preset: "7d" });
+    const expected = headlineValue(await f.request({ kind: "chart-metric", metric }), metric);
+    for (const split of chartSplits) {
+      const state = await f.request({ kind: "chart-split", split });
+      expect(state.chart.additive).toBe(true);
+      expect(state.chart.buckets.reduce((sum, bucket) => sum + (bucket.total ?? 0), 0)).toBeCloseTo(
+        expected ?? 0,
+      );
+    }
+  },
+);
+
+it.each([
+  ["cost", "of tokens priced"],
+  ["response", "of steps timed"],
+] as const)("%s reports its basis", async (metric, basis) => {
+  await using f = metricFixture();
+  await f.request({ kind: "preset", preset: "7d" });
+  const state = await f.request({ kind: "chart-metric", metric });
+  expect(state.chart.basis).toContain(basis);
 });
 
 it("drills Monday weeks and calendar months to days, shifts by kind and restores its address", async () => {
@@ -285,13 +320,13 @@ it("omits default choices and preserves both choices across filters, drills, shi
 });
 
 it("synthetic UTC reference agrees for arbitrary facts on boundaries and missing tokens", async () => {
-  await fc.assert(
-    fc.asyncProperty(
-      fc.array(
-        fc.record({
-          minute: fc.integer({ min: -1440, max: 10080 }),
-          tokens: fc.integer({ min: 0, max: 100000 }),
-          missing: fc.boolean(),
+  await assert(
+    asyncProperty(
+      array(
+        record({
+          minute: integer({ min: -1440, max: 10080 }),
+          tokens: integer({ min: 0, max: 100000 }),
+          missing: boolean(),
         }),
         { maxLength: 40 },
       ),

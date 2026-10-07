@@ -27,6 +27,16 @@ const choose = async (f: ReturnType<typeof dashboardFixture>, control: string, v
   await f.user.click(f.view.getByRole("button", { name: new RegExp(`^${control}`) }));
   await f.user.click(await screen.findByRole("option", { name: value }));
 };
+const readMetric = async (metric: string) => {
+  const f = dashboardFixture(toolCopy());
+  onTestFinished(f.close);
+  await f.view.findByRole("heading", { name: "Overview" });
+  await choose(f, "Chart metric", metric);
+  await vi.waitFor(() =>
+    expect(chart().getAttribute("aria-label")).toContain(metric.replace("≈", "about")),
+  );
+  fireEvent.keyDown(chart(), { key: "Home" });
+};
 
 it("SVG uses the palette without motion, fits all buckets at 360px/190px, and exposes one chart tab stop with an accessible readout", async () => {
   const [media, setMedia] = createSignal({ ...initialMedia, columnWidth: 360, coarse: true });
@@ -222,21 +232,22 @@ it.each([
   "Steps",
   "Prompts",
 ])("draws %s with exact totals, missing values and the bucket's own basis", async (metric) => {
-  const f = dashboardFixture(toolCopy());
-  onTestFinished(f.close);
-  await f.view.findByRole("heading", { name: "Overview" });
-  await choose(f, "Chart metric", metric);
-  await vi.waitFor(() =>
-    expect(chart().getAttribute("aria-label")).toContain(metric.replace("≈", "about")),
-  );
-  fireEvent.keyDown(chart(), { key: "Home" });
-  if (metric === "Response time p50") {
-    expect(readout().textContent).toContain("Total · —");
-    expect(readout().textContent).toContain("of steps timed");
-    expect(chart().querySelectorAll("path").length).toBeGreaterThan(0);
-  }
-  if (metric === "≈ Estimated cost") expect(readout().textContent).toContain("of tokens priced");
-  if (metric === "Cache hit rate") expect(readout().textContent).toContain("50%");
+  await readMetric(metric);
+});
+
+it.each([
+  ["Response time p50", "Total · —"],
+  ["Response time p50", "of steps timed"],
+  ["≈ Estimated cost", "of tokens priced"],
+  ["Cache hit rate", "50%"],
+] as const)("%s reads its own %s", async (metric, text) => {
+  await readMetric(metric);
+  expect(readout().textContent).toContain(text);
+});
+
+it("response time draws an unsplit line even with missing buckets", async () => {
+  await readMetric("Response time p50");
+  expect(chart().querySelectorAll("path").length).toBeGreaterThan(0);
 });
 
 it("wide segmented controls dispatch the same full-state choices", async () => {

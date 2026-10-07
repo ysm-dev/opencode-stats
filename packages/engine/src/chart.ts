@@ -105,6 +105,23 @@ function seriesRows(
   return grouped;
 }
 
+function splitSeries(
+  ranked: { id: string; name: string; rows: Rows; total: number | null }[],
+  names: readonly DimensionName[],
+  period: Period,
+  metric: ChartChoice["metric"],
+) {
+  const series = ranked.slice(0, 6).map(({ id, name, total }) => ({ id, name, total }));
+  const more = ranked.slice(6);
+  if (more.length)
+    series.push({
+      id: "more",
+      name: `${more.length} more`,
+      total: summary(mergeRows(more.map((group) => group.rows)), names, period, metric).value,
+    });
+  return series;
+}
+
 export function usageChart(
   period: Period,
   timeZone: string,
@@ -121,14 +138,13 @@ export function usageChart(
   const dimension = choice.split === "token-kind" ? null : choice.split;
   const split = additive && dimension !== null;
   const grouped = split
-    ? seriesRows(rows, choice.metric, dimension!, names)
+    ? seriesRows(rows, choice.metric, dimension, names)
     : new Map<string, { id: string; name: string; rows: Rows }>();
   const ranked = [...grouped.values()].map((group) => ({
     ...group,
     total: summary(group.rows, names, period, choice.metric).value,
   }));
   ranked.sort((a, b) => (b.total ?? 0) - (a.total ?? 0) || a.id.localeCompare(b.id));
-  const selected = ranked.slice(0, 6);
   const more = ranked.slice(6);
   const series = tokenSplit
     ? tokenKinds.map((id) => ({
@@ -143,23 +159,7 @@ export function usageChart(
         total: total.tokens[id],
       }))
     : split
-      ? [
-          ...selected.map(({ id, name, total: value }) => ({ id, name, total: value })),
-          ...(more.length
-            ? [
-                {
-                  id: "more",
-                  name: `${more.length} more`,
-                  total: summary(
-                    mergeRows(more.map((group) => group.rows)),
-                    names,
-                    period,
-                    choice.metric,
-                  ).value,
-                },
-              ]
-            : []),
-        ]
+      ? splitSeries(ranked, names, period, choice.metric)
       : [{ id: "total", name: chartMetricLabels[choice.metric], total: total.value }];
   const bucketRows = buckets.map(emptyRows);
   const distribute = <T extends { start: number }>(
@@ -199,7 +199,7 @@ export function usageChart(
       const row = bucketRows[index]!;
       const span = { ...period, start: bucket.start, end: bucket.end };
       const amount = summary(row, names, span, choice.metric);
-      const groups = split ? seriesRows(row, choice.metric, dimension!, names) : grouped;
+      const groups = split ? seriesRows(row, choice.metric, dimension, names) : grouped;
       const valueFor = (id: string) => {
         const group = groups.get(id);
         return group ? summary(group.rows, names, span, choice.metric).value : 0;

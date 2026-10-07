@@ -48,8 +48,10 @@ it.each([
     const focused = document.activeElement!;
     if (kind === "live") {
       f.server.commit({ ...filterCopy(), revision: 2 });
-      await vi.waitFor(() => expect(document.querySelector('[data-revision="2"]')).not.toBeNull());
     } else await f.clock.advance(60);
+    await vi.waitFor(() =>
+      expect(document.querySelector(`[data-revision="${kind === "live" ? 2 : 1}"]`)).not.toBeNull(),
+    );
     expect(focused.isConnected).toBe(false);
     expect(document.activeElement).toBe(surface());
     expect(readout().textContent).toContain("Range totals");
