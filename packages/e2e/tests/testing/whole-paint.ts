@@ -266,7 +266,7 @@ export function assertPaintCheck(check: Check, failed: readonly string[]) {
 
 export function assertPaintEvidence(data: ChangeEvidence) {
   expect(data.observing, "whole-paint:observer-disabled").toBe(true);
-  const evidence = data.evidence!;
+  const evidence = data.evidence;
   for (const check of wholePaintChecks) assertPaintCheck(check, evidence.failures);
   expect(evidence.samples).toBeGreaterThan(0);
   expect(evidence.complete).toBeGreaterThan(0);

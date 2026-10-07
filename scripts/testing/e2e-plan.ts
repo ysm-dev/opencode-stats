@@ -21,7 +21,8 @@ assert.equal(
 );
 const tourHarness = readFileSync("packages/e2e/tests/testing/whole-tour-tests.ts", "utf8");
 for (const registration of [
-  "describe.sequential.each(tourWidths)",
+  "describe.each(tourWidths)",
+  "{ concurrent: false }",
   "it.each(tourRounds)",
   "expect(completed).toEqual(tourRounds)",
 ])

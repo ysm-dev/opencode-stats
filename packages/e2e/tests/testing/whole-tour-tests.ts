@@ -232,32 +232,36 @@ async function verifyCleanTour(f: Awaited<ReturnType<typeof openChangeTour>>) {
 function testPartitionedTour(browser: BrowserType, label: string, observing: boolean) {
   const mode = observing ? "whole-paint" : "observer-free";
   const verify = observing ? verifyObservedTour : verifyCleanTour;
-  describe.sequential.each(tourWidths)(`${label} ${mode} complete tour at %i`, (width) => {
-    let f: Awaited<ReturnType<typeof openChangeTour>> | undefined;
-    const completed: number[] = [];
-    afterAll(async () => {
-      await f?.[Symbol.asyncDispose]();
-    });
-    it.each(tourRounds)("retains every native action in round %i", async (round) => {
-      expect.hasAssertions();
-      const trace = createTourEvidence(`${label}/${mode}/${width}/round-${round}`);
-      if (!f) {
-        f = await trace("fixture", "setup", () => openChangeTour(browser, width, observing));
+  describe.each(tourWidths)(
+    `${label} ${mode} complete tour at %i`,
+    { concurrent: false },
+    (width) => {
+      let f: Awaited<ReturnType<typeof openChangeTour>> | undefined;
+      const completed: number[] = [];
+      afterAll(async () => {
+        await f?.[Symbol.asyncDispose]();
+      });
+      it.each(tourRounds)("retains every native action in round %i", async (round) => {
+        expect.hasAssertions();
+        const trace = createTourEvidence(`${label}/${mode}/${width}/round-${round}`);
+        if (!f) {
+          f = await trace("fixture", "setup", () => openChangeTour(browser, width, observing));
+          trackTourEvidence(f.page, trace);
+          await f.tour.prepare();
+        }
         trackTourEvidence(f.page, trace);
-        await f.tour.prepare();
-      }
-      trackTourEvidence(f.page, trace);
-      await f.tour.round(round);
-      completed.push(round);
-      f.guard.check();
-    });
-    it("proves both rounds and every kind completed, including both build milestones", async () => {
-      expect.hasAssertions();
-      expect(completed).toEqual(tourRounds);
-      expect(f).toBeDefined();
-      await verify(f!);
-    });
-  });
+        await f.tour.round(round);
+        completed.push(round);
+        f.guard.check();
+      });
+      it("proves both rounds and every kind completed, including both build milestones", async () => {
+        expect.hasAssertions();
+        expect(completed).toEqual(tourRounds);
+        expect(f).toBeDefined();
+        await verify(f!);
+      });
+    },
+  );
 }
 
 export const testWholePaintTour = (browser: BrowserType, label: string) =>
